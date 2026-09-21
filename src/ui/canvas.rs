@@ -30,6 +30,7 @@ pub(super) enum Gesture {
     Paint {
         id: uuid::Uuid,
         stroke: Box<Stroke>,
+        smoothing: Option<super::brush_smoothing::Rope>,
     },
     Warp {
         id: uuid::Uuid,

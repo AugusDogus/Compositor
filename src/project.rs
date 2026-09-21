@@ -319,7 +319,7 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
     raw::save(document, staged.path())?;
     let manifest = Manifest {
         format: "com.compositor.project".into(),
-        version: if document.guides.is_empty() { 7 } else { 8 },
+        version: 8,
         color_space: "sRGB".into(),
         document_id: document.id,
         width: document.width,

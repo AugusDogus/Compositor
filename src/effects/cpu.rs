@@ -161,11 +161,29 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
     };
     let shadow = effects.shadow.as_ref().map(shadow_plane);
     let inner = effects.inner_shadow.as_ref().map(shadow_plane);
+    let glow = effects
+        .outer_glow
+        .as_ref()
+        .filter(|s| s.size > 0. && s.opacity > 0.)
+        .map(|s| {
+            if s.size <= 0.02 {
+                shape.clone()
+            } else {
+                gaussian(&shape, width, height, (s.size / 2.) as f32)
+            }
+        });
     RgbaImage::from_fn(image.width(), image.height(), |x, y| {
         let i = y as usize * width + x as usize;
         let mut out = [0.; 4];
         if let (Some(s), Some(plane)) = (&effects.shadow, &shadow) {
             out = over(out, [s.red, s.green, s.blue], plane[i] * s.opacity as f32);
+        }
+        if let (Some(s), Some(plane)) = (&effects.outer_glow, &glow) {
+            out = over(
+                out,
+                [s.red, s.green, s.blue],
+                plane[i] * (1. - shape[i]) * s.opacity as f32,
+            );
         }
         if let (Some(s), Some(ring)) = (&effects.stroke, &ring)
             && !s.inside

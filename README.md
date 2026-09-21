@@ -5,15 +5,15 @@
 
 A layered image editor for Linux, built with Rust and [QuickGUI](https://github.com/egoist/quickgui). A fork of [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor).
 
-![Compositor on Wayland, with an editable background-removal mask and transform controls](docs/screenshots/workspace.png)
+![Compositor on Linux, with an editable background-removal mask and transform controls](docs/screenshots/workspace.png)
 
 ## Download
 
 **[Download AppImage (x86_64)](https://github.com/AugusDogus/Compositor/releases/latest)**
 
 ```sh
-chmod +x Compositor-0.3.0-x86_64.AppImage
-./Compositor-0.3.0-x86_64.AppImage
+chmod +x Compositor-0.4.0-x86_64.AppImage
+./Compositor-0.4.0-x86_64.AppImage
 ```
 
 ## Requirements
@@ -29,7 +29,7 @@ chmod +x Compositor-0.3.0-x86_64.AppImage
 
 ## Features and parity
 
-Targets feature parity with **Compositor for macOS 1.2.0**. Linux feature status is for **v0.3.0**.
+Targets feature parity with **Compositor for macOS 1.2.0**.
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
@@ -38,7 +38,7 @@ Targets feature parity with **Compositor for macOS 1.2.0**. Linux feature status
 | Layers, groups and masks | ✅ | ✅ | ✅ |
 | Blend modes and adjustment layers | ✅ 14 modes | ✅ 14 modes | ✅ 13 modes |
 | Brushes, clone, healing and content-aware fill | ✅ | ✅ | ✅ |
-| Brush stroke smoothing | ✅ | ❌ | ❌ |
+| Brush stroke smoothing | ✅ | ✅ | ❌ |
 | Gradients, rectangle and ellipse shapes | ✅ | ✅ | ✅ |
 | Non-destructive transforms, perspective and snapping | ✅ | ✅ | ✅ |
 | Marquee, lasso and magic-wand selections | ✅ | ✅ | ✅ |
@@ -53,7 +53,7 @@ Targets feature parity with **Compositor for macOS 1.2.0**. Linux feature status
 | Editable text | ✅ | ✅ | ✅ |
 | Nikon RAW development | ❌ | ✅[^raw] | ✅[^raw] |
 | Stroke, drop shadow, color overlay and inner shadow | ✅ | ✅ | ❌ |
-| Outer Glow | ✅ | ❌ | ❌ |
+| Outer Glow | ✅ | ✅ | ❌ |
 | Line shapes | ✅ | ✅ | ❌ |
 | Selection feathering | ✅ | ✅ | ✅ |
 | Soft Light blend mode | ✅ | ✅ | ❌ |
@@ -68,7 +68,7 @@ Targets feature parity with **Compositor for macOS 1.2.0**. Linux feature status
 | Open from Clipboard | ❌ | ✅ | ❌ |
 
 [^background]: This fork bundles BiRefNet, SAM 3.1 and native inference libraries for offline use, with no Python setup. NVIDIA and CPU inference are tested; AMD hardware is unverified. Background-removal results differ from Apple's Vision model. Xuan's border-color matte is intended for simple backgrounds.
-[^projects]: This fork reads `.comp` v1–8 and writes v7 (v8 with guides), preserving supported text and effects. Outer Glow is not retained. macOS 1.2.0 rejects our v7 projects with folder opacity below 100%. Real macOS round trips remain unverified. Xuan imports `.comp` and saves `.xuan`.
+[^projects]: This fork reads `.comp` v1–8 and writes v8, preserving editable text and all five effects. Real macOS round trips remain unverified. Xuan imports `.comp` and saves `.xuan`.
 [^upstream-psd]: macOS 1.2.0 imports 8-bit RGB PSD with supported shapes and adjustments. Text and smart objects become pixels; Photoshop effects are discarded and unsupported conversions are reported. No PSD export.
 [^psd]: 8-bit RGB/grayscale PSD. Imports editable rectangles, rounded rectangles and ellipses; imports/exports Levels, Curves and Hue/Saturation. Shape exports are rasterized. Text/smart objects use cached pixels; unsupported conversions are reported. Tested with Photoshop-created files; reopening exports in Photoshop remains unverified.
 [^objects]: Object Selection uses SAM 3.1; Select Subject uses BiRefNet. Click an object or draw a box around it. Tab switches Wand/Object; Edge adjusts the detected boundary, and Anti-alias smooths its outline. Ambiguous boundaries may need selection corrections.

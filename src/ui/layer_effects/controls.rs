@@ -5,17 +5,22 @@ impl Editor {
         cx: &mut ViewContext<'_, Self>,
         edit: &EffectsEditor,
     ) -> Element {
-        let mut tabs = div().flex_row().gap(4.);
+        let mut tabs = div().flex_row().flex_wrap().gap(4.);
         for kind in EffectKind::ALL {
-            tabs = tabs.child(Self::segment(kind.label(), edit.kind == kind).on_click(
-                cx.listener(format!("effect-tab-{}", kind.label()), move |this, cx| {
-                    if let Some(Form::Effects(e)) = &mut this.modal {
-                        e.kind = kind;
-                        e.color_text();
-                    }
-                    cx.invalidate();
-                }),
-            ));
+            tabs = tabs.child(
+                Self::segment(kind.label(), edit.kind == kind)
+                    .id(format!("effect-tab-{}", kind.label()))
+                    .on_click(cx.listener(
+                        format!("effect-tab-{}", kind.label()),
+                        move |this, cx| {
+                            if let Some(Form::Effects(e)) = &mut this.modal {
+                                e.kind = kind;
+                                e.color_text();
+                            }
+                            cx.invalidate();
+                        },
+                    )),
+            );
         }
         let mut content = div().flex_col().gap(14.).child(tabs);
         let kind = edit.kind;
@@ -59,6 +64,9 @@ impl Editor {
                                 })
                                 .enabled = visible
                         }
+                        EffectKind::Glow => {
+                            e.effects.outer_glow.get_or_insert_default().enabled = visible
+                        }
                         EffectKind::Inner => {
                             e.effects
                                 .inner_shadow
@@ -79,6 +87,7 @@ impl Editor {
                         EffectKind::Shadow => e.effects.shadow = None,
                         EffectKind::Overlay => e.effects.color_overlay = None,
                         EffectKind::Inner => e.effects.inner_shadow = None,
+                        EffectKind::Glow => e.effects.outer_glow = None,
                     });
                     this.changed(cx);
                 }),
@@ -125,7 +134,7 @@ impl Editor {
                     ),
             );
             let parameters = match kind {
-                EffectKind::Stroke => vec![Parameter::Size, Parameter::Opacity],
+                EffectKind::Stroke | EffectKind::Glow => vec![Parameter::Size, Parameter::Opacity],
                 EffectKind::Overlay => vec![Parameter::Opacity],
                 _ => vec![
                     Parameter::Opacity,

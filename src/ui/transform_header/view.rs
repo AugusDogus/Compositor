@@ -23,27 +23,10 @@ impl Editor {
                 } else {
                     "Transform"
                 })
-                .text_size(13.).line_height(16.)
+                .text_size(13.)
+                .line_height(16.)
                 .font_semibold()
                 .flex_shrink_0(),
-            )
-            .child(
-                Self::check_control("Auto Select", self.tools.transform_auto_select)
-                    .tooltip("Select layers by clicking the canvas. When off, hold Ctrl to select a layer.")
-                    .flex_shrink_0()
-                    .on_click(cx.listener("transform-auto-select", |this, cx| {
-                        this.tools.transform_auto_select = !this.tools.transform_auto_select;
-                        cx.invalidate();
-                    })),
-            )
-            .child(
-                Self::check_control("Show Controls", self.tools.show_transform_controls)
-                    .tooltip("Show the transform box and handles (Ctrl+H). When hidden, drag anywhere to move the layer.")
-                    .flex_shrink_0()
-                    .on_click(cx.listener("transform-show-controls", |this, cx| {
-                        this.tools.show_transform_controls = !this.tools.show_transform_controls;
-                        cx.invalidate();
-                    })),
             )
             .child(
                 div()
@@ -51,8 +34,9 @@ impl Editor {
                     .flex_1()
                     .min_w(0.)
                     .overflow_x_scroll()
-                    .child(self.transform_numeric_controls(cx)),
+                    .child(self.transform_scroll_controls(cx)),
             )
+            .child(self.transform_sampling_picker(cx))
             .child(
                 Self::tool_header_control("Cancel")
                     .flex_shrink_0()
@@ -76,6 +60,33 @@ impl Editor {
                     })),
             )
     }
+    fn transform_scroll_controls(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        div()
+            .flex_row()
+            .items_center()
+            .gap(12.)
+            .flex_shrink_0()
+            .child(
+                Self::check_control("Auto Select", self.tools.transform_auto_select)
+                    .tooltip("Select layers by clicking the canvas. When off, hold Ctrl to select a layer.")
+                    .flex_shrink_0()
+                    .on_click(cx.listener("transform-auto-select", |this, cx| {
+                        this.tools.transform_auto_select = !this.tools.transform_auto_select;
+                        cx.invalidate();
+                    })),
+            )
+            .child(
+                Self::check_control("Show Controls", self.tools.show_transform_controls)
+                    .tooltip("Show the transform box and handles (Ctrl+H). When hidden, drag anywhere to move the layer.")
+                    .flex_shrink_0()
+                    .on_click(cx.listener("transform-show-controls", |this, cx| {
+                        this.tools.show_transform_controls = !this.tools.show_transform_controls;
+                        cx.invalidate();
+                    })),
+            )
+            .child(self.transform_numeric_controls(cx))
+    }
+
     fn transform_numeric_controls(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         let bounds = self.header_transform_bounds();
         let disabled = bounds.is_none() || !self.can_edit_transform_numbers();
@@ -193,7 +204,6 @@ impl Editor {
                 );
             }
         }
-        row = row.child(self.transform_sampling_picker(cx));
         for (horizontal, label, id) in [
             (true, "Flip H", "transform-flip-h"),
             (false, "Flip V", "transform-flip-v"),

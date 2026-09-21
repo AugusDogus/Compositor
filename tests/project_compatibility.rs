@@ -5,6 +5,44 @@ use image::{GrayImage, Luma, Rgba, RgbaImage};
 use serde_json::json;
 
 #[test]
+fn folder_opacity_saves_as_v8_and_upgrades_older_linux_packages() {
+    use compositor::{document::Document, layer_ops};
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("folders.comp");
+    let mut doc = Document::new(20, 20).unwrap();
+    layer_ops::group(&mut doc).unwrap();
+    let group = doc
+        .layers
+        .iter()
+        .position(|layer| layer.is_group())
+        .unwrap();
+    for opacity in [1., 0.4, 0.] {
+        doc.layers[group].opacity = opacity;
+        project::save(&doc, &path).unwrap();
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(path.join("manifest.json")).unwrap()).unwrap();
+        assert_eq!(manifest["version"], 8);
+        assert_eq!(project::load(&path).unwrap(), doc);
+        if opacity != 1. {
+            // Linux 0.2/0.3 wrote these as v7. Keep them readable and repair on save.
+            manifest["version"] = json!(7);
+            std::fs::write(
+                path.join("manifest.json"),
+                serde_json::to_vec(&manifest).unwrap(),
+            )
+            .unwrap();
+            let restored = project::load(&path).unwrap();
+            assert_eq!(restored, doc);
+            project::save(&restored, &path).unwrap();
+            let upgraded: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(path.join("manifest.json")).unwrap())
+                    .unwrap();
+            assert_eq!(upgraded["version"], 8);
+        }
+    }
+}
+
+#[test]
 fn swift_project_versions_preserve_defaults_hierarchy_masks_and_adjustments() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("source.comp");
@@ -108,6 +146,9 @@ fn swift_project_versions_preserve_defaults_hierarchy_masks_and_adjustments() {
         }
         let saved = directory.path().join(format!("version-{version}.comp"));
         project::save(&doc, &saved).unwrap();
+        let written: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(saved.join("manifest.json")).unwrap()).unwrap();
+        assert_eq!(written["version"], 8);
         assert_eq!(project::load(&saved).unwrap(), doc);
     }
 }

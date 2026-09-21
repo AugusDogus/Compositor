@@ -50,7 +50,7 @@ fn raw_sources_and_independent_settings_roundtrip_without_changing_upstream_mani
     ));
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(path.join("manifest.json")).unwrap()).unwrap();
-    assert_eq!(manifest["version"], 7);
+    assert_eq!(manifest["version"], 8);
     assert!(manifest["layers"][0].get("raw").is_none());
     // A reader without the extension still receives all developed pixels.
     std::fs::remove_file(path.join("linux-raw.json")).unwrap();

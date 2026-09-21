@@ -14,6 +14,7 @@ mod autoscroll;
 mod background_controls;
 mod brush_controls;
 mod brush_cursor;
+mod brush_smoothing;
 mod brush_tip;
 mod byte_count;
 mod canvas;

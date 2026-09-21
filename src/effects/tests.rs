@@ -156,6 +156,10 @@ fn effect_settings_and_disabled_flags_round_trip_with_undo() {
                 shadow: Some(ShadowEffect::default()),
                 inner_shadow: Some(ShadowEffect::inner_default()),
                 color_overlay: Some(ColorOverlayEffect::default()),
+                outer_glow: Some(OuterGlowEffect {
+                    enabled: Some(false),
+                    ..Default::default()
+                }),
             });
             Ok(())
         })
@@ -232,4 +236,166 @@ fn invalid_effects_return_render_errors_without_panicking_or_mutating_source() {
     doc.layers[0].content = LayerContent::Group;
     doc.layers[0].effects.as_mut().unwrap().stroke = Some(StrokeEffect::default());
     assert!(doc.validate().is_err());
+}
+
+#[test]
+fn outer_glow_matches_upstream_defaults_schema_bounds_and_validation() {
+    let mut effects: LayerEffects = serde_json::from_str(r#"{"outerGlow":{}}"#).unwrap();
+    let glow = effects.outer_glow.as_ref().unwrap();
+    assert_eq!([glow.red, glow.green, glow.blue], [1.; 3]);
+    assert_eq!((glow.size, glow.opacity, glow.enabled), (20., 0.75, None));
+    assert!(!effects.is_empty());
+    assert_eq!(effects.margin(), 62);
+    assert!(effects.validate());
+    effects.outer_glow.as_mut().unwrap().size = 500.;
+    assert!(effects.validate());
+    assert_eq!(effects.margin(), 1502);
+    assert!(!effects.validate_size(10_000, 10_000));
+    for size in [-1., 501., f64::NAN, f64::INFINITY] {
+        effects.outer_glow.as_mut().unwrap().size = size;
+        assert!(!effects.validate());
+    }
+    effects.outer_glow = Some(OuterGlowEffect {
+        enabled: Some(false),
+        ..Default::default()
+    });
+    assert!(effects.visible().is_empty());
+    assert_eq!(effects.margin(), 2);
+    let serialized = serde_json::to_value(&effects).unwrap();
+    assert_eq!(serialized["outerGlow"]["enabled"], false);
+    assert!(serialized.get("outer_glow").is_none());
+    assert!(
+        serde_json::from_str::<LayerEffects>("{}")
+            .unwrap()
+            .outer_glow
+            .is_none()
+    );
+}
+
+#[test]
+fn outer_glow_is_symmetric_preserves_opaque_pixels_and_fills_holes() {
+    let image = RgbaImage::from_fn(31, 31, |x, y| {
+        if (8..23).contains(&x) && (8..23).contains(&y) && (x != 15 || y != 15) {
+            Rgba([0, 0, 255, 255])
+        } else {
+            Rgba([0; 4])
+        }
+    });
+    let effects = LayerEffects {
+        outer_glow: Some(OuterGlowEffect {
+            size: 4.,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let result = cpu::render(&image, &effects);
+    assert_eq!(result[(10, 10)], image[(10, 10)]);
+    assert!(result[(15, 15)][3] > 150);
+    assert_eq!(result[(15, 15)].0[..3], [255; 3]);
+    assert!(result[(6, 15)][3] > 0);
+    assert_eq!(result[(6, 15)], result[(24, 15)]);
+    assert_eq!(result[(6, 15)], result[(15, 6)]);
+    assert_eq!(result[(0, 0)][3], 0);
+    let mut zero = effects;
+    zero.outer_glow.as_mut().unwrap().size = 0.;
+    assert_eq!(cpu::render(&image, &zero), image);
+}
+
+#[test]
+fn outer_glow_respects_partial_alpha_and_composites_between_shadow_and_stroke() {
+    let image = RgbaImage::from_pixel(1, 1, Rgba([0, 0, 255, 128]));
+    let effects = LayerEffects {
+        outer_glow: Some(OuterGlowEffect {
+            size: 0.01,
+            red: 1.,
+            green: 0.,
+            blue: 0.,
+            opacity: 1.,
+            ..Default::default()
+        }),
+        shadow: Some(ShadowEffect {
+            distance: 0.,
+            blur: 0.,
+            red: 0.,
+            green: 1.,
+            blue: 0.,
+            opacity: 1.,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let result = cpu::render(&image, &effects);
+    let mut tiny = effects.clone();
+    tiny.outer_glow.as_mut().unwrap().size = 1e-30;
+    assert_eq!(cpu::render(&image, &tiny), result);
+    let alpha = 128. / 255.;
+    let coverage = alpha * (1. - alpha);
+    let expected_alpha = alpha + (coverage + alpha * (1. - coverage)) * (1. - alpha);
+    let expected = Rgba([
+        (coverage * (1. - alpha) / expected_alpha * 255.0_f64).round() as u8,
+        (alpha * (1. - coverage) * (1. - alpha) / expected_alpha * 255.0_f64).round() as u8,
+        (alpha / expected_alpha * 255.0_f64).round() as u8,
+        (expected_alpha * 255.0_f64).round() as u8,
+    ]);
+    assert_eq!(result[(0, 0)], expected);
+    let image = RgbaImage::from_fn(7, 7, |x, y| {
+        if x == 3 && y == 3 {
+            Rgba([0, 0, 255, 255])
+        } else {
+            Rgba([0; 4])
+        }
+    });
+    let effects = LayerEffects {
+        stroke: Some(StrokeEffect {
+            size: 1.,
+            red: 1.,
+            ..Default::default()
+        }),
+        outer_glow: Some(OuterGlowEffect {
+            size: 2.,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let result = cpu::render(&image, &effects);
+    assert_eq!(result[(2, 3)], Rgba([255, 0, 0, 255]));
+    assert_eq!(result[(3, 3)], Rgba([0, 0, 255, 255]));
+    assert!(result[(1, 3)][3] > 0);
+}
+
+#[test]
+fn outer_glow_follows_mask_transform_opacity_and_keeps_source_editable() {
+    let mut doc = document();
+    doc.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(
+        3,
+        3,
+        Rgba([0, 0, 255, 255]),
+    ))));
+    let original = doc.layers[0].raster().unwrap().clone();
+    doc.layers[0].effects = Some(LayerEffects {
+        outer_glow: Some(OuterGlowEffect {
+            size: 2.,
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
+    doc.layers[0].mask = Some(Mask {
+        pixels: Arc::new(GrayImage::from_pixel(3, 3, Luma([0]))),
+        enabled: true,
+        linked: true,
+        placement: None,
+    });
+    let hidden = render::render(&doc, 15, 15).unwrap();
+    assert!(hidden.pixels().all(|p| p[3] == 0));
+    doc.layers[0].mask.as_mut().unwrap().enabled = false;
+    doc.layers[0].transform.origin = [4., 4.];
+    doc.layers[0].transform.size = [6., 6.];
+    doc.layers[0].transform.rotation = 90.;
+    doc.layers[0].opacity = 0.5;
+    let rendered = render::render(&doc, 15, 15).unwrap();
+    assert_eq!(rendered[(7, 7)], Rgba([0, 0, 255, 128]));
+    assert!(rendered[(3, 7)][3] > 0);
+    assert!(Arc::ptr_eq(&original, doc.layers[0].raster().unwrap()));
+    let full = render::render(&doc, 15, 15).unwrap();
+    assert_eq!(full, rendered);
 }

@@ -11,6 +11,7 @@ fn label(sampling: Sampling) -> &'static str {
         Sampling::High => "High quality",
     }
 }
+
 pub(in crate::ui) fn new() -> Dropdown<Sampling> {
     let mut menu = Dropdown::new(
         [Sampling::Nearest, Sampling::Smooth, Sampling::High]
@@ -72,3 +73,7 @@ impl Editor {
             ))
     }
 }
+
+#[cfg(test)]
+#[path = "sampling_tests.rs"]
+mod tests;

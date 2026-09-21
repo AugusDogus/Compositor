@@ -1,4 +1,4 @@
-struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32> }
+struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32> }
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var<storage,read> pixels: array<u32>;
 @group(0) @binding(2) var<storage,read> input: array<f32>;
@@ -7,6 +7,7 @@ struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow:
 @group(0) @binding(5) var<storage,read> shadow: array<f32>;
 @group(0) @binding(6) var<storage,read> inner: array<f32>;
 @group(0) @binding(7) var<storage,read_write> result: array<u32>;
+@group(0) @binding(8) var<storage,read> glow: array<f32>;
 fn alpha(i:u32)->f32 { return f32(pixels[i]>>24u)/255.; }
 fn over(base:vec4<f32>,color:vec3<f32>,a:f32)->vec4<f32> { return vec4<f32>(color*a,a)+base*(1.-a); }
 @compute @workgroup_size(16,16)
@@ -42,6 +43,7 @@ fn effects(@builtin(global_invocation_id) gid:vec3<u32>) {
  let value=pixels[i]; var source=vec4<f32>(f32(value&255u),f32((value>>8u)&255u),f32((value>>16u)&255u),f32(value>>24u))/255.;
  var color=vec4<f32>(0.);
  if p.flags.z==1u {color=over(color,p.shadow.xyz,shadow[i]*p.shadow.w);}
+ if p.more.x==1u {color=over(color,p.glow.xyz,glow[i]*(1.-source.a)*p.glow.w);}
  if p.flags.x==1u && p.flags.y==0u {color=over(color,p.stroke.xyz,ring[i]*p.stroke.w);}
  source=vec4<f32>(mix(source.xyz,p.overlay.xyz,p.overlay.w),source.a);
  if p.flags.w==1u {source=vec4<f32>(mix(source.xyz,p.inner.xyz,(1.-inner[i])*p.inner.w),source.a);}

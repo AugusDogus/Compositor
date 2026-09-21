@@ -15,6 +15,8 @@ pub struct LayerEffects {
     pub color_overlay: Option<ColorOverlayEffect>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inner_shadow: Option<ShadowEffect>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outer_glow: Option<OuterGlowEffect>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -86,6 +88,29 @@ impl Default for ColorOverlayEffect {
         }
     }
 }
+/// Soft coverage outside the layer, using half the size as Gaussian sigma.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OuterGlowEffect {
+    pub enabled: Option<bool>,
+    pub size: f64,
+    pub red: f64,
+    pub green: f64,
+    pub blue: f64,
+    pub opacity: f64,
+}
+impl Default for OuterGlowEffect {
+    fn default() -> Self {
+        Self {
+            enabled: None,
+            size: 20.,
+            red: 1.,
+            green: 1.,
+            blue: 1.,
+            opacity: 0.75,
+        }
+    }
+}
 fn unit(value: f64) -> bool {
     value.is_finite() && (0. ..=1.).contains(&value)
 }
@@ -123,6 +148,10 @@ impl LayerEffects {
             s.size.is_finite()
                 && (0. ..=500.).contains(&s.size)
                 && color(s.red, s.green, s.blue, s.opacity)
+        }) && self.outer_glow.as_ref().is_none_or(|s| {
+            s.size.is_finite()
+                && (0. ..=500.).contains(&s.size)
+                && color(s.red, s.green, s.blue, s.opacity)
         }) && self.shadow.as_ref().is_none_or(ShadowEffect::validate)
             && self
                 .inner_shadow
@@ -144,9 +173,11 @@ impl LayerEffects {
             && self.shadow.is_none()
             && self.color_overlay.is_none()
             && self.inner_shadow.is_none()
+            && self.outer_glow.is_none()
     }
     pub fn visible(&self) -> Self {
         Self {
+            outer_glow: self.outer_glow.clone().filter(|s| s.enabled != Some(false)),
             stroke: self.stroke.clone().filter(|s| s.enabled != Some(false)),
             shadow: self.shadow.clone().filter(|s| s.enabled != Some(false)),
             color_overlay: self
@@ -170,7 +201,8 @@ impl LayerEffects {
             .shadow
             .as_ref()
             .map_or(0., |s| s.distance + s.blur * 3.);
-        stroke.max(shadow).ceil() as u32 + 2
+        let glow = effects.outer_glow.as_ref().map_or(0., |s| s.size * 3.);
+        stroke.max(shadow).max(glow).ceil() as u32 + 2
     }
 }
 

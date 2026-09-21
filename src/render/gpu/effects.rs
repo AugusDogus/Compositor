@@ -40,11 +40,12 @@ impl Engine {
                 contents: image.as_raw(),
                 usage: storage,
             });
-        let planes: Vec<_> = (0..7)
+        let planes: Vec<_> = (0..8)
             .map(|_| allocate("Effects coverage", bytes, storage))
             .collect();
-        let [shape, first, second, ring, shadow, inner, scratch] = [
+        let [shape, first, second, ring, shadow, inner, glow, scratch] = [
             &planes[0], &planes[1], &planes[2], &planes[3], &planes[4], &planes[5], &planes[6],
+            &planes[7],
         ];
         let dummy = allocate("Unused effect plane", 4, storage);
         let output = allocate(
@@ -62,7 +63,11 @@ impl Engine {
         let drop = effects.shadow.as_ref();
         let inside = effects.inner_shadow.as_ref();
         let overlay = effects.color_overlay.as_ref();
-        let mut params = [0u32; 28];
+        let outer = effects
+            .outer_glow
+            .as_ref()
+            .filter(|s| s.size > 0. && s.opacity > 0.);
+        let mut params = [0u32; 36];
         params[0] = image.width();
         params[1] = image.height();
         let colors = [
@@ -80,6 +85,14 @@ impl Engine {
         params[25] = u32::from(stroke.is_some_and(|s| s.inside));
         params[26] = u32::from(drop.is_some());
         params[27] = u32::from(inside.is_some());
+        for (c, v) in outer
+            .map_or([0.; 4], |s| [s.red, s.green, s.blue, s.opacity])
+            .into_iter()
+            .enumerate()
+        {
+            params[28 + c] = (v as f32).to_bits();
+        }
+        params[32] = u32::from(outer.is_some());
         let pipeline = &self.effects_pipeline;
         let mut run = |phase: u32,
                        geometry: [f32; 2],
@@ -95,15 +108,15 @@ impl Engine {
                     contents: bytemuck::cast_slice(&params),
                     usage: wgpu::BufferUsages::UNIFORM,
                 });
-            let (r, s, i) = if phase == 7 {
-                (ring, shadow, inner)
+            let (r, s, i, g) = if phase == 7 {
+                (ring, shadow, inner, glow)
             } else {
-                (&dummy, &dummy, &dummy)
+                (&dummy, &dummy, &dummy, &dummy)
             };
             let bindings = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Effects bindings"),
                 layout: &pipeline.get_bind_group_layout(0),
-                entries: &[&uniform, &pixels, input, destination, r, s, i, &output]
+                entries: &[&uniform, &pixels, input, destination, r, s, i, &output, g]
                     .into_iter()
                     .enumerate()
                     .map(|(binding, b)| wgpu::BindGroupEntry {
@@ -128,6 +141,14 @@ impl Engine {
                 run(4, s.offset(), shape, first);
                 run(5, [s.blur as f32, 0.], first, second);
                 run(6, [s.blur as f32, 0.], second, destination);
+            }
+        }
+        if let Some(s) = outer {
+            if s.size <= 0.02 {
+                run(4, [0.; 2], shape, glow);
+            } else {
+                run(5, [(s.size / 2.) as f32, 0.], shape, first);
+                run(6, [(s.size / 2.) as f32, 0.], first, glow);
             }
         }
         run(7, [0.; 2], shape, scratch);
@@ -171,7 +192,7 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::effects::{ColorOverlayEffect, ShadowEffect, StrokeEffect};
+    use crate::effects::{ColorOverlayEffect, OuterGlowEffect, ShadowEffect, StrokeEffect};
     use image::Rgba;
     #[test]
     #[ignore = "Requires a hardware Vulkan adapter"]
@@ -191,6 +212,12 @@ mod tests {
         });
         for inside in [false, true] {
             let effects = LayerEffects {
+                outer_glow: Some(OuterGlowEffect {
+                    size: 5.7,
+                    green: 0.3,
+                    opacity: 0.8,
+                    ..Default::default()
+                }),
                 stroke: Some(StrokeEffect {
                     size: 3.,
                     inside,

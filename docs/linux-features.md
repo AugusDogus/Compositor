@@ -1,16 +1,16 @@
 # Linux feature status
 
-The comparison targets [Compositor for macOS 1.2.0 (`28855e6`)](https://github.com/robbietilton/Compositor/tree/28855e684d0b99dd23f6505af718a342cb3af3d2), checked on September 21, 2026. Linux feature status is for v0.3.0.
+The comparison targets [Compositor for macOS 1.2.0 (`28855e6`)](https://github.com/robbietilton/Compositor/tree/28855e684d0b99dd23f6505af718a342cb3af3d2), checked on September 21, 2026. Status describes Linux v0.4.0, including Outer Glow, brush smoothing and v8 project saves.
 
 ## Changes in macOS 1.2.0
 
-| Upstream change | Linux v0.3.0 status |
+| Upstream change | Current Linux source |
 | --- | --- |
 | PSD import | Already supported, along with PSD export. macOS imports 8-bit RGB; Linux also accepts 8-bit grayscale. Both preserve supported shapes and adjustments and report conversions. |
-| Outer Glow | Missing. The four existing effects remain supported; importing and resaving a project drops its unrecognized `outerGlow` metadata. |
-| Brush smoothing | Missing. Upstream adds an adjustable pointer-following distance for Paint and Erase, with catch-up on release. This differs from object-selection outline smoothing. |
+| Outer Glow | Editable size, color, opacity and visibility, GPU/CPU rendering, expanded bounds, project persistence and undo. Matches upstream's white default and glow placement between drop shadow and outside stroke. |
+| Brush smoothing | Paint and Erase support a 0–100 screen-point trailing distance, including masks, with catch-up on release. Zero preserves immediate painting. This differs from object-selection outline smoothing. |
 | Layer-effect persistence and visibility fixes | Linux already saves supported effects and their visibility, and filters hidden effects independently. |
-| Folder-opacity save fix | Linux saves folder opacity, but writes v7 when there are no guides. macOS 1.2.0 requires v8 for non-default folder opacity, so it rejects those Linux packages. |
+| Folder-opacity save fix | All saves use v8, including non-default folder opacity, matching macOS 1.2.0 validation. Older Linux v7 packages remain readable and upgrade on save. |
 
 Sources: [release notes](https://github.com/robbietilton/Compositor/releases/tag/v1.2.0), [PSD importer](https://github.com/robbietilton/Compositor/tree/v1.2.0/Compositor/IO/PSD), [Outer Glow](https://github.com/robbietilton/Compositor/pull/55), [brush smoothing](https://github.com/robbietilton/Compositor/commit/8b0215e52150453d790c31ecb87e88f50037612a), and [project validation](https://github.com/robbietilton/Compositor/blob/v1.2.0/Compositor/IO/ProjectStore.swift). The release also fixes macOS Color Dodge/Burn color-space handling and duplicate alpha conversion in Levels; Linux implements those paths separately. Rulers, guides and object selection were already included in the previous comparison.
 
@@ -43,7 +43,7 @@ PSD text and smart objects use cached raster pixels when available. Supported pr
 
 ## Compatibility and platform differences
 
-- **Projects:** reads schema versions 1 through 8 and writes version 7 `.comp` directory packages, or version 8 when guides are present. Editable text, layer effects, line shapes, Soft Light and folder opacity are preserved. Unknown project fields are rejected where the schema requires it. Opening Linux-saved projects in the real macOS app remains unverified. See [project I/O](../src/project.rs) and [compatibility tests](../tests/project_compatibility.rs).
+- **Projects:** reads schema versions 1 through 8 and writes version 8 `.comp` directory packages. Editable text, all five layer effects, line shapes, Soft Light and folder opacity are preserved. Unknown project fields are rejected where the schema requires it. Opening Linux-saved projects in the real macOS app remains unverified. See [project I/O](../src/project.rs) and [compatibility tests](../tests/project_compatibility.rs).
 - **Background removal:** full BiRefNet Dynamic replaces Apple's proprietary Vision model. Basic/Advanced refinement, editable masks, selection handling and undo are implemented. One AppImage bundles native ONNX Runtime, the WebGPU/Vulkan plugin and both GPU/CPU models. Compatible NVIDIA and AMD Vulkan GPUs need FP16 shader support; no compatible adapter selects CPU. NVIDIA and CPU paths have been tested, physical AMD hardware has not. GPU execution failures report an error rather than silently rerunning on CPU.
 - **Rendering:** large brushes, compositing and preview reduction have GPU paths with CPU fallbacks. Tests compare those paths with the Rust CPU reference; they do not establish identical macOS pixels or performance. The raster budget is 100 million pixels, and sparse canvases support up to 30,000 pixels per side.
 - **Desktop:** Wayland and X11, Ctrl/Alt shortcuts, portal file dialogs and native clipboard integration. Linux window styling differs from AppKit. AppImage updates open GitHub Releases; they do not use Sparkle or replace the mounted executable.
@@ -70,13 +70,13 @@ Both projects provide layered editing, masks, transforms, selections, retouching
 
 ## Verification of the current source
 
-The ordinary suite passes 716 tests; 26 hardware or external-fixture tests are opt-in. The focused RAW hardware and Nikon fixture checks also pass. Formatting, application Clippy and the optimized Linux build pass.
+The ordinary suite passes 732 tests; 26 hardware or external-fixture tests are opt-in. Formatting, application Clippy and the optimized Linux build pass. Focused checks also verify Outer Glow and shared Gaussian kernels on NVIDIA Vulkan, brush smoothing and cancellation, v1–v7 project upgrades to v8, and the Sampling selector at 800 px and 1280 px window widths.
 
 The published v0.2.0 AppImage was built on Ubuntu 24.04. Checks against its extracted payload passed for both BiRefNet background removal and SAM 3.1 object selection on CPU and NVIDIA Vulkan. Packaging checks verify model hashes, native dependencies, launcher, icon and the HEIC decoder. The inference payload contains no Python runtime code or wheels. A clean Ubuntu model export reproduced every pinned output hash.
 
 The local v0.3.0 AppImage also passes the payload checks and opens a real Nikon RAW file through its bundled launcher in an isolated X11 session. It uses the same pinned inference models and libraries as v0.2.0.
 
-Focused checks exercise real Vulkan compositing, all four effects, Gaussian feathering, BiRefNet background removal and native prompted object selection. Effects and grayscale blur match the CPU reference within one byte. Object-model comparisons use 13 labeled instances across five DAVIS photographs, with identical point or box prompts. See [model selection and measured results](object-selection-models.md) for quality, timing, export verification and reproduction details.
+Focused checks exercise real Vulkan compositing, all five effects, Gaussian feathering, BiRefNet background removal and native prompted object selection. Effects and grayscale blur match the CPU reference within one byte. Object-model comparisons use 13 labeled instances across five DAVIS photographs, with identical point or box prompts. See [model selection and measured results](object-selection-models.md) for quality, timing, export verification and reproduction details.
 
 Project tests cover text/effects/guides together, folder duplication and opacity, line geometry, folded distortion, and guide persistence through resizing and cropping. PSD checks cover malformed input, masks, clipping, conversion reports, editable primitives and adjustments, and native-project preservation. Three independently sourced Photoshop-created files verify import and subsequent project/PSD conversions; fetch them with `scripts/fetch-psd-fixtures.sh` and run `cargo test --locked --test psd_external -- --ignored --test-threads=4`. QuickGUI interaction tests exercise the new dialogs, clipboard opening, selection modifiers, shortcuts and guide gestures. Headless screenshots of the new text, effects, shortcuts and guide surfaces were inspected.
 

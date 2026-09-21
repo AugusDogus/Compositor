@@ -228,13 +228,20 @@ impl Editor {
                         sample_all,
                     ) {
                         Ok(mut stroke) => {
-                            stroke.to(&mut self.session_mut().document, point)?;
+                            if let Err(error) = stroke.to(&mut self.session_mut().document, point) {
+                                self.session_mut().cancel();
+                                return Err(error);
+                            }
+                            let smoothing = super::brush_smoothing::Rope::start(
+                                self.tools.tool,
+                                self.tools.brush_smoothing,
+                                point,
+                            );
                             self.gesture = Some(Gesture::Paint {
                                 id: uuid::Uuid::new_v4(),
                                 stroke: Box::new(stroke),
+                                smoothing,
                             });
-                            self.tools.last_brush =
-                                self.session().document.active.map(|id| (id, mask, point));
                         }
                         Err(error) => {
                             self.session_mut().cancel();
@@ -546,13 +553,21 @@ impl Editor {
                 Gesture::Warp { stroke, .. } => {
                     stroke.to(&mut self.session_mut().document, point)?
                 }
-                Gesture::Paint { stroke, .. } => {
-                    self.tools.last_brush = self
-                        .session()
-                        .document
-                        .active
-                        .map(|id| (id, self.tools.mask_target, point));
-                    if let Err(error) = stroke.to(&mut self.session_mut().document, point) {
+                Gesture::Paint {
+                    stroke, smoothing, ..
+                } => {
+                    let painted = if event.phase == PointerPhase::Up {
+                        // Finish at the hand, including when the rope remained slack.
+                        Some(point)
+                    } else {
+                        match smoothing {
+                            Some(rope) => rope.pull(point, zoom),
+                            None => Some(point),
+                        }
+                    };
+                    if let Some(painted) = painted
+                        && let Err(error) = stroke.to(&mut self.session_mut().document, painted)
+                    {
                         self.session_mut().cancel();
                         return Err(error);
                     }
@@ -754,6 +769,7 @@ impl Editor {
                     self.session_mut().cancel();
                     return Err(error);
                 }
+                let painted = matches!(gesture, Gesture::Paint { .. });
                 if let Gesture::Shape(draft) = gesture
                     && let Err(error) = self.finish_shape(draft)
                 {
@@ -761,6 +777,15 @@ impl Editor {
                     return Err(error);
                 }
                 self.session_mut().commit()?;
+                if painted {
+                    // Only completed strokes become Shift-click origins. A cancelled
+                    // stroke must leave both pixels and the previous origin intact.
+                    self.tools.last_brush = self
+                        .session()
+                        .document
+                        .active
+                        .map(|id| (id, self.tools.mask_target, point));
+                }
             } else {
                 self.gesture = Some(gesture);
             }

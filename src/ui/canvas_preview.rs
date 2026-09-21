@@ -359,6 +359,7 @@ mod tests {
         editor.gesture = Some(Gesture::Paint {
             id,
             stroke: Box::new(stroke),
+            smoothing: None,
         });
         let first = key(&editor);
         let next = PreviewKey {
@@ -398,6 +399,7 @@ mod tests {
         editor.gesture = Some(Gesture::Paint {
             id: Uuid::new_v4(),
             stroke,
+            smoothing: None,
         });
         editor.canvas_rendering.work = Work::Running(next);
         editor.receive_canvas_preview(next, Ok(RgbaImage::new(2, 2)));

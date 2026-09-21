@@ -12,15 +12,23 @@ pub(super) enum EffectKind {
     Shadow,
     Overlay,
     Inner,
+    Glow,
 }
 impl EffectKind {
-    const ALL: [Self; 4] = [Self::Stroke, Self::Shadow, Self::Overlay, Self::Inner];
+    const ALL: [Self; 5] = [
+        Self::Stroke,
+        Self::Shadow,
+        Self::Overlay,
+        Self::Inner,
+        Self::Glow,
+    ];
     fn label(self) -> &'static str {
         match self {
             Self::Stroke => "Stroke",
             Self::Shadow => "Drop Shadow",
             Self::Overlay => "Color Overlay",
             Self::Inner => "Inner Shadow",
+            Self::Glow => "Outer Glow",
         }
     }
     fn enabled(self, e: &LayerEffects) -> Option<bool> {
@@ -29,6 +37,7 @@ impl EffectKind {
             Self::Shadow => e.shadow.as_ref().map(|s| s.enabled != Some(false)),
             Self::Overlay => e.color_overlay.as_ref().map(|s| s.enabled != Some(false)),
             Self::Inner => e.inner_shadow.as_ref().map(|s| s.enabled != Some(false)),
+            Self::Glow => e.outer_glow.as_ref().map(|s| s.enabled != Some(false)),
         }
     }
     fn color(self, e: &LayerEffects) -> [f64; 3] {
@@ -37,6 +46,7 @@ impl EffectKind {
             Self::Shadow => e.shadow.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Overlay => e.color_overlay.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Inner => e.inner_shadow.as_ref().map(|s| [s.red, s.green, s.blue]),
+            Self::Glow => e.outer_glow.as_ref().map(|s| [s.red, s.green, s.blue]),
         }
         .unwrap_or([0.; 3])
     }
@@ -103,6 +113,11 @@ impl EffectsEditor {
                     (s.red, s.green, s.blue) = (r, g, b);
                 }
             }
+            EffectKind::Glow => {
+                if let Some(s) = &mut self.effects.outer_glow {
+                    (s.red, s.green, s.blue) = (r, g, b);
+                }
+            }
             EffectKind::Inner => {
                 if let Some(s) = &mut self.effects.inner_shadow {
                     (s.red, s.green, s.blue) = (r, g, b);
@@ -121,6 +136,11 @@ impl EffectsEditor {
     pub(super) fn number(&self, p: Parameter) -> f64 {
         match self.kind {
             EffectKind::Stroke => self.effects.stroke.as_ref().map_or(0., |s| match p {
+                Parameter::Opacity => s.opacity * 100.,
+                Parameter::Size => s.size,
+                _ => 0.,
+            }),
+            EffectKind::Glow => self.effects.outer_glow.as_ref().map_or(0., |s| match p {
                 Parameter::Opacity => s.opacity * 100.,
                 Parameter::Size => s.size,
                 _ => 0.,
@@ -150,6 +170,15 @@ impl EffectsEditor {
         match self.kind {
             EffectKind::Stroke => {
                 if let Some(s) = &mut self.effects.stroke {
+                    match p {
+                        Parameter::Opacity => s.opacity = value / 100.,
+                        Parameter::Size => s.size = value,
+                        _ => {}
+                    }
+                }
+            }
+            EffectKind::Glow => {
+                if let Some(s) = &mut self.effects.outer_glow {
                     match p {
                         Parameter::Opacity => s.opacity = value / 100.,
                         Parameter::Size => s.size = value,
@@ -187,6 +216,15 @@ impl Editor {
             .id("layer-effects")
             .w(33.)
             .h(41.)
+            .p(0.)
+            .flex_shrink_0()
+            .justify_center()
+            .rounded(6.)
+            .bg(Color::TRANSPARENT)
+            .text_color(Color::rgb8(164, 164, 164))
+            .hover(|s| s.bg(Color::rgb8(66, 66, 66)))
+            .disabled_style(|s| s.opacity(0.4))
+            .accessibility_label("Edit layer effects")
             .tooltip("Edit layer effects")
             .disabled(
                 !self.can_edit_layers()
@@ -280,6 +318,7 @@ impl Editor {
             EffectKind::Shadow => effects.shadow = source.shadow,
             EffectKind::Overlay => effects.color_overlay = source.color_overlay,
             EffectKind::Inner => effects.inner_shadow = source.inner_shadow,
+            EffectKind::Glow => effects.outer_glow = source.outer_glow,
         }
         document.validate()?;
         self.session_mut().document = document;

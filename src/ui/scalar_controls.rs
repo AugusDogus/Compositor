@@ -17,6 +17,7 @@ pub(super) enum Scalar {
     Effect(super::layer_effects::Parameter),
     BrushSize,
     BrushHardness,
+    BrushSmoothing,
     BrushOpacity,
     LayerOpacity,
     GradientOpacity,
@@ -39,6 +40,7 @@ impl Scalar {
                 _ => 0.,
             },
             Self::BrushSize => editor.tools.brush.diameter,
+            Self::BrushSmoothing => editor.tools.brush_smoothing,
             Self::BrushHardness => editor.tools.brush.hardness * 100.,
             Self::BrushOpacity => editor.tools.brush.opacity * 100.,
             Self::GradientOpacity => editor.tools.gradient.opacity * 100.,
@@ -73,6 +75,7 @@ impl Scalar {
         match self {
             Self::Effect(p) => editor.change_effect(|e| e.set_number(p, value)),
             Self::BrushSize => editor.tools.brush.diameter = value,
+            Self::BrushSmoothing => editor.tools.brush_smoothing = value.clamp(0., 100.),
             Self::BrushHardness => editor.tools.brush.hardness = value / 100.,
             Self::BrushOpacity => editor.tools.brush.opacity = value / 100.,
             Self::GradientOpacity => {

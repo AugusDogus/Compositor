@@ -4,6 +4,7 @@ use super::*;
 pub(super) struct ProjectTools {
     pub(super) tool: Tool,
     pub(super) brush: Brush,
+    pub(super) brush_smoothing: f64,
     pub(super) tool_preferences: tool_preferences::ToolPreferences,
     pub(super) opacity_digits: shortcuts::OpacityDigits,
     pub(super) background: [u8; 4],
@@ -51,6 +52,7 @@ impl Default for ProjectTools {
         Self {
             tool: Tool::Move,
             brush: Brush::default(),
+            brush_smoothing: 0.,
             tool_preferences: tool_preferences::ToolPreferences::default(),
             opacity_digits: shortcuts::OpacityDigits::default(),
             background: [255; 4],

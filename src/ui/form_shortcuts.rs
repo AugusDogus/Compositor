@@ -70,6 +70,46 @@ mod tests {
     use quickgui::{Application, Keystroke, WindowOptions};
 
     #[test]
+    fn select_all_replaces_field_text_without_selecting_the_canvas() {
+        for welcome in [true, false] {
+            let editor = if welcome {
+                Editor::new(Vec::new()).unwrap()
+            } else {
+                let mut editor = Editor::with_test_document();
+                editor.open_form(Action::New);
+                editor
+            };
+            let (mut cx, view) = Application::new()
+                .into_test_context(
+                    WindowOptions::new("Select All fields").size(1280., 900.),
+                    editor,
+                )
+                .unwrap();
+            let window = view.window_handle();
+            let field: quickgui::ElementId = if welcome {
+                "welcome-dimension-0".into()
+            } else {
+                50_000_u64.into()
+            };
+            cx.focus(window, field).unwrap();
+            cx.simulate_keystrokes(window, "ctrl-a").unwrap();
+            cx.simulate_input(window, "321").unwrap();
+            assert_eq!(
+                cx.focused_input_value(window).unwrap().as_deref(),
+                Some("321")
+            );
+            cx.read(view, |editor| {
+                if let Some(doc) = editor.current_document() {
+                    assert!(doc.selection.is_none());
+                } else {
+                    assert!(welcome);
+                }
+            })
+            .unwrap();
+        }
+    }
+
+    #[test]
     fn pan_and_zoom_beneath_panels_preserve_the_edit_and_cancelled_zoom() {
         for panel in 0..3 {
             for tool in [Tool::Hand, Tool::Zoom] {

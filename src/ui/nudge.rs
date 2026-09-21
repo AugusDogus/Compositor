@@ -109,6 +109,7 @@ mod tests {
         e.gesture = Some(Gesture::Paint {
             id: uuid::Uuid::new_v4(),
             stroke: Box::new(stroke),
+            smoothing: None,
         });
         let painting = e.session().document.clone();
         let (mut cx, view) = Application::new()

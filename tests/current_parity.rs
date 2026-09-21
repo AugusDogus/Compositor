@@ -128,7 +128,7 @@ fn saved_guides_follow_canvas_resize_image_resize_flip_and_crop() {
     project::save(&doc, &path).unwrap();
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(path.join("manifest.json")).unwrap()).unwrap();
-    assert_eq!(manifest["version"], 7);
+    assert_eq!(manifest["version"], 8);
 }
 
 #[test]

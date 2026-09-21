@@ -8,7 +8,7 @@ Download the AppImage from the [latest release](https://github.com/AugusDogus/Co
 
 ```sh
 chmod +x Compositor-*-x86_64.AppImage
-./Compositor-0.3.0-x86_64.AppImage
+./Compositor-0.4.0-x86_64.AppImage
 ```
 
 Use the filename for the version you downloaded. If FUSE is unavailable, add `--appimage-extract-and-run`. Tools such as [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and its icon to your desktop's application menu.

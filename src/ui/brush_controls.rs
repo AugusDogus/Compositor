@@ -70,6 +70,21 @@ impl Editor {
                     .w(42.),
                 "%",
             ));
+        if matches!(self.tools.tool, Tool::Brush | Tool::Erase) {
+            row = row
+                .child(text("Smoothing").text_size(12.).line_height(15.))
+                .child(self.scalar_slider(
+                    cx,
+                    "brush-smoothing-slider",
+                    "Smoothing",
+                    Scalar::BrushSmoothing,
+                    (0., 100.),
+                    80.,
+                ).tooltip("The brush trails the pointer by this many screen points; 0 follows exactly. Catches up on release."))
+                .child(self.brush_value(cx, "brush-smoothing", Scalar::BrushSmoothing, (0., 100.))
+                    .accessibility_label("Smoothing")
+                    .w(42.));
+        }
         if self.tools.mask_target {
             row = row.child(self.mask_paint_picker(cx));
         } else if !matches!(

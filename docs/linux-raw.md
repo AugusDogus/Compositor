@@ -23,7 +23,7 @@ Move, rotation, scaling, masks, blending, groups and duplication preserve RAW ed
 
 ## Saved projects and limits
 
-`.comp` packages embed source bytes in `raw/` and development metadata in `linux-raw.json`. The upstream manifest remains version 7 or 8 with ordinary cached PNGs. RAW editability is a Linux extension; preserving it through a save in the macOS application is not guaranteed. Keep the Linux package when exchanging rasterized output.
+`.comp` packages embed source bytes in `raw/` and development metadata in `linux-raw.json`. The upstream manifest saves as version 8 with ordinary cached PNGs. RAW editability is a Linux extension; preserving it through a save in the macOS application is not guaranteed. Keep the Linux package when exchanging rasterized output.
 
 Camera support follows Rawler 0.7.2's NEF/NRW RGB Bayer decoders. Sources are limited to 512 MiB per project and decoded images to 100 megapixels. Processing uses Vulkan where supported, with CPU processing when hardware is unavailable or its limits are too small. Full-resolution previews display tiles without reducing their pixel detail. GPU execution failures are reported.
 
