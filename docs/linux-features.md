@@ -1,6 +1,18 @@
 # Linux feature status
 
-The current source targets [Compositor for macOS 1.1.8 (`c39da13`)](https://github.com/robbietilton/Compositor/tree/c39da13b5db11bc8678ec04a7a748e1e0a589244).
+The comparison targets [Compositor for macOS 1.2.0 (`28855e6`)](https://github.com/robbietilton/Compositor/tree/28855e684d0b99dd23f6505af718a342cb3af3d2), checked on September 21, 2026. Linux feature status is for v0.3.0.
+
+## Changes in macOS 1.2.0
+
+| Upstream change | Linux v0.3.0 status |
+| --- | --- |
+| PSD import | Already supported, along with PSD export. macOS imports 8-bit RGB; Linux also accepts 8-bit grayscale. Both preserve supported shapes and adjustments and report conversions. |
+| Outer Glow | Missing. The four existing effects remain supported; importing and resaving a project drops its unrecognized `outerGlow` metadata. |
+| Brush smoothing | Missing. Upstream adds an adjustable pointer-following distance for Paint and Erase, with catch-up on release. This differs from object-selection outline smoothing. |
+| Layer-effect persistence and visibility fixes | Linux already saves supported effects and their visibility, and filters hidden effects independently. |
+| Folder-opacity save fix | Linux saves folder opacity, but writes v7 when there are no guides. macOS 1.2.0 requires v8 for non-default folder opacity, so it rejects those Linux packages. |
+
+Sources: [release notes](https://github.com/robbietilton/Compositor/releases/tag/v1.2.0), [PSD importer](https://github.com/robbietilton/Compositor/tree/v1.2.0/Compositor/IO/PSD), [Outer Glow](https://github.com/robbietilton/Compositor/pull/55), [brush smoothing](https://github.com/robbietilton/Compositor/commit/8b0215e52150453d790c31ecb87e88f50037612a), and [project validation](https://github.com/robbietilton/Compositor/blob/v1.2.0/Compositor/IO/ProjectStore.swift). The release also fixes macOS Color Dodge/Burn color-space handling and duplicate alpha conversion in Levels; Linux implements those paths separately. Rulers, guides and object selection were already included in the previous comparison.
 
 ## Added since v0.2.0
 
@@ -27,7 +39,7 @@ The current source targets [Compositor for macOS 1.1.8 (`c39da13`)](https://gith
 | Rulers, guides and grid | Pixel rulers, drag guides to create/move/delete, lock/clear, 8 px grid, selectable snapping targets, saved guides, resize/flip/crop handling and undo. |
 | Open from Clipboard | Opens clipboard images in a new image-sized document without replacing existing tabs. |
 
-PSD text and smart objects use cached raster pixels when available. Supported primitives remain editable on import; other solid vector paths can rasterize from geometry without cached pixels. Shape export rasterizes. Photoshop effects and unsupported adjustments are reported before conversion. Editable shape imports omit Photoshop strokes; rasterized vector strokes use solid, centered strokes, with unsupported alignment, dashes and blending reported. [Upstream PSD PR #39](https://github.com/robbietilton/Compositor/pull/39) likewise rasterizes shape exports and omits live-shape strokes, but its raster stroke rendering is not identical to this implementation. PSB, CMYK and non-8-bit PSD files are rejected. Import and native-project persistence are tested with Photoshop CS6, CC 2019 and 22.5 files. Reopening our exports in the Photoshop application remains unverified.
+PSD text and smart objects use cached raster pixels when available. Supported primitives remain editable on import; other solid vector paths can rasterize from geometry without cached pixels. Shape export rasterizes. Photoshop effects and unsupported adjustments are reported before conversion. Editable shape imports omit Photoshop strokes; rasterized vector strokes use solid, centered strokes, with unsupported alignment, dashes and blending reported. [Upstream PSD PR #39](https://github.com/robbietilton/Compositor/pull/39), merged for macOS 1.2.0, adds import only. Its editable shape imports also omit strokes; its raster stroke rendering differs from this implementation. PSB, CMYK and non-8-bit PSD files are rejected. Import and native-project persistence are tested with Photoshop CS6, CC 2019 and 22.5 files. Reopening our exports in the Photoshop application remains unverified.
 
 ## Compatibility and platform differences
 
