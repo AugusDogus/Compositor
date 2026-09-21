@@ -26,6 +26,8 @@ The AppImage requires glibc 2.39 or newer. It includes the libheif HEIC decoder 
 
 ## Local validation
 
+The Wayland client library comes from the host alongside the graphics drivers. Bundling the older build-baseline client can prevent newer Mesa and NVIDIA EGL drivers from loading because required Wayland symbols are missing. The payload checker rejects bundles containing that library.
+
 Run packaging on Ubuntu 24.04, or inside the corresponding build container, so dependencies are collected from the supported baseline rather than a newer host. `COMPOSITOR_LINUX_BINARY` selects an already compiled executable; `COMPOSITOR_APPIMAGE_TOOLS` selects the packaging-tool cache. Never bundle arbitrary libraries from the development host into a baseline release.
 
 `scripts/check-appimage.sh` extracts the real artifact without FUSE and validates the launcher, icon, HEIC plugin and executable dependencies. Also launch the AppImage in an isolated desktop session and exercise image import and the Updates dialog before a release. Test a real removal using the extracted inference directory when native inference dependencies change. `COMPOSITOR_INFERENCE_TEST_BINARY` selects the compiled `linux_integrations` test executable and `COMPOSITOR_TEST_PHOTO` supplies a subject photo to the artifact checker. Run it on CPU in CI and Vulkan locally.

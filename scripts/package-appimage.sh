@@ -49,7 +49,7 @@ done
 
 # Winit and wgpu load these libraries dynamically; ldd alone cannot discover them.
 libraries=()
-for soname in libwayland-client.so.0 libwayland-cursor.so.0 libwayland-egl.so.1 libxkbcommon.so.0 libxkbcommon-x11.so.0 libX11.so.6 libXcursor.so.1 libXrandr.so.2 libXi.so.6 libvulkan.so.1 libEGL.so.1 libGL.so.1; do
+for soname in libwayland-cursor.so.0 libwayland-egl.so.1 libxkbcommon.so.0 libxkbcommon-x11.so.0 libX11.so.6 libXcursor.so.1 libXrandr.so.2 libXi.so.6 libvulkan.so.1 libEGL.so.1 libGL.so.1; do
     library="$(ldconfig -p | awk -v name="$soname" '$1 == name && /x86-64/ && !found { print $NF; found=1 }')"
     [[ -n "$library" ]] || { printf 'Install the runtime library %s before packaging.\n' "$soname" >&2; exit 1; }
     libraries+=(--library "$library")
@@ -60,7 +60,10 @@ heif_plugin=/usr/lib/x86_64-linux-gnu/libheif/plugins/libheif-libde265.so
 install -Dm644 "$heif_plugin" "$app_dir/usr/lib/libheif/plugins/libheif-libde265.so"
 libraries+=(--library "$heif_plugin")
 export APPIMAGE_EXTRACT_AND_RUN=1
+# Host Mesa/NVIDIA EGL drivers can require newer Wayland symbols than the build
+# baseline provides. Their matching client library must come from the host too.
 NO_STRIP=1 "$tool_dir/linuxdeploy.AppImage" --appdir "$app_dir" \
+    --exclude-library 'libwayland-client.so*' \
     --executable "$app_dir/usr/bin/compositor" "${libraries[@]}" \
     --desktop-file "$app_dir/usr/share/applications/compositor.desktop" \
     --icon-file "$app_dir/usr/share/icons/hicolor/256x256/apps/compositor.png"

@@ -8,6 +8,10 @@ trap 'rm -r -- "$stage_dir"' EXIT
 cd "$stage_dir"
 "$artifact" --appimage-extract > /dev/null
 app_dir="$stage_dir/squashfs-root"
+if compgen -G "$app_dir/usr/lib/libwayland-client.so*" > /dev/null; then
+    printf 'AppImage must use the host Wayland client library required by its graphics drivers.\n' >&2
+    exit 1
+fi
 for file in AppRun compositor.desktop compositor.png usr/bin/compositor usr/lib/libheif/plugins/libheif-libde265.so; do
     [[ -s "$app_dir/$file" ]] || { printf 'AppImage is missing %s\n' "$file" >&2; exit 1; }
 done
