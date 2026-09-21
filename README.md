@@ -33,7 +33,7 @@ Targets feature parity with **Compositor for macOS 1.0.4**.
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
-| Feature | [Compositor (macOS 1.1.6)](https://github.com/robbietilton/Compositor) | This fork | [Xuan](https://github.com/silverling/xuan) |
+| Feature | [Compositor<br>(macOS&nbsp;1.1.6)](https://github.com/robbietilton/Compositor) | This fork | [Xuan](https://github.com/silverling/xuan) |
 | --- | :---: | :---: | :---: |
 | Layers, groups and masks | ✅ | ✅ | ✅ |
 | Blend modes and adjustment layers | ✅ 14 modes | ✅ 13 modes | ✅ 13 modes |
