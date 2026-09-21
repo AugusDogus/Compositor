@@ -33,30 +33,30 @@ Targets feature parity with **Compositor for macOS 1.0.4**.
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
-| Feature | This fork | [Xuan](https://github.com/silverling/xuan) |
-| --- | :---: | :---: |
-| Layers, groups and masks | ✅ | ✅ |
-| 13 blend modes and adjustment layers | ✅ | ✅ |
-| Brushes, clone, healing and content-aware fill | ✅ | ✅ |
-| Gradients, rectangle and ellipse shapes | ✅ | ✅ |
-| Non-destructive transforms, perspective and snapping | ✅ | ✅ |
-| Marquee, lasso and magic-wand selections | ✅ | ✅ |
-| Color adjustments and filters | ✅ | ✅ |
-| Crop, canvas and image resizing | ✅ | ✅ |
-| Background removal | ✅ BiRefNet[^background] | ⚠️ Border-color matte[^background] |
-| Original `.comp` projects | ⚠️ Read/write[^projects] | ⚠️ Import only[^projects] |
-| ICC color conversion | ✅ | ❌ |
-| HEIC import | ✅ Bundled | ⚠️ External helper[^heic] |
-| PNG/JPEG export | ✅ | ✅ |
-| TIFF/WebP export | ❌ | ✅ |
-| Editable text | ❌ | ✅ |
-| Nikon RAW development | ❌ | ✅ |
-| Layer effects | ❌ | ❌ |
-| Line shapes | ❌ | ❌ |
-| Selection feathering | ❌ | ✅ |
-| Soft Light blend mode | ❌ | ❌ |
-| Folder opacity and duplication | ❌ | ✅ |
-| Keyboard-shortcuts window | ❌ | ✅ |
+| Feature | [Compositor (macOS 1.1.6)](https://github.com/robbietilton/Compositor) | This fork | [Xuan](https://github.com/silverling/xuan) |
+| --- | :---: | :---: | :---: |
+| Layers, groups and masks | ✅ | ✅ | ✅ |
+| Blend modes and adjustment layers | ✅ 14 modes | ✅ 13 modes | ✅ 13 modes |
+| Brushes, clone, healing and content-aware fill | ✅ | ✅ | ✅ |
+| Gradients, rectangle and ellipse shapes | ✅ | ✅ | ✅ |
+| Non-destructive transforms, perspective and snapping | ✅ | ✅ | ✅ |
+| Marquee, lasso and magic-wand selections | ✅ | ✅ | ✅ |
+| Color adjustments and filters | ✅ | ✅ | ✅ |
+| Crop, canvas and image resizing | ✅ | ✅ | ✅ |
+| Background removal | ✅ Apple Vision[^background] | ✅ BiRefNet[^background] | ⚠️ Border-color matte[^background] |
+| Original `.comp` projects | ✅ Read/write | ⚠️ Read/write[^projects] | ⚠️ Import only[^projects] |
+| ICC color conversion | ✅ | ✅ | ❌ |
+| HEIC import | ✅ | ✅ Bundled | ⚠️ External helper[^heic] |
+| PNG/JPEG export | ✅ | ✅ | ✅ |
+| TIFF/WebP export | ❌ | ❌ | ✅ |
+| Editable text | ✅ | ❌ | ✅ |
+| Nikon RAW development | ❌ | ❌ | ✅ |
+| Layer effects | ✅ | ❌ | ❌ |
+| Line shapes | ✅ | ❌ | ❌ |
+| Selection feathering | ✅ | ❌ | ✅ |
+| Soft Light blend mode | ✅ | ❌ | ❌ |
+| Folder opacity and duplication | ✅ | ❌ | ✅ |
+| Keyboard-shortcuts window | ✅ | ❌ | ✅ |
 
 [^background]: This fork bundles BiRefNet and native inference libraries for offline use, with no Python setup. NVIDIA and CPU inference are tested; AMD hardware is unverified. Results differ from Apple's Vision model. Xuan's border-color matte is intended for simple backgrounds.
 [^projects]: This fork reads `.comp` v1–7 and writes v7; newer text/effect metadata and other unsupported features are rejected. Real macOS round trips remain unverified. Xuan imports `.comp` and saves `.xuan`.
