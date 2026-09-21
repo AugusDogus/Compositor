@@ -15,4 +15,3 @@ fn gaussian(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     store_float(id.y * size.x + id.x, sum);
 }
-

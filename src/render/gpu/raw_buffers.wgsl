@@ -22,4 +22,3 @@ fn packed(value: vec4<f32>) -> u32 {
 fn byte_at(index: u32) -> f32 {
     return f32((input[index/4u] >> ((index%4u)*8u)) & 255u) / 255.0;
 }
-
