@@ -31,6 +31,8 @@ These are identified feature gaps in the newer upstream changes. Smaller behavio
 
 [Xuan](https://github.com/silverling/xuan) is the Linux port linked in [upstream issue #19](https://github.com/robbietilton/Compositor/issues/19#issuecomment-5744154350). The comparison below uses its [README](https://github.com/silverling/xuan/blob/0653436dd3590db926a239b17cc48aa061acbb52/README.md) and [user guide](https://github.com/silverling/xuan/blob/0653436dd3590db926a239b17cc48aa061acbb52/docs/USAGE.md) at `0653436`, not a hands-on benchmark or an audit of every feature.
 
+The README's additional status rows were checked against Xuan at the same revision: [layer data](https://github.com/silverling/xuan/blob/0653436dd3590db926a239b17cc48aa061acbb52/src/document.rs) has no layer-effect stack; [shape kinds](https://github.com/silverling/xuan/blob/0653436dd3590db926a239b17cc48aa061acbb52/src/paint.rs) exclude lines; [blend modes](https://github.com/silverling/xuan/blob/0653436dd3590db926a239b17cc48aa061acbb52/src/blend.rs) exclude Soft Light. [Layer operations and tests](https://github.com/silverling/xuan/blob/0653436dd3590db926a239b17cc48aa061acbb52/src/operations.rs) cover folder duplication and opacity; the [menus](https://github.com/silverling/xuan/blob/0653436dd3590db926a239b17cc48aa061acbb52/src/app/menus.rs) expose selection feathering and the keyboard-shortcuts dialog.
+
 | Area | This fork | Xuan's documented behavior |
 | --- | --- | --- |
 | Project format | Reads and writes original `.comp` packages, with the limits above | Imports `.comp` v1–7; saves `.xuan` |
