@@ -1,0 +1,9 @@
+Rawler 0.7.2, Nikon camera RAW decoding and demosaicing.
+Licensed under LGPL-2.1. License text: Rawler-LGPL-2.1.txt.
+Upstream source: https://github.com/dnglab/dnglab/tree/main/rawler
+Exact crate source: https://crates.io/api/v1/crates/rawler/0.7.2/download
+The crate is unmodified and pinned by version and checksum in Cargo.lock.
+Compositor's complete application source and build instructions are available at
+https://github.com/AugusDogus/Compositor and docs/linux-building.md.
+A locally modified Rawler crate can be relinked by adding a [patch.crates-io]
+rawler path override to Cargo.toml and rebuilding the application.

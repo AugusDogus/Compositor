@@ -11,6 +11,8 @@ impl Action {
                 | Self::SaveAs
                 | Self::ExportPsd
                 | Self::ExportPng
+                | Self::ExportTiff
+                | Self::ExportWebp
                 | Self::ExportJpeg
                 | Self::ExportJpegFile
                 | Self::Import
@@ -20,7 +22,8 @@ impl Action {
 
 impl Editor {
     pub(super) fn can_start_project_operation(&self) -> bool {
-        self.layout_drag.is_none()
+        self.develop.is_none()
+            && self.layout_drag.is_none()
             && self.psd_conversion.is_none()
             && self.errors.is_empty()
             && !self.pending
@@ -35,7 +38,8 @@ impl Editor {
     }
 
     pub(super) fn action_available(&self, action: Action) -> bool {
-        if self.layout_drag.is_some()
+        if self.develop.is_some()
+            || self.layout_drag.is_some()
             || self.psd_conversion.is_some()
             || !self.errors.is_empty()
             || self.pending
@@ -52,6 +56,7 @@ impl Editor {
                     | Action::New
                     | Action::Open
                     | Action::OpenPsd
+                    | Action::OpenRaw
                     | Action::OpenClipboard
                     | Action::Import
                     | Action::Paste
@@ -63,13 +68,21 @@ impl Editor {
         }
         match action {
             action if action.is_project_operation() => self.can_start_project_operation(),
-            Action::New | Action::Open | Action::OpenPsd | Action::CloseTab => {
+            Action::New | Action::Open | Action::OpenPsd | Action::OpenRaw | Action::CloseTab => {
                 self.can_switch_projects()
             }
             Action::OpenClipboard => self.can_switch_projects(),
             Action::Undo => self.can_undo(),
             Action::Redo => self.can_redo(),
             Action::Duplicate => self.can_duplicate_layer(),
+            Action::DevelopRaw | Action::RasterizeRaw => {
+                self.can_edit_layers()
+                    && self
+                        .session()
+                        .document
+                        .active_layer()
+                        .is_some_and(|layer| layer.raw.is_some())
+            }
             Action::ClearGuides => {
                 !self.tools.layout.locked
                     && !self.session().document.guides.is_empty()

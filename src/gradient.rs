@@ -69,6 +69,7 @@ impl Gradient {
             .active_layer_mut()
             .ok_or_else(|| invalid("Select a layer or mask for the gradient."))?;
         if !mask_target {
+            layer.require_rasterized()?;
             crate::raster_extent::expand(layer, [0., 0., canvas[0], canvas[1]])?;
         }
         let transform = if mask_target {

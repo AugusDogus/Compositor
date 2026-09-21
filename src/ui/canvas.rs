@@ -19,6 +19,7 @@ pub(super) enum Gesture {
         end: Point,
         sample_all: bool,
         antialiased: bool,
+        edge_offset: i8,
         mode: SelectionMode,
     },
     Text {
@@ -205,6 +206,31 @@ impl Editor {
         let mouse_down = cx.mouse_down_listener("canvas", |this, event, cx| {
             if event.button == quickgui::MouseButton::Left
                 && event.click_count >= 2
+                && this.tools.tool == Tool::Move
+                && !this.pending
+                && this.modal.is_none()
+                && let Some(bounds) = this.canvas_bounds.bounds()
+            {
+                let (zoom, offset) = this.viewport(bounds.width, bounds.height);
+                let point = [
+                    (event.position.x as f64 - bounds.x as f64 - offset[0]) / zoom,
+                    (event.position.y as f64 - bounds.y as f64 - offset[1]) / zoom,
+                ];
+                if let Some(id) = compositor::transform::pick(&this.session().document, point, true)
+                    && this
+                        .session()
+                        .document
+                        .layer(id)
+                        .is_some_and(|l| l.raw.is_some())
+                {
+                    let result = this.start_develop_layer(id);
+                    this.result(result, cx);
+                    cx.prevent_default();
+                    return;
+                }
+            }
+            if event.button == quickgui::MouseButton::Left
+                && event.click_count >= 2
                 && this.tools.tool == Tool::Polygon
                 && this.tools.polygon.is_some()
                 && !this.pending
@@ -216,7 +242,11 @@ impl Editor {
             }
         });
         let pointer = cx.pointer_listener("canvas", move |this, event, cx| {
-            if this.pending || this.psd_conversion.is_some() || this.layout_drag.is_some() {
+            if this.develop.is_some()
+                || this.pending
+                || this.psd_conversion.is_some()
+                || this.layout_drag.is_some()
+            {
                 return;
             }
             if this.space_pan || matches!(this.gesture, Some(Gesture::Pan)) {

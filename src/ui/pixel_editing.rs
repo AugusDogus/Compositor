@@ -15,6 +15,7 @@ impl Editor {
                         layer.mask.as_ref().is_some_and(|mask| mask.enabled)
                     } else {
                         matches!(layer.content, compositor::document::LayerContent::Raster(_))
+                            && layer.raw.is_none()
                     }
             })
     }

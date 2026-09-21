@@ -1,5 +1,5 @@
 mod downsample;
-mod gpu;
+pub(crate) mod gpu;
 pub use downsample::DownsampleCache;
 
 use crate::{

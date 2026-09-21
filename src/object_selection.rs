@@ -1,5 +1,6 @@
 //! Point-prompt object selection and whole-subject selection use separate models.
 mod inference;
+mod refinement;
 use crate::{
     Result,
     document::Document,
@@ -21,6 +22,8 @@ pub struct Settings {
     pub target: Target,
     pub sample_all: bool,
     pub antialiased: bool,
+    /// Signed object edge adjustment in pixels, positive contracts, negative expands.
+    pub edge_offset: i8,
     pub mode: SelectionMode,
 }
 struct Cached {
@@ -89,7 +92,12 @@ fn detect_subject(document: &Document, sample_all: bool) -> Result<Arc<GrayImage
     });
     Ok(mask)
 }
-fn validate_target(document: &Document, target: Target) -> Result<()> {
+fn validate_settings(document: &Document, settings: Settings) -> Result<()> {
+    if !(-10..=10).contains(&settings.edge_offset) {
+        return Err(invalid(
+            "Object edge adjustment must be between -10 and 10 pixels. The current selection is unchanged.",
+        ));
+    }
     let valid_point = |point: Point, edge: bool| {
         point
             .iter()
@@ -104,7 +112,7 @@ fn validate_target(document: &Document, target: Target) -> Result<()> {
                     }
             })
     };
-    let valid = match target {
+    let valid = match settings.target {
         Target::Subject => true,
         Target::Object(point) => valid_point(point, false),
         Target::ObjectBox { start, end } => {
@@ -126,19 +134,23 @@ pub fn shutdown() {
     inference::shutdown();
 }
 /// Apply an inferred object or subject mask, including source alpha coverage.
-/// This does not infer an object from a foreground component or alter its mask.
+/// Object masks receive edge adjustment and optional geometric smoothing before combining.
 pub fn select_from_mask(
     document: &mut Document,
     mask: &GrayImage,
     settings: Settings,
 ) -> Result<()> {
-    validate_target(document, settings.target)?;
+    validate_settings(document, settings)?;
+    crate::document::validate_size(document.width, document.height)?;
     if mask.dimensions() != (document.width, document.height) {
         return Err(invalid(
             "The selection mask does not match the canvas size. Retry selection on the current document.",
         ));
     }
-    let next = if mask.pixels().any(|p| {
+
+    let next = if !matches!(settings.target, Target::Subject) {
+        refinement::selection(mask, settings.edge_offset, settings.antialiased)?
+    } else if mask.pixels().any(|p| {
         if settings.antialiased {
             p[0] > 0
         } else {
@@ -170,7 +182,7 @@ pub fn select_from_mask(
     Ok(())
 }
 pub fn select(document: &mut Document, settings: Settings) -> Result<()> {
-    validate_target(document, settings.target)?;
+    validate_settings(document, settings)?;
     match settings.target {
         Target::Subject => {
             let mask = detect_subject(document, settings.sample_all)?;

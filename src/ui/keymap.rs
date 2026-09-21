@@ -179,6 +179,7 @@ pub(super) fn definitions() -> Vec<Definition> {
         ("Lasso", "L"),
         ("Magic Wand", "W"),
         ("Object Selection", "O"),
+        ("Toggle Wand / Object", "Tab"),
         ("Crop", "C"),
         ("Brush", "B"),
         ("Eraser", "E"),

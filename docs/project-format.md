@@ -32,3 +32,9 @@ Version 7 adds adjustment layers. It also carries additive shape, editable text 
 Version 8 adds document `guides`, an array of `{ "id": "UUID", "axis": "horizontal" | "vertical", "position": number }`. Positions are document pixels. At most 1,000 guides are accepted, with unique IDs and finite positions within ±1,000,000. Nonempty guides require v8. Visibility, locking, grid and snapping preferences are session-only. Files without guides continue to save as v7.
 
 PSD is an interchange format, not the native project format. Unsupported editable content is reported and rasterized during conversion; saving `.comp` preserves Linux's editable metadata.
+
+## Linux RAW extension
+
+Editable RAW layers keep cached PNGs in the ordinary v7/v8 manifest. An optional `linux-raw.json` sidecar uses version 1 and contains layer UUIDs, source UUIDs and validated camera metadata/development settings. Source UUIDs map exclusively to `raw/<UUID>.raw` inside the package. Sources shared by duplicated layers are written once and loaded into shared memory; their development settings remain independent. Unique sources have a combined 512 MiB limit, and sidecar metadata has a 4 MiB limit.
+
+The loader rejects missing layers, duplicate records, invalid settings, nonregular/outside-package sources and excessive allocations. Saves stage source bytes and metadata with the rest of the project before the atomic directory replacement. Other readers can display the cached PNGs, but a save by an application unaware of this Linux extension may discard RAW editability.

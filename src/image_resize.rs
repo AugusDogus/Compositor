@@ -1,7 +1,7 @@
 use crate::{
     Result,
     document::{Document, LayerContent, validate_size},
-    geometry::{Sampling, Transform},
+    geometry::{Point, Sampling, Transform},
     invalid,
     resample::RasterSampler,
 };
@@ -30,9 +30,23 @@ pub fn resize(
     validate_size(width, height)?;
     let sx = width as f64 / doc.width as f64;
     let sy = height as f64 / doc.height as f64;
+    // A rotated nonuniform resize can introduce shear, which the editable RAW
+    // placement cannot represent. Check before changing any layer.
+    for layer in &doc.layers {
+        if layer.raw.is_some() {
+            raw_placement(layer.transform, [sx, sy], sampling)?;
+        }
+    }
     let old_canvas = Transform::new(doc.width, doc.height);
     let new_canvas = Transform::new(width, height);
     for layer in &mut doc.layers {
+        if layer.raw.is_some() {
+            layer.transform = raw_placement(layer.transform, [sx, sy], sampling)?;
+            if let Some(placement) = layer.mask.as_mut().and_then(|mask| mask.placement.as_mut()) {
+                *placement = placement.following(old_canvas, new_canvas);
+            }
+            continue;
+        }
         let old = Transform {
             sampling,
             ..layer.transform
@@ -89,6 +103,34 @@ pub fn resize(
     doc.resolution = resolution;
     doc.selection = None;
     Ok(())
+}
+
+fn raw_placement(old: Transform, [sx, sy]: Point, sampling: Sampling) -> Result<Transform> {
+    let (sin, cos) = old.rotation.to_radians().sin_cos();
+    let x = [cos * sx, sin * sy];
+    let y = [-sin * sx, cos * sy];
+    let x_length = x[0].hypot(x[1]);
+    let y_length = y[0].hypot(y[1]);
+    if (x[0] * y[0] + x[1] * y[1]).abs() > 1e-10 * x_length * y_length {
+        return Err(invalid(
+            "Resizing a rotated RAW layer with different horizontal and vertical scales would shear its source. Use proportional dimensions, or choose Layer > Rasterize RAW Layer first. The current image is unchanged.",
+        ));
+    }
+    let size = [old.size[0] * x_length, old.size[1] * y_length];
+    let center = old.point([0.5, 0.5]);
+    let next = Transform {
+        origin: [center[0] * sx - size[0] / 2., center[1] * sy - size[1] / 2.],
+        size,
+        rotation: x[1].atan2(x[0]).to_degrees(),
+        sampling,
+        ..old
+    };
+    if !next.valid() {
+        return Err(invalid(
+            "Resizing would move the RAW layer outside supported bounds. Choose smaller dimensions; the current image is unchanged.",
+        ));
+    }
+    Ok(next)
 }
 
 #[cfg(test)]

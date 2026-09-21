@@ -41,6 +41,7 @@ impl Editor {
             return false;
         };
         match command {
+            Command::Edit(Action::DevelopRaw | Action::RasterizeRaw) => layer.raw.is_some(),
             Command::Edit(Action::AddMask | Action::HideMask) => layer.mask.is_none(),
             Command::Edit(Action::ToggleMask | Action::DeleteMask) => layer.mask.is_some(),
             Command::Edit(Action::Clip) => layer.clip_source.is_some(),

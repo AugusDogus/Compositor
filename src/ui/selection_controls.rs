@@ -4,6 +4,12 @@ use super::*;
 use compositor::selection::SelectionMode;
 
 impl Editor {
+    pub(super) fn object_edge_control(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        div().flex_row().items_center().gap(6.).flex_shrink_0()
+            .tooltip("Adjust each detected object before adding or subtracting it: positive contracts, negative expands")
+            .child(Self::tool_header_control("Edge"))
+            .child(Self::unit_suffix(self.brush_value(cx, "object-edge-offset", Scalar::ObjectEdge, (-10., 10.)).text_right().w(40.), "px"))
+    }
     pub(super) fn displayed_selection_mode(&self) -> SelectionMode {
         if let Some(draft) = &self.tools.polygon {
             return draft.mode;

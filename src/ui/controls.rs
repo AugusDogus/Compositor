@@ -378,6 +378,9 @@ impl Editor {
                         })),
                 );
             }
+            if self.tools.tool == Tool::Object {
+                bar = bar.child(self.object_edge_control(cx));
+            }
             bar = bar.child(self.selection_modify_controls(cx));
         }
 

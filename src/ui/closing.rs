@@ -17,6 +17,11 @@ pub(super) enum CloseProgress {
 
 impl Editor {
     pub(super) fn request_close(&mut self, intent: CloseIntent, cx: &mut EventContext) {
+        if self.develop.is_some() {
+            self.show_error(alerts::Operation::RawDevelop, "Choose Develop to keep the RAW edit, or Cancel to discard it, before closing. Your existing project and camera file are unchanged.");
+            cx.invalidate();
+            return;
+        }
         if !self.can_switch_projects() {
             return;
         }

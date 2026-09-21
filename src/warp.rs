@@ -55,6 +55,7 @@ impl WarpStroke {
         let layer = doc
             .active_layer()
             .ok_or_else(|| invalid("Select a pixel layer to smudge or liquify."))?;
+        layer.require_rasterized()?;
         let source = layer
             .raster()
             .ok_or_else(|| invalid("Smudge and Liquify require an existing pixel layer."))?;

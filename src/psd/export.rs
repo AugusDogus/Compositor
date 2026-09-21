@@ -31,6 +31,9 @@ pub fn export_report(doc: &Document) -> ConversionReport {
         if layer.text.is_some() {
             report.note(format!("{}: editable text is rasterized.", layer.name));
         }
+        if layer.raw.is_some() {
+            report.note(format!("{}: RAW development is exported as cached pixels; the camera source and settings remain in the native project.", layer.name));
+        }
         if layer
             .effects
             .as_ref()

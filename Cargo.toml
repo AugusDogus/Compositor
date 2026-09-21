@@ -1,6 +1,6 @@
 [package]
 name = "compositor"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.94"
 license = "MIT"
@@ -42,6 +42,9 @@ tiny-skia = { version = "0.11.4", default-features = false, features = ["std", "
 resvg = { version = "=0.46.0", default-features = false }
 i_overlay = "=8.1.2"
 ag-psd = "=0.3.0"
+
+rawler = "=0.7.2"
+rayon = "1.11"
 
 [build-dependencies]
 cc = "1"

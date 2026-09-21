@@ -85,7 +85,8 @@ impl Editor {
     }
 
     pub(super) fn can_edit_layers(&self) -> bool {
-        self.layout_drag.is_none()
+        self.develop.is_none()
+            && self.layout_drag.is_none()
             && self.psd_conversion.is_none()
             && self.has_document()
             && !self.pending

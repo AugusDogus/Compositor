@@ -43,3 +43,9 @@ cargo test --locked -- --test-threads=4
 Hardware-specific and external-fixture tests are explicitly ignored in the ordinary suite. They require a GPU, inference models or the documented image fixtures. See [implementation and verification](linux-port.md#verification).
 
 For distributable builds, follow [AppImage builds and releases](linux-releases.md).
+
+## RAW decoder and rebuilding
+
+Nikon NEF/NRW decoding uses Rawler 0.7.2, linked into the application under LGPL-2.1. Its source revision is pinned by the crate checksum in `Cargo.lock`; [source and license details](../licenses/Rawler-NOTICE.txt) accompany packaged builds.
+
+To use a modified Rawler, unpack the [exact crate source](https://crates.io/api/v1/crates/rawler/0.7.2/download), make your changes, and add `rawler = { path = "/absolute/path/to/rawler-0.7.2" }` to the existing `[patch.crates-io]` table in `Cargo.toml`. Run `cargo update -p rawler` to record the local override, then `cargo build --release`. This rebuilds and relinks the complete editor with your decoder. The source repository contains the application source, build scripts and dependency lockfile needed for this process.

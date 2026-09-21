@@ -533,6 +533,7 @@ pub fn copy_to_project(
                 layer.content = LayerContent::Raster(Some(Arc::new(pixels)));
                 layer.shape = None;
                 layer.text = None;
+                layer.raw = None;
             }
             layer.clip_source = None;
         }

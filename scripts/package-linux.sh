@@ -34,6 +34,9 @@ install -Dm644 vendor/quickgui/LICENSE-APACHE "$bundle_dir/licenses/quickgui/LIC
 install -Dm644 vendor/quickgui/THIRD_PARTY_NOTICES.md "$bundle_dir/licenses/quickgui/THIRD_PARTY_NOTICES.md"
 install -Dm644 assets/icons/LICENSE "$bundle_dir/licenses/lucide/LICENSE"
 install -Dm644 assets/fonts/INTER-LICENSE.txt "$bundle_dir/licenses/inter/LICENSE.txt"
+for notice in licenses/*; do
+    install -Dm644 "$notice" "$bundle_dir/licenses/$(basename "$notice")"
+done
 mkdir -p dist
 tar -C "$stage_dir" -czf "dist/$package_name.tar.gz" "$package_name"
 printf 'Created %s/dist/%s.tar.gz\n' "$project_root" "$package_name"

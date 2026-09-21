@@ -93,14 +93,23 @@ impl Editor {
     }
 
     pub(super) fn menu_available(&self, command: Command) -> bool {
-        if !self.errors.is_empty() || self.pending || self.gesture.is_some() {
+        if self.develop.is_some()
+            || !self.errors.is_empty()
+            || self.pending
+            || self.gesture.is_some()
+        {
             return false;
         }
         if matches!(
             command,
             Command::Quit
                 | Command::Edit(
-                    Action::New | Action::Open | Action::OpenClipboard | Action::CloseTab
+                    Action::New
+                        | Action::Open
+                        | Action::OpenRaw
+                        | Action::OpenPsd
+                        | Action::OpenClipboard
+                        | Action::CloseTab
                 )
         ) {
             return self.can_switch_projects();
@@ -120,6 +129,8 @@ impl Editor {
                 | Command::Edit(
                     Action::New
                         | Action::Open
+                        | Action::OpenRaw
+                        | Action::OpenPsd
                         | Action::OpenClipboard
                         | Action::Import
                         | Action::Paste
@@ -149,6 +160,9 @@ impl Editor {
         let doc = &self.session().document;
         let layer = doc.active_layer();
         match command {
+            Command::Edit(Action::DevelopRaw | Action::RasterizeRaw) => {
+                self.can_edit_layers() && layer.is_some_and(|layer| layer.raw.is_some())
+            }
             Command::Edit(Action::InvertPixels) => self.can_invert(),
             Command::Edit(Action::Fill | Action::FillBackground) => self.can_edit_pixels(),
             Command::Edit(Action::Clear) => self.can_edit_pixels() && doc.selection.is_some(),

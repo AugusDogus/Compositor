@@ -15,6 +15,7 @@ pub fn apply(
     selection: Option<&Selection>,
 ) -> Result<()> {
     settings.validate()?;
+    layer.require_rasterized()?;
     let source = layer
         .raster()
         .ok_or_else(|| invalid("Select a layer containing pixels to adjust its colors."))?;

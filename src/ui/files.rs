@@ -6,12 +6,17 @@ impl Editor {
     pub(super) fn file_action(&mut self, action: Action, cx: &mut EventContext) {
         let operation = alerts::Operation::for_action(action);
         match action {
-            Action::Open | Action::OpenPsd | Action::Import => {
+            Action::Open | Action::OpenPsd | Action::OpenRaw | Action::Import => {
                 let options = if matches!(action, Action::Open) {
                     PathPromptOptions::new()
                         .files(false)
                         .directories(true)
                         .title("Open Project")
+                } else if matches!(action, Action::OpenRaw) {
+                    PathPromptOptions::new()
+                        .multiple(true)
+                        .title("Open Nikon RAW")
+                        .filters([file_filter("Nikon RAW", &["nef", "nrw"])])
                 } else if matches!(action, Action::OpenPsd) {
                     PathPromptOptions::new()
                         .title("Open Photoshop Document")
@@ -24,6 +29,7 @@ impl Editor {
                             "Images",
                             &[
                                 "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp", "psd",
+                                "nef", "nrw",
                             ],
                         )])
                 };
@@ -42,6 +48,7 @@ impl Editor {
                 }
             }
             Action::ExportPsd => self.prepare_psd_export(),
+            Action::ExportTiff | Action::ExportWebp => self.prompt_raster_export(action, cx),
             Action::Save if self.session().path.is_some() => {
                 if let Some(path) = self.session().path.clone() {
                     self.save_to(path, cx);
@@ -128,6 +135,28 @@ impl Editor {
         }
     }
 
+    fn prompt_raster_export(&mut self, action: Action, cx: &mut EventContext) {
+        let (dialog, name) = match action {
+            Action::ExportTiff => (SaveDialog::Tiff, "TIFF"),
+            Action::ExportWebp => (SaveDialog::Webp, "WebP"),
+            _ => return,
+        };
+        let operation = alerts::Operation::for_action(action);
+        let options = dialog.options(self.session().path.as_deref());
+        let document = self.session().committed_document().clone();
+        match cx.prompt_for_new_path(options) {
+            Ok(response) => self.await_response(cx, operation, response, move |this, result, _| match result {
+                Ok(Some(path)) => match dialog.destination(path) {
+                    Ok(path) => this.queue_file(super::file_jobs::FileJob::Export { document, path, quality: 100 }),
+                    Err(error) => this.show_error(operation, error.to_string()),
+                },
+                Ok(None) => this.status = format!("{name} export cancelled. Your edits are still open."),
+                Err(error) => this.show_error(operation, format!("{name} export dialog failed: {error}. Your edits are still open. Choose Export {name} to retry.")),
+            }),
+            Err(error) => self.show_error(operation, format!("Could not open the {name} export dialog: {error}. Your edits are still open. Choose Export {name} to retry.")),
+        }
+    }
+
     pub(super) fn prompt_psd_path(&mut self, document: Document, cx: &mut EventContext) {
         let operation = alerts::Operation::ExportPsd;
         let options = SaveDialog::Psd.options(self.session().path.as_deref());
@@ -183,7 +212,7 @@ impl Editor {
         self.changed(cx);
     }
 
-    fn await_response<T: 'static>(
+    pub(super) fn await_response<T: 'static>(
         &mut self,
         cx: &mut EventContext,
         operation: alerts::Operation,

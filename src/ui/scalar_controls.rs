@@ -23,6 +23,7 @@ pub(super) enum Scalar {
     ShapeRadius,
     ShapeLineWidth,
     WandTolerance,
+    ObjectEdge,
     SelectionExpand,
     SelectionContract,
     SelectionFeather,
@@ -44,6 +45,7 @@ impl Scalar {
             Self::ShapeRadius => editor.tools.shape_radius,
             Self::ShapeLineWidth => editor.tools.shape_line_width,
             Self::WandTolerance => f64::from(editor.tools.wand_tolerance),
+            Self::ObjectEdge => f64::from(editor.tools.object_edge_offset),
             Self::SelectionExpand => f64::from(editor.tools.selection_expand_amount),
             Self::SelectionContract => f64::from(editor.tools.selection_contract_amount),
             Self::SelectionFeather => f64::from(editor.tools.selection_feather_amount),
@@ -84,6 +86,9 @@ impl Scalar {
             Self::ShapeRadius => editor.tools.shape_radius = value.round(),
             Self::ShapeLineWidth => editor.tools.shape_line_width = value.round(),
             Self::WandTolerance => editor.tools.wand_tolerance = value.round() as u8,
+            Self::ObjectEdge => {
+                editor.tools.object_edge_offset = value.round().clamp(-10., 10.) as i8
+            }
             Self::SelectionExpand => editor.tools.selection_expand_amount = value.round() as u16,
             Self::SelectionFeather => editor.tools.selection_feather_amount = value.round() as u16,
             Self::SelectionContract => {

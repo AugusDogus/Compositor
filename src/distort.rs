@@ -114,6 +114,11 @@ pub fn apply(
     let warp = Mapping::new(corners)?;
     let ids = transform::target_ids(doc);
     let mask_target = mask_target && doc.selected.len() == 1;
+    for layer in doc.layers.iter().filter(|layer| ids.contains(&layer.id)) {
+        if !(mask_target && layer.mask.as_ref().is_some_and(|mask| !mask.linked)) {
+            layer.require_rasterized()?;
+        }
+    }
     for layer in doc.layers.iter_mut().filter(|l| ids.contains(&l.id)) {
         let mask_only = mask_target && layer.mask.as_ref().is_some_and(|m| !m.linked);
         let old = if mask_only {

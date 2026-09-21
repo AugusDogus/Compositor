@@ -3,6 +3,7 @@
 mod adjustments;
 pub(super) mod effects;
 pub(super) mod gaussian;
+pub(crate) mod raw;
 pub(super) mod resize;
 mod scene;
 #[cfg(test)]

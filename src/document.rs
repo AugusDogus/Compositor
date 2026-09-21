@@ -91,6 +91,7 @@ pub struct Layer {
     pub clip_source: Option<Uuid>,
     pub shape: Option<Shape>,
     pub text: Option<crate::text::Text>,
+    pub raw: Option<Arc<crate::raw::RawAsset>>,
     pub effects: Option<crate::effects::LayerEffects>,
 }
 
@@ -184,6 +185,7 @@ impl Layer {
             clip_source: None,
             shape: None,
             text: None,
+            raw: None,
             effects: None,
         }
     }
@@ -195,6 +197,15 @@ impl Layer {
     }
     pub fn is_group(&self) -> bool {
         matches!(self.content, LayerContent::Group)
+    }
+    /// Pixel edits require explicitly discarding the editable camera source first.
+    pub fn require_rasterized(&self) -> Result<()> {
+        if self.raw.is_some() {
+            return Err(invalid(
+                "This is an editable RAW layer. Choose Layer > Rasterize RAW Layer before editing its pixels, or paint on a separate layer. The RAW source and current image are unchanged.",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -306,6 +317,8 @@ impl Document {
         }
         let mut pixels = 0_u64;
         let mut mask_pixels = 0_u64;
+        let mut raw_sources = HashSet::new();
+        let mut raw_bytes = 0_u64;
         for layer in &self.layers {
             if let Some(text) = &layer.text {
                 text.validate()?;
@@ -336,6 +349,22 @@ impl Document {
                 && (!shape.valid() || layer.raster().is_none())
             {
                 return Err(invalid("Shape metadata is invalid or has no raster asset."));
+            }
+            if let Some(raw) = &layer.raw {
+                if layer.raster().is_none() || layer.text.is_some() || layer.shape.is_some() {
+                    return Err(invalid(
+                        "An editable RAW layer requires cached pixels and cannot also be a shape or text layer.",
+                    ));
+                }
+                raw.validate()?;
+                if raw_sources.insert(Arc::as_ptr(&raw.bytes)) {
+                    raw_bytes += raw.bytes.len() as u64;
+                    if raw_bytes > crate::raw::MAX_RAW_BYTES {
+                        return Err(invalid(
+                            "The project's embedded RAW sources exceed 512 MiB.",
+                        ));
+                    }
+                }
             }
             if let LayerContent::Adjustment(adjustment) = &layer.content {
                 adjustment.validate()?;

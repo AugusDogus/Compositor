@@ -203,6 +203,7 @@ pub fn distorted_preview(
             layer.mask = warped.mask.clone();
             layer.effects = None;
             layer.text = None;
+            layer.raw = None;
             layer.shape = None;
         }
     }

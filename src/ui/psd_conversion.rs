@@ -214,6 +214,7 @@ mod tests {
                 center: Some([20., 30.]),
                 projects: vec![],
                 psds: vec![("Imported PSD".into(), imported())],
+                raws: Vec::new(),
             }),
             report: ConversionReport::default(),
         });

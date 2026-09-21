@@ -147,6 +147,7 @@ pub fn delete_selected(doc: &mut Document, mode: DeleteMode) -> Result<()> {
                 layer.content = LayerContent::Raster(Some(pixels));
                 layer.shape = None;
                 layer.text = None;
+                layer.raw = None;
             }
         }
     }

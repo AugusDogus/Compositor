@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 pub(super) enum OpenedProject {
     Existing(Uuid),
+    Raw(PathBuf),
     Psd(compositor::psd::Imported),
     Loaded {
         document: Box<Document>,
@@ -26,6 +27,9 @@ impl OpenedProject {
                 document: Box::new(project::load(&path)?),
                 path: Some(path),
             });
+        }
+        if compositor::raw::is_raw(&path) {
+            return Ok(Self::Raw(path));
         }
         if compositor::psd::is_psd(&path)? {
             return Ok(Self::Psd(compositor::psd::load(&path)?));
@@ -55,6 +59,10 @@ impl Editor {
                 project => project,
             };
             let index = match project {
+                OpenedProject::Raw(path) => {
+                    self.queue_raw(path, raw_develop::Target::New);
+                    continue;
+                }
                 OpenedProject::Psd(_) => {
                     return Err(compositor::invalid("PSD conversion was not resolved."));
                 }

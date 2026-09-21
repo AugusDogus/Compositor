@@ -25,6 +25,11 @@ fn object_shortcuts_modes_and_sampling_are_exposed() {
         cx.read(view, |e| e.tools.selection_mode).unwrap(),
         SelectionMode::Add
     );
+    cx.focus(window, "workspace").unwrap();
+    cx.simulate_keystrokes(window, "tab").unwrap();
+    assert_eq!(cx.read(view, |e| e.tools.tool).unwrap(), Tool::Wand);
+    cx.simulate_keystrokes(window, "tab").unwrap();
+    assert_eq!(cx.read(view, |e| e.tools.tool).unwrap(), Tool::Object);
     cx.simulate_keystrokes(window, "w").unwrap();
     assert_eq!(cx.read(view, |e| e.tools.tool).unwrap(), Tool::Wand);
     cx.simulate_keystrokes(window, "w").unwrap();
@@ -37,12 +42,14 @@ fn object_click_queues_inference_and_completion_is_undoable() {
     editor.tools.tool = Tool::Object;
     editor.session_mut().fit = false;
     editor.session_mut().zoom = 1.;
+    editor.tools.object_edge_offset = -3;
     let before = editor.session().document.clone();
     let p = Point::new(30., 40.);
     object_pointer(&mut editor, PointerPhase::Down, p, p, Modifiers::SHIFT);
     assert!(editor.job.is_none());
     assert!(!editor.pending);
     assert_eq!(editor.session().document, before);
+    editor.tools.object_edge_offset = 5;
     object_pointer(&mut editor, PointerPhase::Up, p, p, Modifiers::empty());
     let job = editor.job.take().unwrap();
     let completion = job.completion();
@@ -55,6 +62,7 @@ fn object_click_queues_inference_and_completion_is_undoable() {
             target: Target::Object([30., 40.]),
             sample_all: true,
             antialiased: true,
+            edge_offset: -3,
             mode: SelectionMode::Add
         }
     );
@@ -232,4 +240,28 @@ fn object_click_jitter_keeps_point_prompt_even_inside_existing_selection() {
         panic!("Object click job was not queued");
     };
     assert_eq!(settings.target, Target::Object([30., 40.]));
+}
+
+#[test]
+fn object_edge_control_clamps_signed_values_and_text_tab_does_not_switch_tools() {
+    let editor = object_editor();
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("Object edge").size(1500., 900.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    for (input, expected) in [("-4", -4), ("-99", -10), ("99", 10)] {
+        cx.focus(window, "object-edge-offset").unwrap();
+        cx.simulate_keystrokes(window, "ctrl-a").unwrap();
+        cx.simulate_input(window, input).unwrap();
+        assert_eq!(
+            cx.read(view, |e| e.tools.object_edge_offset).unwrap(),
+            expected
+        );
+    }
+    cx.simulate_keystrokes(window, "tab").unwrap();
+    assert_eq!(cx.read(view, |e| e.tools.tool).unwrap(), Tool::Object);
+    cx.focus(window, "workspace").unwrap();
+    cx.simulate_keystrokes(window, "tab").unwrap();
+    assert_eq!(cx.read(view, |e| e.tools.tool).unwrap(), Tool::Wand);
+    assert!(cx.element_bounds(window, "object-edge-offset").is_err());
 }

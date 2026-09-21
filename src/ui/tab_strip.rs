@@ -63,7 +63,8 @@ impl Editor {
     // ProjectWorkspace.canSwitch permits an ordinary layer transform, which
     // commits on switching, but keeps gradient and floating-pixel drafts open.
     pub(super) fn can_switch_projects(&self) -> bool {
-        self.layout_drag.is_none()
+        self.develop.is_none()
+            && self.layout_drag.is_none()
             && self.psd_conversion.is_none()
             && self.errors.is_empty()
             && !self.pending

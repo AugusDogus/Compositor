@@ -42,6 +42,7 @@ pub(super) enum Completed {
         center: Option<compositor::geometry::Point>,
         projects: Vec<OpenedProject>,
         psds: Vec<(String, compositor::psd::Imported)>,
+        raws: Vec<PathBuf>,
     },
     Saved {
         session: Uuid,
@@ -59,7 +60,16 @@ impl FileJob {
             Self::Open(_) => alerts::Operation::Open,
             Self::Import { .. } => alerts::Operation::Import,
             Self::Save { .. } => alerts::Operation::Save,
-            Self::Export { .. } => alerts::Operation::ExportPng,
+            Self::Export { path, .. } => match path
+                .extension()
+                .and_then(|s| s.to_str())
+                .map(str::to_ascii_lowercase)
+                .as_deref()
+            {
+                Some("tif" | "tiff") => alerts::Operation::ExportTiff,
+                Some("webp") => alerts::Operation::ExportWebp,
+                _ => alerts::Operation::ExportPng,
+            },
             Self::ExportPsd { .. } => alerts::Operation::ExportPsd,
             Self::ExportJpeg { .. } => alerts::Operation::ExportJpeg,
         }
@@ -104,10 +114,13 @@ impl FileJob {
             } => {
                 let mut layers = Vec::new();
                 let mut psds = Vec::new();
+                let mut raws = Vec::new();
                 let mut projects = Vec::new();
                 for path in paths {
                     if path.is_dir() || open.iter().any(|(_, saved)| *saved == path) {
                         projects.push(OpenedProject::load(path, open)?);
+                    } else if compositor::raw::is_raw(&path) {
+                        raws.push(path);
                     } else if compositor::psd::is_psd(&path)? {
                         let name = path
                             .file_stem()
@@ -125,6 +138,7 @@ impl FileJob {
                     center,
                     projects,
                     psds,
+                    raws,
                 })
             }
             Self::Save {
@@ -252,7 +266,17 @@ impl Editor {
                 center,
                 projects,
                 psds,
+                raws,
             } => {
+                for path in raws {
+                    self.queue_raw(
+                        path,
+                        raw_develop::Target::Insert {
+                            tab: session,
+                            center,
+                        },
+                    );
+                }
                 self.apply_psd_imports(session, psds, center)?;
                 let destination =
                     self.tabs

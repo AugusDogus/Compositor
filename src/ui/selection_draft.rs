@@ -224,6 +224,7 @@ mod tests {
                         end: [140.5, 110.5],
                         sample_all: true,
                         antialiased: true,
+                        edge_offset: 0,
                         mode: SelectionMode::Replace,
                     }
                 } else {

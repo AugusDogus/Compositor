@@ -128,14 +128,34 @@ impl Editor {
             }
             Action::Open
             | Action::OpenPsd
+            | Action::OpenRaw
             | Action::Import
             | Action::Save
             | Action::SaveAs
             | Action::ExportPng
+            | Action::ExportTiff
+            | Action::ExportWebp
             | Action::ExportPsd => {
                 self.file_action(action, cx);
                 Ok(())
             }
+            Action::DevelopRaw => {
+                let id = self
+                    .session()
+                    .document
+                    .active
+                    .ok_or_else(|| invalid("Select a RAW layer to develop."));
+                id.and_then(|id| self.start_develop_layer(id))
+            }
+            Action::RasterizeRaw => self.session_mut().edit("Rasterize RAW Layer", |doc| {
+                let layer = doc
+                    .active_layer_mut()
+                    .ok_or_else(|| invalid("Select a RAW layer to rasterize."))?;
+                if layer.raw.take().is_none() {
+                    return Err(invalid("The selected layer has no editable RAW source."));
+                }
+                Ok(())
+            }),
             Action::Undo => {
                 self.undo_document();
                 Ok(())
@@ -273,6 +293,7 @@ impl Editor {
                 self.queue(jobs::Job::SelectForeground(
                     compositor::object_selection::Settings {
                         target: compositor::object_selection::Target::Subject,
+                        edge_offset: 0,
                         sample_all: self.tools.object_sample_all,
                         antialiased: self.tools.selection_antialiased,
                         mode: self.tools.selection_mode,
@@ -607,6 +628,21 @@ impl Editor {
             cx.prevent_default();
             let result = self.step_blend(matches!(c.as_str(), "+" | "="));
             self.result(result, cx);
+            return;
+        }
+        if *key == Key::Tab
+            && modifiers.is_empty()
+            && matches!(self.tools.tool, Tool::Wand | Tool::Object)
+        {
+            cx.prevent_default();
+            self.select_tool(
+                if self.tools.tool == Tool::Wand {
+                    Tool::Object
+                } else {
+                    Tool::Wand
+                },
+                cx,
+            );
             return;
         }
         let action = match key {

@@ -83,6 +83,9 @@ impl Stroke {
         let layer = doc
             .active_layer()
             .ok_or_else(|| invalid("Select a layer before painting."))?;
+        if !mask {
+            layer.require_rasterized()?;
+        }
         if !(1. ..=5000.).contains(&brush.diameter)
             || !(0. ..=1.).contains(&brush.hardness)
             || !(0. ..=1.).contains(&brush.opacity)

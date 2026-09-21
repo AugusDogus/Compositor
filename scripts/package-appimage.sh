@@ -43,6 +43,9 @@ install -Dm644 Compositor/Assets.xcassets/AppIcon.appiconset/app-icon-256.png "$
 install -Dm644 LICENSE "$app_dir/usr/share/licenses/compositor/LICENSE"
 install -Dm644 assets/fonts/INTER-LICENSE.txt "$app_dir/usr/share/licenses/compositor/Inter.txt"
 install -Dm644 assets/icons/LICENSE "$app_dir/usr/share/licenses/compositor/Lucide.txt"
+for notice in licenses/*; do
+    install -Dm644 "$notice" "$app_dir/usr/share/licenses/compositor/$(basename "$notice")"
+done
 for notice in LICENSE-MIT LICENSE-APACHE THIRD_PARTY_NOTICES.md; do
     install -Dm644 "vendor/quickgui/$notice" "$app_dir/usr/share/licenses/compositor/quickgui/$notice"
 done

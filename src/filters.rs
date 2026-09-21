@@ -85,6 +85,7 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
         mask.pixels = Arc::new(result);
         return Ok(());
     }
+    layer.require_rasterized()?;
     let mut expanded = layer.clone();
     if matches!(filter, Filter::ContentFill) {
         let bounds = selection

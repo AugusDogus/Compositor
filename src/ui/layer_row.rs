@@ -19,6 +19,8 @@ impl Editor {
             compositor::document::LayerContent::Adjustment(_)
         ) {
             "Adjustment · Double-click to edit".into()
+        } else if layer.raw.is_some() {
+            "RAW · Double-click to develop".into()
         } else if layer.text.is_some() {
             "Text · Double-click to edit".into()
         } else if layer.is_group() {
@@ -144,6 +146,15 @@ impl Editor {
             }
             this.tools.mask_target = false;
             if event.click_count == 2
+                && this
+                    .session()
+                    .document
+                    .layer(id)
+                    .is_some_and(|l| l.raw.is_some())
+            {
+                let result = this.start_develop_layer(id);
+                this.result(result, cx);
+            } else if event.click_count == 2
                 && this
                     .session()
                     .document

@@ -29,6 +29,7 @@ fn packaged_object_selection() {
             },
             sample_all: true,
             antialiased: true,
+            edge_offset: 0,
             mode: crate::selection::SelectionMode::Replace,
         },
     )

@@ -29,7 +29,7 @@ impl Editor {
                     && if self.tools.mask_target {
                         layer.mask.as_ref().is_some_and(|mask| mask.enabled)
                     } else {
-                        layer.raster().is_some()
+                        layer.raster().is_some() && layer.raw.is_none()
                     }
             })
     }
@@ -62,6 +62,9 @@ fn invert_pixels(doc: &mut Document, mask_target: bool) -> Result<()> {
     let layer = doc
         .active_layer_mut()
         .ok_or_else(|| invalid("Select a pixel layer."))?;
+    if !mask_target {
+        layer.require_rasterized()?;
+    }
     let t = layer.transform;
     if mask_target {
         let pixel_size = layer

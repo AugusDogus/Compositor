@@ -19,6 +19,9 @@ pub struct FloatingPixels {
 
 impl FloatingPixels {
     pub fn lift(doc: &Document) -> Result<Self> {
+        if let Some(layer) = doc.active_layer() {
+            layer.require_rasterized()?;
+        }
         if doc.selection.is_none() {
             return Err(invalid("Select pixels before moving or transforming them."));
         }

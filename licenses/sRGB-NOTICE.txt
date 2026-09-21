@@ -1,0 +1,3 @@
+assets/color/sRGB.icc is a standard sRGB profile generated with Little CMS.
+The profile is embedded in 16-bit TIFF exports from RAW Develop.
+It has no camera-specific data and requires no external runtime converter.

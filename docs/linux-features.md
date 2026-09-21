@@ -1,6 +1,14 @@
 # Linux feature status
 
-Linux v0.2.0 targets [Compositor for macOS 1.1.6 (`9d5582d`)](https://github.com/robbietilton/Compositor/tree/9d5582dc59429501e270828b27879de9ca30a853).
+The current source targets [Compositor for macOS 1.1.8 (`c39da13`)](https://github.com/robbietilton/Compositor/tree/c39da13b5db11bc8678ec04a7a748e1e0a589244).
+
+## Added since v0.2.0
+
+| Feature | Linux behavior |
+| --- | --- |
+| TIFF and WebP export | File menu commands for 8-bit RGBA TIFF and lossless WebP, preserving transparency. |
+| Nikon RAW Develop | Native NEF/NRW decoding, floating-point development, Vulkan processing, white balance, tone/HSL, noise reduction/sharpening, manual lens/crop controls, local brush/gradient masks, presets, comparison views and metadata. Editable embedded sources and direct 16-bit sRGB TIFF export. See [RAW workflow](linux-raw.md). |
+| Object selection refinements | Edge offset from −10 to +10 px, geometric outline smoothing, and remappable Tab switching between Wand and Object tools. Positive Edge contracts the result before selection combination. |
 
 ## Added since v0.1.0
 
@@ -41,21 +49,25 @@ The README's additional status rows were checked against Xuan at the same revisi
 | Background removal | Bundled offline BiRefNet neural segmentation, Vulkan/CPU inference | Border-color matte for simple backgrounds |
 | Healing and content-aware fill | Reuses upstream's portable C kernels | Portable texture-matching implementation with differing results |
 | Imported color profiles | Little CMS conversion to sRGB, including RGB, grayscale, CMYK and Lab | Imported raster ICC profiles are not converted or preserved |
-| Text and RAW | Editable text; no dedicated RAW development | Editable text; Nikon NEF/NRW development |
-| Image export | PNG and JPEG | PNG, JPEG, TIFF and WebP; direct 16-bit TIFF from RAW Develop |
+| Text and RAW | Editable text; Nikon NEF/NRW development | Editable text; Nikon NEF/NRW development |
+| Image export | PNG, JPEG, TIFF and WebP; direct 16-bit TIFF from RAW Develop | PNG, JPEG, TIFF and WebP; direct 16-bit TIFF from RAW Develop |
 | HEIC import | libheif decoder bundled in the AppImage | Optional external `heif-convert` |
 | Distribution | One AppImage with background-removal runtime/models included | DEB, RPM and portable archive |
 
-Both projects provide layered editing, masks, transforms, selections, retouching, adjustments, and Wayland/X11 support. This fork emphasizes the original project format and processing behavior, color-managed imports, and offline neural background removal. Xuan covers workflows this fork does not, especially RAW development and TIFF/WebP export. Neither this table nor a test count establishes an overall winner.
+Both projects provide layered editing, masks, transforms, selections, retouching, adjustments, RAW development, and Wayland/X11 support. This fork also supports original project packages, color-managed imports, PSD interchange and offline neural object selection and background removal. Neither this table nor a test count establishes an overall winner.
 
 ## Verification of the current source
 
-The ordinary suite passes 679 tests; 23 hardware or external-fixture tests are opt-in. Formatting, application Clippy and the optimized Linux build pass.
+The ordinary suite passes 716 tests; 26 hardware or external-fixture tests are opt-in. The focused RAW hardware and Nikon fixture checks also pass. Formatting, application Clippy and the optimized Linux build pass.
 
-The current local AppImage was built on Ubuntu 24.04. Checks against its extracted payload pass for both BiRefNet background removal and SAM 3.1 object selection on CPU and NVIDIA Vulkan. Packaging checks verify model hashes, native dependencies, launcher, icon and the HEIC decoder. The inference payload contains no Python runtime code or wheels. A clean Ubuntu model export reproduced every pinned output hash.
+The published v0.2.0 AppImage was built on Ubuntu 24.04. Checks against its extracted payload passed for both BiRefNet background removal and SAM 3.1 object selection on CPU and NVIDIA Vulkan. Packaging checks verify model hashes, native dependencies, launcher, icon and the HEIC decoder. The inference payload contains no Python runtime code or wheels. A clean Ubuntu model export reproduced every pinned output hash.
+
+The local v0.3.0 AppImage also passes the payload checks and opens a real Nikon RAW file through its bundled launcher in an isolated X11 session. It uses the same pinned inference models and libraries as v0.2.0.
 
 Focused checks exercise real Vulkan compositing, all four effects, Gaussian feathering, BiRefNet background removal and native prompted object selection. Effects and grayscale blur match the CPU reference within one byte. Object-model comparisons use 13 labeled instances across five DAVIS photographs, with identical point or box prompts. See [model selection and measured results](object-selection-models.md) for quality, timing, export verification and reproduction details.
 
 Project tests cover text/effects/guides together, folder duplication and opacity, line geometry, folded distortion, and guide persistence through resizing and cropping. PSD checks cover malformed input, masks, clipping, conversion reports, editable primitives and adjustments, and native-project preservation. Three independently sourced Photoshop-created files verify import and subsequent project/PSD conversions; fetch them with `scripts/fetch-psd-fixtures.sh` and run `cargo test --locked --test psd_external -- --ignored --test-threads=4`. QuickGUI interaction tests exercise the new dialogs, clipboard opening, selection modifiers, shortcuts and guide gestures. Headless screenshots of the new text, effects, shortcuts and guide surfaces were inspected.
 
 Real macOS and Photoshop application round trips, physical AMD hardware, and pixel-identical output across platforms remain unverified. Text editing uses a dialog; paragraph dimensions reflow through its controls, while transform handles scale the text.
+
+RAW checks cover a real Nikon D70 file, GPU/CPU agreement, processing controls, 16-bit TIFF precision and ICC data, embedded-source project round trips, protected edits and undo. QuickGUI tests exercise numeric entry, masks, presets and preview display. Native X11 checks exercise asynchronous RAW open, development into a layer, reopening with retained settings and cancellation. Full-resolution preview tiles and the Develop layout were inspected at multiple window sizes.

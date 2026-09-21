@@ -146,6 +146,9 @@ pub fn fill(doc: &mut Document, color: [u8; 4], erase: bool, mask: bool) -> Resu
     let layer = doc
         .active_layer_mut()
         .ok_or_else(|| invalid("Select a layer to fill."))?;
+    if !mask {
+        layer.require_rasterized()?;
+    }
     if !mask && !erase && selection.is_none() && layer.text.is_some() {
         return crate::text::recolor_layer(layer, color);
     }

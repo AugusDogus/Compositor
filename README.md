@@ -12,8 +12,8 @@ A layered image editor for Linux, built with Rust and [QuickGUI](https://github.
 **[Download AppImage (x86_64)](https://github.com/AugusDogus/Compositor/releases/latest)**
 
 ```sh
-chmod +x Compositor-0.2.0-x86_64.AppImage
-./Compositor-0.2.0-x86_64.AppImage
+chmod +x Compositor-0.3.0-x86_64.AppImage
+./Compositor-0.3.0-x86_64.AppImage
 ```
 
 ## Requirements
@@ -29,11 +29,11 @@ chmod +x Compositor-0.2.0-x86_64.AppImage
 
 ## Features and parity
 
-Targets feature parity with **Compositor for macOS 1.1.6**. This table describes Linux **v0.2.0**.
+Targets feature parity with **Compositor for macOS 1.1.8**. Linux feature status is for **v0.3.0**.
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
-| Feature | [Compositor<br>(macOS&nbsp;1.1.6)](https://github.com/robbietilton/Compositor) | This fork | [Xuan](https://github.com/silverling/xuan) |
+| Feature | [Compositor<br>(macOS&nbsp;1.1.8)](https://github.com/robbietilton/Compositor) | This fork | [Xuan](https://github.com/silverling/xuan) |
 | --- | :---: | :---: | :---: |
 | Layers, groups and masks | ✅ | ✅ | ✅ |
 | Blend modes and adjustment layers | ✅ 14 modes | ✅ 14 modes | ✅ 13 modes |
@@ -48,9 +48,9 @@ Targets feature parity with **Compositor for macOS 1.1.6**. This table describes
 | ICC color conversion | ✅ | ✅ | ❌ |
 | HEIC import | ✅ | ✅ Bundled | ⚠️ External helper[^heic] |
 | PNG/JPEG export | ✅ | ✅ | ✅ |
-| TIFF/WebP export | ❌ | ❌ | ✅ |
+| TIFF/WebP export | ❌ | ✅ | ✅ |
 | Editable text | ✅ | ✅ | ✅ |
-| Nikon RAW development | ❌ | ❌ | ✅ |
+| Nikon RAW development | ❌ | ✅[^raw] | ✅[^raw] |
 | Layer effects | ✅ | ✅ | ❌ |
 | Line shapes | ✅ | ✅ | ❌ |
 | Selection feathering | ✅ | ✅ | ✅ |
@@ -58,15 +58,17 @@ Targets feature parity with **Compositor for macOS 1.1.6**. This table describes
 | Folder opacity and duplication | ✅ | ✅ | ✅ |
 | Keyboard-shortcuts editor | ✅ | ✅ | ⚠️ Reference window |
 | PSD import/export | ❌ | ⚠️ Layers, shapes, adjustments[^psd] | ❌ |
-| Object selection by click or box | ❌ | ✅ SAM 3.1[^objects] | ❌ |
+| Object selection | ✅ Click | ✅ Click/box[^objects] | ❌ |
+| Object-selection edge adjustment and smoothing | ✅ | ✅ | ❌ |
 | Select Subject | ✅ | ✅ BiRefNet[^objects] | ❌ |
-| Rulers, guides and layout grid | ❌ | ✅ | ❌ |
+| Rulers, guides and layout grid | ✅ | ✅ | ❌ |
 | Open from Clipboard | ❌ | ✅ | ❌ |
 
 [^background]: This fork bundles BiRefNet, SAM 3.1 and native inference libraries for offline use, with no Python setup. NVIDIA and CPU inference are tested; AMD hardware is unverified. Background-removal results differ from Apple's Vision model. Xuan's border-color matte is intended for simple backgrounds.
 [^projects]: This fork reads `.comp` v1–8 and writes v7 (v8 with guides), preserving editable text and effects. Real macOS round trips remain unverified. Xuan imports `.comp` and saves `.xuan`.
 [^psd]: 8-bit RGB/grayscale PSD. Imports editable rectangles, rounded rectangles and ellipses; imports/exports Levels, Curves and Hue/Saturation. Shape exports are rasterized. Text/smart objects use cached pixels; unsupported conversions are reported. Tested with Photoshop-created files; reopening exports in Photoshop remains unverified.
-[^objects]: Object Selection uses SAM 3.1; Select Subject uses BiRefNet. Click an object or draw a box around it. Ambiguous boundaries may need selection corrections.
+[^objects]: Object Selection uses SAM 3.1; Select Subject uses BiRefNet. Click an object or draw a box around it. Tab switches Wand/Object; Edge adjusts the detected boundary, and Anti-alias smooths its outline. Ambiguous boundaries may need selection corrections.
+[^raw]: NEF/NRW support follows Rawler's RGB Bayer camera support. Editable development, local masks and direct 16-bit sRGB TIFF output; the compositor and ordinary TIFF/WebP exports remain 8-bit. This fork embeds the original source and settings in a Linux extension inside `.comp` packages.
 [^heic]: Xuan requires the optional `heif-convert` executable.
 
 [Comparison sources and detailed feature status](docs/linux-features.md)

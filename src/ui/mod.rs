@@ -107,6 +107,7 @@ mod project_sheets;
 mod project_tab;
 mod project_tools;
 mod psd_conversion;
+mod raw_develop;
 mod rename;
 mod sample_ring;
 #[cfg(test)]
@@ -237,8 +238,13 @@ pub enum Action {
     Save,
     SaveAs,
     ExportPng,
+    ExportTiff,
+    ExportWebp,
+    DevelopRaw,
+    RasterizeRaw,
     ExportPsd,
     OpenPsd,
+    OpenRaw,
     ExportJpegFile,
     ExportJpeg,
     Undo,
@@ -352,6 +358,8 @@ pub struct Editor {
     selection_outline: Option<selection_outline::SelectionOutline>,
     selection_scroll: Option<autoscroll::SelectionScroll>,
     modal: Option<Form>,
+    develop: Option<raw_develop::Develop>,
+    raw_queue: std::collections::VecDeque<(raw_develop::Source, raw_develop::Target)>,
     retained_panel: Option<Form>,
     menus: menus::Menus,
     about_window: Option<quickgui::WindowHandle>,
@@ -395,7 +403,7 @@ impl Editor {
         let mut tabs: Vec<ProjectTab> = Vec::new();
         let launch_queue = crate::launch::LaunchQueue::default();
         for path in paths {
-            if compositor::psd::is_psd(&path)? {
+            if compositor::raw::is_raw(&path) || compositor::psd::is_psd(&path)? {
                 launch_queue.push(vec![path])?;
                 continue;
             }
@@ -465,6 +473,8 @@ impl Editor {
             selection_outline: None,
             selection_scroll: None,
             modal: None,
+            develop: None,
+            raw_queue: std::collections::VecDeque::new(),
             retained_panel: None,
             menus: menus::Menus::new()?,
             about_window: None,
@@ -695,7 +705,11 @@ impl View for Editor {
         self.start_file_job(cx);
         self.start_clipboard_job(cx);
         self.start_update_job(cx);
-        let root = if !self.has_document() {
+        self.sync_raw_input(cx);
+        self.start_raw_work(cx);
+        let root = if self.develop.is_some() {
+            self.raw_workspace(cx)
+        } else if !self.has_document() {
             self.welcome_view(cx)
         } else {
             let workspace = self.workspace_view(cx);

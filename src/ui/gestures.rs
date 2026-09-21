@@ -412,6 +412,7 @@ impl Editor {
                         end: point,
                         sample_all: self.tools.object_sample_all,
                         antialiased: self.tools.selection_antialiased,
+                        edge_offset: self.tools.object_edge_offset,
                         mode,
                     });
                 }
@@ -681,6 +682,7 @@ impl Editor {
                     end,
                     sample_all,
                     antialiased,
+                    edge_offset,
                     mode,
                 } = gesture
                 {
@@ -700,6 +702,7 @@ impl Editor {
                             target,
                             sample_all,
                             antialiased,
+                            edge_offset,
                             mode,
                         },
                     ));

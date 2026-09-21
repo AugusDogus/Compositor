@@ -73,6 +73,11 @@ fn visit_assets(document: &Document, seen: &mut HashSet<usize>) -> usize {
         });
     }
     for layer in &document.layers {
+        if let Some(raw) = &layer.raw
+            && seen.insert(Arc::as_ptr(&raw.bytes) as usize)
+        {
+            bytes = bytes.saturating_add(raw.bytes.len());
+        }
         if let Some(pixels) = layer.raster()
             && seen.insert(Arc::as_ptr(pixels) as usize)
         {

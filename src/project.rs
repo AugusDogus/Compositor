@@ -17,6 +17,7 @@ use std::{
 use uuid::Uuid;
 
 const MANIFEST_LIMIT: u64 = 4 * 1024 * 1024;
+mod raw;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -183,6 +184,7 @@ pub fn load(path: &Path) -> Result<Document> {
             mask: None,
             shape: None,
             text: None,
+            raw: None,
             effects: None,
             content: if group {
                 LayerContent::Group
@@ -243,6 +245,7 @@ pub fn load(path: &Path) -> Result<Document> {
         layer.shape = record.shape;
         layer.text = record.text;
     }
+    raw::load(&mut doc, path, &root)?;
     doc.validate()?;
     Ok(doc)
 }
@@ -313,6 +316,7 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
             },
         });
     }
+    raw::save(document, staged.path())?;
     let manifest = Manifest {
         format: "com.compositor.project".into(),
         version: if document.guides.is_empty() { 7 } else { 8 },

@@ -4,7 +4,8 @@ fn settings(target: Target, mode: SelectionMode) -> Settings {
     Settings {
         target,
         sample_all: true,
-        antialiased: true,
+        antialiased: false,
+        edge_offset: 0,
         mode,
     }
 }
@@ -53,7 +54,7 @@ fn supplied_object_mask_separates_touching_objects_and_preserves_detached_parts(
     assert_eq!(selection.coverage([7.5, 4.5]), 1.);
     assert_eq!(selection.coverage([8.5, 4.5]), 0.);
     assert_eq!(selection.coverage([3.5, 5.5]), 0.);
-    assert_eq!(selection.coverage([3.5, 0.5]), 200. / 255.);
+    assert_eq!(selection.coverage([3.5, 0.5]), 1.);
     assert_eq!(doc.layers, layers);
 }
 #[test]
@@ -193,10 +194,11 @@ fn sampling_this_layer_keeps_transform_mask_and_excludes_other_layers() {
 }
 
 #[test]
-fn inferred_probabilities_and_source_alpha_are_not_thresholded_or_multiplied_again() {
+fn subject_probabilities_and_source_alpha_are_not_thresholded_or_multiplied_again() {
     let mask = GrayImage::from_raw(9, 1, vec![0, 64, 200, 255, 32, 0, 100, 0, 0]).unwrap();
     let mut doc = Document::new(9, 1).unwrap();
-    let mut settings = settings(Target::Object([3., 0.]), SelectionMode::Replace);
+    let mut settings = settings(Target::Subject, SelectionMode::Replace);
+    settings.antialiased = true;
     select_from_mask(&mut doc, &mask, settings).unwrap();
     for (x, value) in mask.as_raw().iter().enumerate() {
         assert_eq!(
@@ -296,4 +298,116 @@ fn object_boxes_allow_reversed_canvas_edges_and_reject_invalid_bounds() {
         assert!(select(&mut doc, settings).is_err());
         assert_eq!(doc, before);
     }
+}
+
+#[test]
+fn object_edge_adjustment_changes_only_the_new_mask_before_combining() {
+    for edge in [-2, 2] {
+        for mode in [SelectionMode::Add, SelectionMode::Subtract] {
+            let mut doc = Document::new(64, 64).unwrap();
+            doc.selection =
+                Some(Selection::marquee(64, 64, [2., 2.], [62., 62.], false, false).unwrap());
+            if mode == SelectionMode::Add {
+                doc.selection =
+                    Some(Selection::marquee(64, 64, [2., 2.], [10., 10.], false, false).unwrap());
+            }
+            let mask = GrayImage::from_fn(64, 64, |x, y| {
+                Luma([if (20..40).contains(&x) && (20..40).contains(&y) {
+                    255
+                } else {
+                    0
+                }])
+            });
+            let mut settings = settings(Target::Object([30., 30.]), mode);
+            settings.edge_offset = edge;
+            select_from_mask(&mut doc, &mask, settings).unwrap();
+            let selection = doc.selection.as_ref().unwrap();
+            assert_eq!(
+                selection.coverage([2.5, 2.5]),
+                1.,
+                "prior mask must not resize"
+            );
+            assert_eq!(
+                selection.coverage([30.5, 30.5]),
+                if mode == SelectionMode::Add { 1. } else { 0. }
+            );
+            let is_new = edge < 0;
+            assert_eq!(
+                selection.coverage([19.5, 25.5]),
+                if (mode == SelectionMode::Add) == is_new {
+                    1.
+                } else {
+                    0.
+                }
+            );
+            assert_eq!(
+                selection.coverage([20.5, 25.5]),
+                if (mode == SelectionMode::Add) == is_new {
+                    1.
+                } else {
+                    0.
+                }
+            );
+        }
+    }
+}
+
+#[test]
+fn object_smoothing_rounds_corners_preserves_holes_and_can_be_disabled() {
+    let mask = GrayImage::from_fn(64, 64, |x, y| {
+        Luma([
+            if (4..60).contains(&x)
+                && (4..60).contains(&y)
+                && !((24..40).contains(&x) && (24..40).contains(&y))
+            {
+                255
+            } else {
+                0
+            },
+        ])
+    });
+    let mut doc = Document::new(64, 64).unwrap();
+    let mut settings = settings(Target::Object([10., 30.]), SelectionMode::Replace);
+    select_from_mask(&mut doc, &mask, settings).unwrap();
+    let sharp = doc.selection.clone().unwrap();
+    settings.antialiased = true;
+    select_from_mask(&mut doc, &mask, settings).unwrap();
+    let smooth = doc.selection.as_ref().unwrap();
+    assert_eq!(sharp.coverage([4.5, 4.5]), 1.);
+    assert!(smooth.coverage([4.5, 4.5]) < 0.1);
+    assert_eq!(smooth.coverage([32.5, 32.5]), 0., "hole stays unselected");
+    assert_eq!(
+        smooth.coverage([10.5, 32.5]),
+        1.,
+        "object interior stays selected"
+    );
+    assert!(
+        smooth
+            .pixels
+            .dense()
+            .unwrap()
+            .pixels()
+            .any(|p| p[0] > 0 && p[0] < 255)
+    );
+    assert_eq!(smooth.outline_contours().unwrap().len(), 2);
+}
+
+#[test]
+fn edge_adjustment_ignores_outside_canvas_and_empty_results_clear_selection() {
+    let mut doc = Document::new(16, 12).unwrap();
+    let mut settings = settings(Target::Object([3., 4.]), SelectionMode::Replace);
+    settings.edge_offset = 10;
+    select_from_mask(
+        &mut doc,
+        &GrayImage::from_pixel(16, 12, Luma([255])),
+        settings,
+    )
+    .unwrap();
+    assert_eq!(doc.selection.as_ref().unwrap().coverage([0.5, 0.5]), 1.);
+    select_from_mask(&mut doc, &object_mask(true), settings).unwrap();
+    assert!(doc.selection.is_none());
+    let before = doc.clone();
+    settings.edge_offset = 11;
+    assert!(select_from_mask(&mut doc, &object_mask(true), settings).is_err());
+    assert_eq!(doc, before);
 }

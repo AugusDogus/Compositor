@@ -28,6 +28,8 @@ pub(super) enum SaveDialog {
     Project,
     ProjectAs,
     Png,
+    Tiff,
+    Webp,
     Psd,
     Jpeg,
 }
@@ -38,6 +40,8 @@ impl SaveDialog {
             Self::Project => "Save Project",
             Self::ProjectAs => "Save Project As",
             Self::Png => "Export PNG",
+            Self::Tiff => "Export TIFF",
+            Self::Webp => "Export WebP",
             Self::Psd => "Export PSD",
             Self::Jpeg => "Export JPEG",
         }
@@ -47,6 +51,8 @@ impl SaveDialog {
         match self {
             Self::Project | Self::ProjectAs => &["comp"],
             Self::Png => &["png"],
+            Self::Tiff => &["tif", "tiff"],
+            Self::Webp => &["webp"],
             Self::Psd => &["psd"],
             Self::Jpeg => &["jpg", "jpeg"],
         }
@@ -69,6 +75,8 @@ impl SaveDialog {
         let filter = match self {
             Self::Project | Self::ProjectAs => "Compositor project",
             Self::Png => "PNG image",
+            Self::Tiff => "TIFF image",
+            Self::Webp => "WebP image",
             Self::Psd => "Photoshop document",
             Self::Jpeg => "JPEG image",
         };
@@ -112,6 +120,8 @@ mod tests {
             (SaveDialog::Project, "Save Project", "comp"),
             (SaveDialog::ProjectAs, "Save Project As", "comp"),
             (SaveDialog::Png, "Export PNG", "png"),
+            (SaveDialog::Tiff, "Export TIFF", "tif"),
+            (SaveDialog::Webp, "Export WebP", "webp"),
             (SaveDialog::Jpeg, "Export JPEG", "jpg"),
         ] {
             for stem in ["Portrait", "Version.2", "Étude 花"] {
@@ -142,12 +152,14 @@ mod tests {
             (SaveDialog::Project, "comp"),
             (SaveDialog::ProjectAs, "comp"),
             (SaveDialog::Png, "png"),
+            (SaveDialog::Tiff, "tif"),
+            (SaveDialog::Webp, "webp"),
             (SaveDialog::Jpeg, "jpg"),
         ] {
             assert!(dialog.destination("/tmp/Portrait".into()).is_err());
             let uppercase = PathBuf::from(format!("/tmp/Portrait.{}", extension.to_uppercase()));
             assert_eq!(dialog.destination(uppercase.clone()).unwrap(), uppercase);
-            assert!(dialog.destination("/tmp/Portrait.webp".into()).is_err());
+            assert!(dialog.destination("/tmp/Portrait.bmp".into()).is_err());
         }
         assert_eq!(
             SaveDialog::Jpeg

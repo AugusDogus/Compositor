@@ -269,7 +269,7 @@ impl Selection {
         Ok(())
     }
 
-    fn from_geometry(geometry: SelectionGeometry, mut bounds: [f64; 4]) -> Result<Self> {
+    pub(crate) fn from_geometry(geometry: SelectionGeometry, mut bounds: [f64; 4]) -> Result<Self> {
         Self::validate_points(&[[bounds[0], bounds[1]], [bounds[2], bounds[3]]])?;
         // Sparse canvases do not require a canvas-sized selection mask. Keep
         // ordinary masks unchanged and trim large ones to the drawn contours.
