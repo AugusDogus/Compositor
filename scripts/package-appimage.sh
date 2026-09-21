@@ -75,7 +75,9 @@ done < <(find /usr/share/doc -maxdepth 2 -name copyright -type f)
 COMPOSITOR_INFERENCE_DIR="$app_dir/usr/share/compositor/inference" scripts/setup-background.sh
 artifact="$project_root/dist/Compositor-$version-x86_64.AppImage"
 ARCH=x86_64 VERSION="$version" "$tool_dir/appimagetool.AppImage" \
-    --comp xz --mksquashfs-opt -processors --mksquashfs-opt 2 \
+    --comp zstd --mksquashfs-opt -Xcompression-level --mksquashfs-opt 19 \
+    --mksquashfs-opt -b --mksquashfs-opt 1M \
+    --mksquashfs-opt -processors --mksquashfs-opt 2 \
     --runtime-file "$tool_dir/runtime-x86_64" "$app_dir" "$artifact"
 if (( $(stat -c %s "$artifact") >= 2147483648 )); then
     printf 'AppImage exceeds GitHub\047s 2 GiB release asset limit. Packaging must be reduced before publishing.\n' >&2

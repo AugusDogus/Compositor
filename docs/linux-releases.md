@@ -22,7 +22,7 @@ Do not move published tags or overwrite released artifacts. Publish a new versio
 - `.sha256` files: checksums for the two executable artifacts.
 - `linux-update.json`: the version feed for standalone executable installations.
 
-The AppImage requires glibc 2.39 or newer. It includes the libheif HEIC decoder plugin and dynamically loaded Wayland/X11 and graphics client libraries. It uses the host's graphics drivers and desktop portals. Native inference libraries and both full BiRefNet Dynamic models are bundled at build time. Background removal works offline without a setup command. NVIDIA drivers remain a host requirement for GPU inference; other machines select CPU inference automatically. XZ compression keeps the complete bundle below GitHub's 2 GiB per-asset limit, which the packaging script enforces.
+The AppImage requires glibc 2.39 or newer. It includes the libheif HEIC decoder plugin and dynamically loaded Wayland/X11 and graphics client libraries. It uses the host's graphics drivers and desktop portals. Native inference libraries and both full BiRefNet Dynamic models are bundled at build time. Background removal works offline without a setup command. NVIDIA drivers remain a host requirement for GPU inference; other machines select CPU inference automatically. Zstandard compression reduces the complete bundle's download size. Packaging enforces GitHub's 2 GiB per-asset limit.
 
 ## Local validation
 
