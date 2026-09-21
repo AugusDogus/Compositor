@@ -1,5 +1,7 @@
 # Linux UI completion
 
+This closes the UI work for the macOS 1.0.4 baseline. Newer upstream feature gaps are tracked in [Linux feature status](linux-features.md).
+
 The visual goal is complete under the user's clarified target: preserve the
 macOS application's functionality and deliver a polished Linux UI. Exact visual
 matching is not required. Font substitution and approximate AppKit materials

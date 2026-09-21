@@ -1,75 +1,57 @@
+> [!NOTE]
+> AI SLOPFORK
+
 # Compositor for Linux
 
-A layered image editor for Linux, built with Rust and [QuickGUI](https://github.com/egoist/quickgui). This is a Linux fork of [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor). The original Swift application remains in this repository as the implementation reference.
+A layered image editor for Linux, built with Rust and [QuickGUI](https://github.com/egoist/quickgui). A fork of [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor), with GPU-accelerated editing and bundled, offline background removal.
 
-## Download
+![Compositor on Wayland, with an editable background-removal mask and transform controls](docs/screenshots/workspace.png)
 
-Get the **x86_64 AppImage** from [GitHub Releases](https://github.com/AugusDogus/Compositor/releases), make it executable, and launch it:
+## Get started
+
+Download an AppImage from the latest successful [Linux AppImage build](https://github.com/AugusDogus/Compositor/actions/workflows/linux-release.yml) (GitHub sign-in required for artifacts). Tagged versions will appear in [Releases](https://github.com/AugusDogus/Compositor/releases).
 
 ```sh
 chmod +x Compositor-*-x86_64.AppImage
 ./Compositor-0.1.0-x86_64.AppImage
 ```
 
-Requires an x86_64 Linux system with **glibc 2.39 or newer**, a Vulkan or OpenGL driver, and a graphical desktop with XDG portals for native file dialogs. The build baseline is Ubuntu 24.04; other distributions with compatible glibc and graphics drivers also work. Wayland and X11 are supported. The AppImage bundles image codecs and desktop client libraries, while graphics drivers and portal services come from your system.
+Requires **x86_64 Linux, glibc 2.39+**, working graphics drivers, and desktop portals for file dialogs. Supports Wayland and X11. One AppImage bundles the models and native inference libraries for compatible NVIDIA/AMD Vulkan GPUs, with CPU selection when no compatible GPU is available. No Python or dependency setup is needed to use background removal.
 
-If FUSE is unavailable, run `./Compositor-0.1.0-x86_64.AppImage --appimage-extract-and-run`. Tools such as [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and its icon to your desktop's application menu.
+[Launch options and troubleshooting](docs/linux-releases.md#running-an-appimage)
 
-## Features
+## Features and parity
 
-- Layers, groups, masks, clipping, blend modes and adjustment layers.
-- Painting, erasing, clone stamping and healing, with GPU acceleration for large brushes.
-- Move, scale, rotate, perspective transforms, shapes, cropping and canvas resizing.
-- Rectangle, ellipse, lasso, polygon and magic-wand selections.
-- Color adjustments, filters, content-aware fill and local background removal.
-- Project saving, recovery, image import/export, color management and native clipboard integration.
+The port implements the **macOS 1.0.4 editing inventory**. It does **not yet match macOS 1.1.6**, and pixel-identical output and real macOS project round trips are not fully verified.
 
-Painting, canvas compositing and preview resizing use Vulkan where supported, with CPU fallbacks. The Linux feature inventory is implemented; equivalence with a running macOS app and macOS project round trips are not fully verified. Background removal uses BiRefNet instead of Apple's proprietary Vision model. See [implementation and verification](docs/linux-port.md) for details.
+| Available now | Includes |
+| --- | --- |
+| Layers | Groups, raster and clipping masks, 13 blend modes, six adjustment types |
+| Painting and retouching | Brush, eraser, clone, healing, blur, smudge, liquify, gradients |
+| Geometry | Non-destructive transforms, perspective, snapping, rectangle/ellipse shapes, crop and resizing |
+| Selections | Marquee, lasso, polygon, magic wand, add/subtract/intersect, expand/contract |
+| Processing | Levels, Curves, Hue/Saturation, filters, content-aware fill, BiRefNet background removal |
+| Files | Read/write `.comp`, recovery, JPEG/PNG/HEIC/TIFF/WebP import, PNG/JPEG export, ICC conversion, clipboard |
 
-## Background removal
+**Not yet ported from newer macOS versions:** editable text, layer effects, line shapes, selection feathering, Soft Light, folder opacity and duplication, and the keyboard-shortcuts window. Background removal uses BiRefNet instead of Apple's Vision model, so results differ.
 
-The AppImage bundles native ONNX Runtime, its Vulkan/WebGPU plugin and both full BiRefNet Dynamic models. Background removal works offline immediately, with no dependency installation, Python environment or image uploads.
+<details>
+<summary>Screenshot: background-removal preview</summary>
 
-The same AppImage accelerates inference on compatible NVIDIA and AMD Vulkan GPUs with FP16 shader support, and selects CPU inference when no compatible hardware adapter is available. The model stays loaded between removals. Graphics drivers come from your system. `COMPOSITOR_BACKGROUND_DEVICE=cpu` or `gpu` overrides automatic selection; `COMPOSITOR_INFERENCE_DIR` overrides the bundled model/runtime location.
+![Local background-removal preview with Basic and Advanced controls](docs/screenshots/background-removal.png)
 
-## Build from source
+</details>
 
-Use Rust 1.94 or newer. On Ubuntu 24.04:
+[Feature status, compatibility limits and evidence](docs/linux-features.md)
 
-```sh
-sudo apt-get install build-essential pkg-config zlib1g-dev libwayland-dev \
-  libxkbcommon-dev libxkbcommon-x11-0 libx11-dev libxcb1-dev libx11-xcb-dev \
-  libxcursor-dev libxrandr-dev libxi-dev libheif-dev libheif-plugin-libde265 \
-  liblcms2-dev libvulkan1 mesa-vulkan-drivers libegl1 libgl1 fonts-dejavu-core
-cargo run --locked --release
-# Open a project or image:
-cargo run --locked --release -- /path/to/project.comp /path/to/photo.jpg
-```
+## Other Linux ports
 
-`scripts/setup-linux.sh` installs background-removal dependencies and builds the editor. `scripts/run-linux.sh` starts a development build. The application uses a vendored QuickGUI 0.1.5 with Linux integration fixes.
+[Xuan](https://github.com/silverling/xuan), linked in [upstream's Linux issue](https://github.com/robbietilton/Compositor/issues/19#issuecomment-5744154350), is another Rust port. This fork emphasizes the original editing workflow and `.comp` format, bundled neural background removal, ICC conversion, and reuse of upstream's C processing kernels. Xuan adds editable text, Nikon RAW development, and TIFF/WebP export. [Compare the documented differences](docs/linux-features.md#comparison-with-xuan).
 
-```sh
-cargo fmt --all --check
-cargo clippy --locked --all-targets --no-deps -- -D warnings
-cargo test --locked -- --test-threads=4
-```
+## Development
 
-Hardware-specific and external-fixture tests are explicitly ignored in the ordinary suite. They require a GPU, inference models or the documented image fixtures.
-
-## AppImage builds and releases
-
-The [Linux AppImage workflow](.github/workflows/linux-release.yml) tests and packages changes to `main`, pull requests, and manual runs. Build artifacts are downloadable from the Actions run. A pushed `v<VERSION>` tag publishes a GitHub release after validation succeeds. The tag must match `Cargo.toml`.
-
-To package locally on the Ubuntu 24.04 baseline, also install `curl`, `jq`, `file`, `unzip`, `python3-venv` and `desktop-file-utils`, then run:
-
-```sh
-scripts/package-appimage.sh
-scripts/prepare-release-assets.sh
-scripts/check-appimage.sh dist/*.AppImage
-```
-
-The packaging tools, AppImage runtime and inference downloads are pinned and checksum-verified. Python is used only during packaging to prepare the ONNX model; the AppImage contains no Python runtime. [Release instructions](docs/linux-releases.md) cover versioning, artifacts and updates. Releases are unsigned, with SHA-256 checksums for download integrity.
+[Build from source](docs/linux-building.md) · [AppImage builds and releases](docs/linux-releases.md) · [Implementation notes](docs/linux-port.md)
 
 ## License
 
-MIT, preserving the original Compositor copyright. QuickGUI and bundled dependencies retain their own license notices. See [LICENSE](LICENSE).
+[MIT](LICENSE), preserving the original Compositor copyright. QuickGUI and bundled dependencies retain their own license notices. [Screenshot provenance](docs/screenshots/README.md).

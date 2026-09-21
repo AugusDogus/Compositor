@@ -1,6 +1,32 @@
-# Linux releases
+# AppImage builds and releases
 
 Repository: https://github.com/AugusDogus/Compositor
+
+## Running an AppImage
+
+Download the `compositor-linux-x86_64` artifact from a successful [Actions run](https://github.com/AugusDogus/Compositor/actions/workflows/linux-release.yml) and extract it. GitHub requires sign-in to download Actions artifacts. Tagged builds are published to [Releases](https://github.com/AugusDogus/Compositor/releases).
+
+```sh
+chmod +x Compositor-*-x86_64.AppImage
+./Compositor-0.1.0-x86_64.AppImage
+```
+
+Use the filename for the version you downloaded. If FUSE is unavailable, add `--appimage-extract-and-run`. Tools such as [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and its icon to your desktop's application menu.
+
+Requires x86_64 Linux with glibc 2.39 or newer, a Vulkan or OpenGL driver for the editor, and XDG portals for native file dialogs. Wayland and X11 are supported. The inference GPU path additionally needs Vulkan FP16 shader support. `COMPOSITOR_BACKGROUND_DEVICE=cpu` or `gpu` overrides automatic inference selection; `COMPOSITOR_INFERENCE_DIR` overrides the bundled model/runtime location.
+
+## Build an AppImage locally
+
+Start with the [source-build dependencies](linux-building.md), on Ubuntu 24.04 or the corresponding build container. Also install the packaging tools:
+
+```sh
+sudo apt-get install curl jq file unzip python3-venv desktop-file-utils
+scripts/package-appimage.sh
+scripts/prepare-release-assets.sh
+scripts/check-appimage.sh dist/*.AppImage
+```
+
+The packaging scripts bundle native inference dependencies and prepare the models automatically. Python is used only during model preparation; no Python runtime is shipped. Releases are unsigned and include SHA-256 checksums for download integrity, not publisher authentication.
 
 ## Workflow
 

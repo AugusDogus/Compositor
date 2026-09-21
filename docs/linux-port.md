@@ -1,5 +1,7 @@
 # Linux migration status
 
+For the current feature summary and newer upstream gaps, see [Linux feature status](linux-features.md). The completion evidence and historical increments below refer to the macOS 1.0.4 baseline, not all features added in macOS 1.1 and later.
+
 The Linux rewrite uses Rust and QuickGUI, with the macOS application as its feature and UI reference. The UI work is complete for the clarified target: preserve functionality and provide a polished Linux interface; exact macOS appearance is not required. The original Swift application remains the behavior reference and macOS build. Acceptance checks and platform differences are recorded below. Native macOS execution is unavailable on this host, so these checks do not claim identical results for every macOS operation or edge case.
 
 ## Visual verification
@@ -620,7 +622,7 @@ Updated native captures are in `dist/screenshots/*-updated.png` and `dist/screen
 - Rust owns documents, immutable pixel assets, edit transactions, bounded undo history, selections, compositing, project I/O, and tool interactions. wgpu/Vulkan accelerates large brushes, canvas compositing, and high-quality preview reductions, with a CPU fallback.
 - The existing portable C kernels implement healing, content-aware fill, noise, lens correction, and magic-wand selection on both platforms.
 - libheif decodes HEIC; Little CMS converts embedded RGB, grayscale, CMYK, and Lab profiles to sRGB. Lab TIFF supports CIELab/ICCLab, 8-bit/16-bit samples, planar storage, alpha, orientation, declared white points, both byte orders, and BigTIFF.
-- Full BiRefNet Dynamic through native Rust/ONNX Runtime CUDA replaces Apple's Vision foreground segmentation. The model is cached between operations; Python is not required. Model results are not pixel-identical to Apple's model. Advanced refinement ports the guided-filter algorithm from the Swift app.
+- Full BiRefNet Dynamic through native Rust/ONNX Runtime with Vulkan/CPU inference replaces Apple's Vision foreground segmentation. The model is cached between operations; Python is not required. Model results are not pixel-identical to Apple's model. Advanced refinement ports the guided-filter algorithm from the Swift app.
 - Projects use the existing directory-based `.comp` format, versions 1 through 7. Saves write version 7 and atomically exchange complete packages on Linux. Unsupported metadata is rejected instead of silently discarded.
 
 ## Implemented and connected
