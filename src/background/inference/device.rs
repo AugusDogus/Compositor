@@ -81,11 +81,19 @@ pub(super) fn configure_gpu(builder: SessionBuilder, root: &Path) -> Result<Sess
     builder
         .with_config_entry("ep.webgpuexecutionprovider.dawnBackendType", "Vulkan")
         .map_err(|e| failed("configure Vulkan inference", e))?
+        // GridSample uses NCHW. Keeping convolutions in that layout avoids large
+        // temporary transposes around each deformable-convolution replacement.
+        .with_config_entry("ep.webgpuexecutionprovider.preferredLayout", "NCHW")
+        .map_err(|e| failed("configure the model tensor layout", e))?
         .with_config_entry(
             "ep.webgpuexecutionprovider.storageBufferCacheMode",
             "disabled",
         )
         .map_err(|e| failed("configure GPU memory usage", e))?
+        // Submit small batches so temporary tensors can retire while the editor
+        // also owns canvas and brush resources on the same GPU.
+        .with_config_entry("ep.webgpuexecutionprovider.maxNumPendingDispatches", "4")
+        .map_err(|e| failed("configure GPU dispatch batches", e))?
         .with_devices([device], None)
         .map_err(|e| failed("start Vulkan inference (check your graphics driver)", e))
 }
