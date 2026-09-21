@@ -9,7 +9,7 @@ A layered image editor for Linux, built with Rust and [QuickGUI](https://github.
 
 ## Download
 
-**[Download AppImage (x86_64)](https://github.com/AugusDogus/Compositor/releases/download/v0.1.0/Compositor-0.1.0-x86_64.AppImage)**
+**[Download AppImage (x86_64)](https://github.com/AugusDogus/Compositor/releases/latest)**
 
 ```sh
 chmod +x Compositor-0.1.0-x86_64.AppImage
