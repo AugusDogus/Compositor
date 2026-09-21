@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+app_dir="${APPDIR:-$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)}"
+export COMPOSITOR_INFERENCE_DIR="${COMPOSITOR_INFERENCE_DIR:-$app_dir/usr/share/compositor/inference}"
+export LD_LIBRARY_PATH="$app_dir/usr/lib:$COMPOSITOR_INFERENCE_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LIBHEIF_PLUGIN_PATH="$app_dir/usr/lib/libheif/plugins"
+export XDG_DATA_DIRS="$app_dir/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+exec "$app_dir/usr/bin/compositor" "$@"

@@ -1,0 +1,232 @@
+[package]
+name = "quickgui"
+version = "0.1.5"
+edition = "2024"
+rust-version = "1.90"
+description = "A damage-driven, GPU-accelerated desktop GUI foundation"
+documentation = "https://docs.rs/quickgui"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/egoist/quickgui"
+keywords = ["gui", "wgpu", "desktop", "graphics"]
+categories = ["gui", "graphics"]
+include = [
+  "/build.rs",
+  "/src/**",
+  "/Cargo.lock",
+  "/CHANGELOG.md",
+  "/LICENSE-APACHE",
+  "/LICENSE-MIT",
+  "/README.md",
+  "/THIRD_PARTY_NOTICES.md",
+]
+
+[workspace]
+members = ["crates/quickgui-docs-demo", "crates/quickgui-extension-sdk", "crates/quickgui-host", "crates/quickgui-system", "extensions/editor", "extensions/markdown", "extensions/terminal", "extensions/updater"]
+exclude = [
+  "vendor/accesskit_winit",
+  "vendor/cosmic_text",
+  "vendor/glyphon",
+  "vendor/winit",
+]
+resolver = "3"
+
+[features]
+default = ["crash-reporter"]
+crash-reporter = ["quickgui-system/crash-reporter"]
+editor = [
+  "text-input-decorations",
+  "dep:imara-diff",
+  "dep:tree-sitter-highlight",
+  "dep:tree-sitter",
+]
+language-packs = ["editor", "tree-sitter/wasm", "dep:tar", "dep:sha2"]
+bundled-languages = [
+  "editor",
+  "dep:tree-sitter-bash",
+  "dep:tree-sitter-cpp",
+  "dep:tree-sitter-css",
+  "dep:tree-sitter-go",
+  "dep:tree-sitter-html",
+  "dep:tree-sitter-java",
+  "dep:tree-sitter-javascript",
+  "dep:tree-sitter-json",
+  "dep:tree-sitter-markdown",
+  "dep:tree-sitter-python",
+  "dep:tree-sitter-ruby",
+  "dep:tree-sitter-rust",
+  "dep:tree-sitter-sequel",
+  "dep:tree-sitter-swift",
+  "dep:tree-sitter-toml-ng",
+  "dep:tree-sitter-typescript",
+  "dep:tree-sitter-yaml",
+]
+inspector = []
+text-input-decorations = []
+markdown = ["dep:pulldown-cmark"]
+file-watcher = ["quickgui-system/file-watcher"]
+swift-ui = []
+test-support = []
+terminal = ["dep:libghostty-vt", "dep:portable-pty"]
+updater = ["quickgui-system/updater"]
+
+[dependencies]
+accesskit = "0.24.1"
+accesskit_winit = { package = "quickgui-accesskit-winit", path = "vendor/accesskit_winit", version = "=0.1.5" }
+async-task = "4.7"
+bitflags = "2.9"
+bytemuck = { version = "1.23", features = ["derive"] }
+flate2 = "1.1"
+glyphon = { package = "quickgui-glyphon", path = "vendor/glyphon", version = "=0.1.5" }
+image-codecs = { package = "image", version = "0.25.10", default-features = false, features = ["gif", "jpeg", "png", "tiff", "webp"] }
+imara-diff = { version = "0.2.0", optional = true }
+tar = { version = "0.4", default-features = false, optional = true }
+sha2 = { version = "0.10", optional = true }
+tree-sitter-bash = { version = "0.25.1", optional = true }
+tree-sitter-cpp = { version = "0.23.4", optional = true }
+tree-sitter-css = { version = "0.25.0", optional = true }
+tree-sitter-go = { version = "0.25.0", optional = true }
+tree-sitter-highlight = { version = "=0.26.7", optional = true }
+tree-sitter = { version = "=0.26.7", optional = true }
+tree-sitter-html = { version = "0.23.2", optional = true }
+tree-sitter-java = { version = "0.23.5", optional = true }
+tree-sitter-javascript = { version = "0.25.0", optional = true }
+tree-sitter-json = { version = "0.24.8", optional = true }
+tree-sitter-markdown = { package = "tree-sitter-md-025", version = "0.5.6", optional = true }
+tree-sitter-python = { version = "0.25.0", optional = true }
+tree-sitter-ruby = { version = "0.23.1", optional = true }
+tree-sitter-rust = { version = "0.24.2", optional = true }
+tree-sitter-sequel = { version = "0.3.11", optional = true }
+tree-sitter-swift = { version = "0.7.3", optional = true }
+tree-sitter-toml-ng = { version = "0.7.0", optional = true }
+tree-sitter-typescript = { version = "0.23.2", optional = true }
+tree-sitter-yaml = { version = "0.7.2", optional = true }
+libghostty-vt = { version = "0.2.1", default-features = false, optional = true }
+naga = { version = "30.0.1", features = ["wgsl-in"] }
+lyon = { version = "1.0.19", default-features = false }
+pollster = "0.4"
+portable-pty = { version = "0.9.0", optional = true }
+pulldown-cmark = { version = "0.13", optional = true }
+quickgui-system = { path = "crates/quickgui-system", version = "=0.1.5", default-features = false }
+quickgui-extension-sdk = { path = "crates/quickgui-extension-sdk", version = "=0.1.5" }
+resvg = { version = "0.46.0", default-features = false, features = ["text", "system-fonts", "memmap-fonts"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+taffy = { version = "0.13.0", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size"] }
+thiserror = "2.0"
+tracing = "0.1"
+web-time = "1.1"
+unicode-segmentation = "1.12"
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
+winit = { package = "quickgui-winit", path = "vendor/winit", version = "=0.1.5" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+quickgui-system = { path = "crates/quickgui-system", version = "=0.1.5", default-features = false, features = ["autostart", "protocol", "secure-storage"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.5.1"
+core-foundation = "0.9.4"
+objc2 = "0.5.2"
+objc2-app-kit = { version = "0.2.2", features = ["NSAccessibility", "NSAccessibilityConstants", "NSAccessibilityProtocols", "NSAlert", "NSApplication", "NSBitmapImageRep", "NSBox", "NSButton", "NSButtonCell", "NSCell", "NSColor", "NSControl", "NSDockTile", "NSDocumentController", "NSDragging", "NSDraggingItem", "NSDraggingSession", "NSEvent", "NSGraphics", "NSGraphicsContext", "NSImage", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPanel", "NSPasteboard", "NSResponder", "NSRunningApplication", "NSSavePanel", "NSScreen", "NSTextField", "NSView", "NSVisualEffectView", "NSWindow", "NSWindowTabGroup", "NSWorkspace", "block2", "objc2-quartz-core"] }
+objc2-foundation = { version = "0.2.2", features = ["NSArray", "NSAttributedString", "NSBundle", "NSDictionary", "NSError", "NSFileManager", "NSGeometry", "NSNotification", "NSOperation", "NSProcessInfo", "NSRange", "NSSet", "NSString", "NSURL", "NSUUID"] }
+objc2-quartz-core = { version = "0.2.2", features = ["CALayer", "CAMetalLayer"] }
+objc2-user-notifications = { version = "0.2.2", features = ["UNNotification", "UNNotificationAction", "UNNotificationAttachment", "UNNotificationCategory", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationSettings", "UNNotificationSound", "UNNotificationTrigger", "UNUserNotificationCenter", "block2"] }
+raw-window-metal = "1.1.0"
+wgpu = { version = "30.0.1", default-features = false, features = ["metal"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
+global-hotkey = "0.8.0"
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tray-icon = { version = "0.24.2", default-features = false }
+
+[target.'cfg(all(not(target_os = "macos"), not(target_arch = "wasm32")))'.dependencies]
+arboard = { version = "3.6.1", default-features = false, features = ["image-data"] }
+opener = { version = "0.8.5", features = ["reveal"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
+interprocess = { version = "2.4.3", default-features = false }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+dunce = "1.0.5"
+rfd = { version = "0.17.2", default-features = false, features = ["common-controls-v6"] }
+interprocess = { version = "2.4.3", default-features = false }
+# WGPU and gpu-allocator exchange nominal WinRT types; 0.62.0 is the newest version accepted by
+# gpu-allocator 0.28 and must stay unified across both crates.
+windows = { version = "=0.62.0", default-features = false, features = ["Data_Xml_Dom", "Foundation", "Foundation_Collections", "UI_Notifications", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_UI_Shell_PropertiesSystem", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_System_RemoteDesktop", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+wgpu = { version = "30.0.1", default-features = false, features = ["dx12"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
+rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal", "wayland"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.13.13", default-features = false, features = ["async-io", "notification"] }
+ksni = { version = "0.3.6", default-features = false, features = ["async-io", "blocking"] }
+zbus = "5.19.0"
+
+[target.'cfg(all(unix, not(target_os = "macos"), not(target_arch = "wasm32")))'.dependencies]
+wgpu = { version = "30.0.1", default-features = false, features = ["gles", "vulkan"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wgpu = { version = "30.0.1", default-features = false, features = ["webgpu", "webgl", "naga-ir", "fragile-send-sync-non-atomic-wasm"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["CssStyleDeclaration", "Document", "Element", "HtmlCanvasElement", "HtmlElement", "Node", "console", "CustomEvent", "Window"] }
+
+[dev-dependencies]
+tree-sitter-lua = "0.5.0"
+tree-sitter-rust = "0.24.2"
+criterion = { version = "0.8", features = ["html_reports"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+ureq = { version = "3.4", features = ["json"] }
+
+[[bench]]
+name = "virtual_list"
+harness = false
+
+[[bench]]
+name = "picker"
+harness = false
+
+[[bench]]
+name = "animation"
+harness = false
+
+[[example]]
+name = "editor"
+required-features = ["editor"]
+
+[[test]]
+name = "macos_native_images"
+# AppKit image rasterization must run on the process main thread.
+harness = false
+
+[[test]]
+name = "macos_traffic_lights"
+# Native window layout must run on the process main thread.
+harness = false
+
+[profile.dev]
+opt-level = 3
+# The examples are interactive performance probes. Keeping debug assertions enabled makes objc2
+# verify every AppKit message signature at runtime and makes `cargo run --example ...` measure the
+# validation layer instead of QuickGUI's steady-state rendering path.
+debug-assertions = false
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# Browser docs reuse the production renderer, optimized for download size.
+[profile.docs-wasm]
+inherits = "release"
+opt-level = "s"
+lto = "thin"
+strip = "debuginfo"

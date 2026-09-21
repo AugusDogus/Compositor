@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Compositor
+Comment=Layered image editor
+Exec=compositor %F
+Icon=compositor
+Terminal=false
+Categories=Graphics;2DGraphics;RasterGraphics;
+MimeType=image/png;image/jpeg;image/tiff;image/webp;image/heic;image/heif;
+StartupNotify=true
+StartupWMClass=compositor

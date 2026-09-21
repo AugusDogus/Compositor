@@ -1,78 +1,75 @@
-# Compositor
+# Compositor for Linux
 
-Adobe Photoshop costs too much and tools like GIMP don’t feel familiar enough for me to stay in flow. That’s why I built Compositor.
+A layered image editor for Linux, built with Rust and [QuickGUI](https://github.com/egoist/quickgui). This is a Linux fork of [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor). The original Swift application remains in this repository as the implementation reference.
 
-The goal was to create a full-featured image editor that is completely free and open source. I use Photoshop for compositing and post-processing, so Compositor is built around that workflow - with the tools needed to create a pixel-perfect final image.
+## Download
 
-Because it’s open source, you can download the Xcode project and add, remove, or modify any feature to fit your workflow.
+Get the **x86_64 AppImage** from [GitHub Releases](https://github.com/AugusDogus/Compositor/releases), make it executable, and launch it:
+
+```sh
+chmod +x Compositor-*-x86_64.AppImage
+./Compositor-0.1.0-x86_64.AppImage
+```
+
+Requires an x86_64 Linux system with **glibc 2.39 or newer**, a Vulkan or OpenGL driver, and a graphical desktop with XDG portals for native file dialogs. The build baseline is Ubuntu 24.04; other distributions with compatible glibc and graphics drivers also work. Wayland and X11 are supported. The AppImage bundles image codecs and desktop client libraries, while graphics drivers and portal services come from your system.
+
+If FUSE is unavailable, run `./Compositor-0.1.0-x86_64.AppImage --appimage-extract-and-run`. Tools such as [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and its icon to your desktop's application menu.
 
 ## Features
 
-### Layers
-- Layers and folders, with blend modes and opacity
-- Layer masks: paint, fill, invert, blur and feather them; link or unlink them to transform a mask on its own
-- Clipping masks and folder masks
-- Adjustment layers: Hue/Saturation, Levels, Curves, Exposure, Gradient Map and Grain
-- Merge Down, Merge Layers and Merge Group (⌘E)
-- Duplicate, rename inline, reorder and nest by drag and drop; Option-drag to duplicate
-- Drag layers between open projects
+- Layers, groups, masks, clipping, blend modes and adjustment layers.
+- Painting, erasing, clone stamping and healing, with GPU acceleration for large brushes.
+- Move, scale, rotate, perspective transforms, shapes, cropping and canvas resizing.
+- Rectangle, ellipse, lasso, polygon and magic-wand selections.
+- Color adjustments, filters, content-aware fill and local background removal.
+- Project saving, recovery, image import/export, color management and native clipboard integration.
 
-### Transform
-- Non-destructive move, scale, rotate and flip — images keep their full resolution however small you make them
-- Free distort (⌘-drag a handle), with Shift to lock to an axis
-- Transform several layers, or a whole folder, together
-- Snapping to canvas and layer edges and centers, with guides
-- Exact values for position, size, scale and angle, stepped with the arrow keys
-- Flip Layer and Flip Canvas, horizontal and vertical
+Painting, canvas compositing and preview resizing use Vulkan where supported, with CPU fallbacks. The Linux feature inventory is implemented; equivalence with a running macOS app and macOS project round trips are not fully verified. Background removal uses BiRefNet instead of Apple's proprietary Vision model. See [implementation and verification](docs/linux-port.md) for details.
 
-### Selections
-- Rectangle and Ellipse Marquee, Freehand and Polygonal Lasso, and Magic Wand
-- Add to and subtract from selections, move the outline, or move and duplicate the pixels inside
-- Load a layer's pixels or a mask as a selection
-- Content-Aware Fill, which can also extend an image past its edges
+## Background removal
 
-### Painting and retouching
-- Brush with size, hardness and opacity, and Shift for straight lines
-- Spot Healing Brush (content-aware)
-- Clone Stamp, aligned or not, sampling one layer or all of them
-- Blur tool, on pixels or masks
-- Gradient tool and Shape tool (rectangles, rounded rectangles and ellipses)
-- Eyedropper and a full color picker
+The AppImage bundles ONNX Runtime, CUDA libraries and both full BiRefNet Dynamic models. Background removal works offline immediately, with no dependency installation, Python environment or image uploads.
 
-### Adjustments and filters
-- Levels (with Auto), Curves, Hue/Saturation, Exposure, Gradient Map, Grain and Invert
-- Gaussian Blur and Motion Blur that spread past a layer's edges
-- Add Noise, Lens Correction and Remove Background
-- Live previews, limited to the selection when there is one
+Inference uses NVIDIA CUDA when the NVIDIA driver is installed, and CPU otherwise. The model stays loaded between removals. GPU inference requires a compatible NVIDIA driver, which comes from your system. `COMPOSITOR_BACKGROUND_DEVICE=cpu` or `cuda` overrides automatic selection; `COMPOSITOR_INFERENCE_DIR` overrides the bundled model/runtime location.
 
-### Canvas and files
-- Multiple projects in tabs
-- Crop with snapping, and Option for symmetric cropping
-- Canvas Size and Image Size
-- Sharp high-quality downsampling when zoomed out, and a pixel grid when zoomed in
-- Import JPEG, PNG, HEIC and TIFF — including dropped screenshots and images from other apps
-- Export JPEG with a live preview (⇧⌥⌘S); Copy Merged
-- Photoshop-style keyboard shortcuts throughout
+## Build from source
 
-## Requirements
+Use Rust 1.94 or newer. On Ubuntu 24.04:
 
-- macOS 26
-- Xcode 26 (to build from source)
+```sh
+sudo apt-get install build-essential pkg-config zlib1g-dev libwayland-dev \
+  libxkbcommon-dev libxkbcommon-x11-0 libx11-dev libxcb1-dev libx11-xcb-dev \
+  libxcursor-dev libxrandr-dev libxi-dev libheif-dev libheif-plugin-libde265 \
+  liblcms2-dev libvulkan1 mesa-vulkan-drivers libegl1 libgl1 fonts-dejavu-core
+cargo run --locked --release
+# Open a project or image:
+cargo run --locked --release -- /path/to/project.comp /path/to/photo.jpg
+```
 
-## Building
+`scripts/setup-linux.sh` installs background-removal dependencies and builds the editor. `scripts/run-linux.sh` starts a development build. The application uses a vendored QuickGUI 0.1.5 with Linux integration fixes.
 
-Open `Compositor.xcodeproj` and run the **Compositor** scheme.
+```sh
+cargo fmt --all --check
+cargo clippy --locked --all-targets --no-deps -- -D warnings
+cargo test --locked -- --test-threads=4
+```
 
-## Releasing
+Hardware-specific and external-fixture tests are explicitly ignored in the ordinary suite. They require a GPU, inference models or the documented image fixtures.
 
-`scripts/release.sh` builds a Release version, signs it with Developer ID, notarizes and staples it, and packages it into `dist/Compositor-<version>.dmg`.
+## AppImage builds and releases
 
-It needs, all kept outside this repository:
+The [Linux AppImage workflow](.github/workflows/linux-release.yml) tests and packages changes to `main`, pull requests, and manual runs. Build artifacts are downloadable from the Actions run. A pushed `v<VERSION>` tag publishes a GitHub release after validation succeeds. The tag must match `Cargo.toml`.
 
-- a **Developer ID Application** certificate in the login keychain
-- notarization credentials saved with `xcrun notarytool store-credentials "compositor-notary" …`
-- [`create-dmg`](https://github.com/create-dmg/create-dmg) (`brew install create-dmg`)
+To package locally on the Ubuntu 24.04 baseline, also install `curl`, `jq`, `file` and `desktop-file-utils`, then run:
+
+```sh
+scripts/package-appimage.sh
+scripts/prepare-release-assets.sh
+scripts/check-appimage.sh dist/*.AppImage
+```
+
+The packaging tools and AppImage runtime are pinned and checksum-verified. [Release instructions](docs/linux-releases.md) cover versioning, artifacts and updates. Releases are unsigned, with SHA-256 checksums for download integrity.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, preserving the original Compositor copyright. QuickGUI and bundled dependencies retain their own license notices. See [LICENSE](LICENSE).

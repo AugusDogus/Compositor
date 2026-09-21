@@ -1,0 +1,115 @@
+name: Linux AppImage
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appimage-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: 2
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  RUST_VERSION: '1.94.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install build and desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config zlib1g-dev libwayland-dev libxkbcommon-dev \
+            libx11-dev libxcb1-dev libx11-xcb-dev libxcursor-dev libxrandr-dev libxi-dev \
+            libheif-dev libheif-plugin-libde265 liblcms2-dev libvulkan1 mesa-vulkan-drivers \
+            libxkbcommon-x11-0 libegl1 libgl1 fonts-dejavu-core curl jq file desktop-file-utils
+      - name: Install Rust
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt,clippy
+          rustup override set "$RUST_VERSION"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/release
+            target/appimage-tools
+          key: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock', 'vendor/quickgui/**') }}
+          restore-keys: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-
+      - name: Validate version
+        id: version
+        run: |
+          version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "compositor") | .version')"
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Release tag must match Cargo.toml: expected v$version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Check and test
+        run: |
+          export XDG_RUNTIME_DIR="$(mktemp -d)"
+          cargo fmt --all --check
+          cargo clippy --locked --all-targets --no-deps -- -D warnings
+          cargo test --locked -- --test-threads=4
+      - name: Build AppImage and update artifacts
+        run: |
+          scripts/package-appimage.sh
+          scripts/prepare-release-assets.sh
+      - name: Check AppImage contents
+        run: |
+          # NASA's public-domain astronaut photo, checksum from scikit-image's registry.
+          curl --fail --location --retry 3 \
+            https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/astronaut.png \
+            --output "$RUNNER_TEMP/astronaut.png"
+          echo "88431cd9653ccd539741b555fb0a46b61558b301d4110412b5bc28b5e3ea6cb5  $RUNNER_TEMP/astronaut.png" | sha256sum --check
+          test_binary="$(cargo test --locked --test linux_integrations --no-run --message-format json | jq -r 'select(.reason == "compiler-artifact" and .target.name == "linux_integrations" and .executable != null) | .executable')"
+          test -x "$test_binary"
+          COMPOSITOR_BACKGROUND_DEVICE=cpu COMPOSITOR_TEST_PHOTO="$RUNNER_TEMP/astronaut.png" \
+            COMPOSITOR_INFERENCE_TEST_BINARY="$test_binary" scripts/check-appimage.sh dist/*.AppImage
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: compositor-linux-x86_64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  release:
+    if: github.repository == 'AugusDogus/Compositor' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: compositor-linux-x86_64
+          path: dist
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          prerelease=()
+          if [[ "$RELEASE_VERSION" == *-* ]]; then prerelease+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" --verify-tag \
+            --title "Compositor $RELEASE_VERSION" --notes-file dist/release-notes.md \
+            "${prerelease[@]}" dist/*.AppImage dist/*.sha256 dist/*.bin dist/linux-update.json

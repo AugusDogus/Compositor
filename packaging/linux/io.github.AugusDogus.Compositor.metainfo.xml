@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.AugusDogus.Compositor</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Compositor</name>
+  <summary>A layered image editor for Linux</summary>
+  <description>
+    <p>Edit images with layers, masks, selections, painting, transforms and color adjustments. This Linux fork uses Rust and QuickGUI, with Vulkan acceleration and optional local CUDA background removal.</p>
+  </description>
+  <launchable type="desktop-id">compositor.desktop</launchable>
+  <url type="homepage">https://github.com/AugusDogus/Compositor</url>
+  <url type="bugtracker">https://github.com/AugusDogus/Compositor/issues</url>
+  <provides><binary>compositor</binary></provides>
+  <content_rating type="oars-1.1"/>
+</component>
