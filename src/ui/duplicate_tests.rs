@@ -8,7 +8,7 @@ use compositor::{
 use quickgui::{Application, Menubar, WindowOptions};
 
 #[test]
-fn duplicate_menu_and_shortcut_reject_folders_empty_selections_and_missing_pixels() {
+fn duplicate_menu_and_shortcut_reject_folder_pixel_copies_empty_selections_and_missing_pixels() {
     for case in [
         "folder",
         "empty selection",
@@ -20,7 +20,10 @@ fn duplicate_menu_and_shortcut_reject_folders_empty_selections_and_missing_pixel
         let mut doc = Document::new(16, 16).unwrap();
         edits::fill(&mut doc, [80, 120, 200, 255], false, false).unwrap();
         match case {
-            "folder" => layer_ops::group(&mut doc).unwrap(),
+            "folder" => {
+                layer_ops::group(&mut doc).unwrap();
+                doc.selection = Some(Selection::rectangle(16, 16, [2., 2.], [8., 8.], false));
+            }
             "empty selection" => {
                 doc.selection = Some(Selection::rectangle(16, 16, [20., 20.], [30., 30.], false))
             }
@@ -73,6 +76,35 @@ fn duplicate_menu_and_shortcut_reject_folders_empty_selections_and_missing_pixel
         })
         .unwrap();
     }
+}
+
+#[test]
+fn folder_duplicate_shortcut_copies_children_and_undo_restores_the_document() {
+    let mut editor = Editor::with_test_document();
+    layer_ops::group(&mut editor.session_mut().document).unwrap();
+    let before = editor.session().document.clone();
+    let (mut cx, view) = Application::new()
+        .into_test_context(
+            WindowOptions::new("Duplicate folder").size(1280., 900.),
+            editor,
+        )
+        .unwrap();
+    let window = view.window_handle();
+    cx.focus(window, "workspace").unwrap();
+    cx.simulate_keystrokes(window, "ctrl-j").unwrap();
+    cx.read(view, |e| {
+        let doc = &e.session().document;
+        assert_eq!(doc.layers.len(), before.layers.len() * 2);
+        assert!(doc.active_layer().unwrap().is_group());
+        assert_ne!(doc.active, before.active);
+        doc.validate().unwrap();
+    })
+    .unwrap();
+    cx.simulate_keystrokes(window, "ctrl-z").unwrap();
+    assert_eq!(
+        cx.read(view, |e| e.session().document.clone()).unwrap(),
+        before
+    );
 }
 
 #[test]

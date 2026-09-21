@@ -1,12 +1,13 @@
 [package]
 name = "compositor"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.94"
 license = "MIT"
 description = "A layered image editor for Linux, built with QuickGUI"
 
 [dependencies]
+cosmic-text = { package = "quickgui-cosmic-text", version = "=0.1.5" }
 quickgui = { version = "=0.1.5", default-features = false, features = ["updater"] }
 # Enable native Wayland clipboard access in QuickGUI's arboard dependency.
 arboard = { version = "=3.6.1", default-features = false, features = ["wayland-data-control"] }
@@ -19,7 +20,7 @@ sctk = { package = "smithay-client-toolkit", version = "=0.19.2", default-featur
 wayland-backend = { version = "=0.3.17", features = ["client_system"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "tiff", "webp"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 semver = "1"
 wgpu = { version = "=30.0.1", default-features = false, features = ["std", "wgsl", "vulkan"] }
 pollster = "0.4"
@@ -40,6 +41,7 @@ tiff = "0.11.3"
 tiny-skia = { version = "0.11.4", default-features = false, features = ["std", "simd"] }
 resvg = { version = "=0.46.0", default-features = false }
 i_overlay = "=8.1.2"
+ag-psd = "=0.3.0"
 
 [build-dependencies]
 cc = "1"

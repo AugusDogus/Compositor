@@ -1,7 +1,7 @@
 //! Live shape geometry and appearance from ShapeTool.swift and TransformOverlay.swift.
 use super::*;
 use compositor::{
-    document::{Shape, ShapeKind},
+    document::{Shape, ShapeGeometry, ShapeKind},
     geometry::Point,
 };
 use quickgui::{FillOptions, PathBuilder, PathStyle, Size, StrokeOptions};
@@ -12,20 +12,22 @@ pub(super) struct ShapeDraft {
     end: Point,
     kind: ShapeKind,
     radius: f64,
+    line_width: f64,
 }
 
 impl ShapeDraft {
-    fn new(anchor: Point, ellipse: bool, radius: f64) -> Self {
+    fn new(anchor: Point, kind: ShapeKind, radius: f64, line_width: f64) -> Self {
         Self {
             anchor,
             start: anchor,
             end: anchor,
-            kind: if ellipse {
-                ShapeKind::Ellipse
+            kind,
+            radius: if kind == ShapeKind::Rectangle {
+                radius
             } else {
-                ShapeKind::Rectangle
+                0.
             },
-            radius: if ellipse { 0. } else { radius },
+            line_width,
         }
     }
 
@@ -34,10 +36,20 @@ impl ShapeDraft {
         self.end = point;
         if modifiers.contains(Modifiers::SHIFT) {
             let delta = [point[0] - self.anchor[0], point[1] - self.anchor[1]];
-            let side = delta[0].abs().max(delta[1].abs());
-            self.end = std::array::from_fn(|axis| {
-                self.anchor[axis] + if delta[axis] < 0. { -side } else { side }
-            });
+            if self.kind == ShapeKind::Line {
+                let angle = (delta[1].atan2(delta[0]) / std::f64::consts::FRAC_PI_4).round()
+                    * std::f64::consts::FRAC_PI_4;
+                let length = delta[0].hypot(delta[1]);
+                self.end = [
+                    self.anchor[0] + length * angle.cos(),
+                    self.anchor[1] + length * angle.sin(),
+                ];
+            } else {
+                let side = delta[0].abs().max(delta[1].abs());
+                self.end = std::array::from_fn(|axis| {
+                    self.anchor[axis] + if delta[axis] < 0. { -side } else { side }
+                });
+            }
         }
         if modifiers.contains(Modifiers::ALT) {
             self.start = std::array::from_fn(|axis| 2. * self.anchor[axis] - self.end[axis]);
@@ -47,11 +59,13 @@ impl ShapeDraft {
 
 impl Editor {
     pub(super) fn begin_shape(&mut self, point: Point) -> Result<()> {
-        let draft = ShapeDraft::new(point, self.tools.shape_ellipse, self.tools.shape_radius);
-        self.session_mut().begin(match draft.kind {
-            ShapeKind::Rectangle => "Rectangle",
-            ShapeKind::Ellipse => "Ellipse",
-        })?;
+        let draft = ShapeDraft::new(
+            point,
+            self.tools.shape_kind,
+            self.tools.shape_radius,
+            self.tools.shape_line_width,
+        );
+        self.session_mut().begin(draft.kind.label())?;
         self.gesture = Some(Gesture::Shape(draft));
         Ok(())
     }
@@ -59,7 +73,15 @@ impl Editor {
     pub(super) fn finish_shape(&mut self, draft: ShapeDraft) -> Result<()> {
         let [r, g, b, _] = self.tools.brush.color;
         let shape = Shape {
-            kind: draft.kind,
+            geometry: match draft.kind {
+                ShapeKind::Rectangle => ShapeGeometry::Rectangle,
+                ShapeKind::Ellipse => ShapeGeometry::Ellipse,
+                ShapeKind::Line => ShapeGeometry::Line {
+                    line_width: draft.line_width,
+                    start: [0., 0.],
+                    end: [1., 1.],
+                },
+            },
             red: f64::from(r) / 255.,
             green: f64::from(g) / 255.,
             blue: f64::from(b) / 255.,
@@ -80,6 +102,9 @@ impl Editor {
         let Some(Gesture::Shape(draft)) = &self.gesture else {
             return Ok(div());
         };
+        if draft.kind == ShapeKind::Line {
+            return line_overlay(draft, zoom, offset, self.tools.brush.color);
+        }
         let width = ((draft.end[0] - draft.start[0]).abs() * zoom) as f32;
         let height = ((draft.end[1] - draft.start[1]).abs() * zoom) as f32;
         if width <= 0. || height <= 0. {
@@ -114,6 +139,40 @@ impl Editor {
     }
 }
 
+fn line_overlay(draft: &ShapeDraft, zoom: f64, offset: Point, color: [u8; 4]) -> Result<Element> {
+    if draft.start == draft.end {
+        return Ok(div());
+    }
+    let padding = draft.line_width * zoom / 2. + 1.;
+    let left = draft.start[0].min(draft.end[0]) * zoom - padding;
+    let top = draft.start[1].min(draft.end[1]) * zoom - padding;
+    let width = (draft.end[0] - draft.start[0]).abs() * zoom + 2. * padding;
+    let height = (draft.end[1] - draft.start[1]).abs() * zoom + 2. * padding;
+    let mut builder = PathBuilder::fill().with_style(PathStyle::Stroke(StrokeOptions {
+        line_width: (draft.line_width * zoom) as f32,
+        line_cap: quickgui::LineCap::Round,
+        ..StrokeOptions::default()
+    }));
+    builder.move_to(quickgui::Point::new(
+        (draft.start[0] * zoom - left) as f32,
+        (draft.start[1] * zoom - top) as f32,
+    ));
+    builder.line_to(quickgui::Point::new(
+        (draft.end[0] * zoom - left) as f32,
+        (draft.end[1] * zoom - top) as f32,
+    ));
+    let path = builder
+        .build()
+        .map_err(|e| compositor::invalid(format!("Cannot draw line preview: {e}")))?;
+    Ok(quickgui::canvas(move |_, painter| {
+        painter.paint_path(&path, Color::rgb8(color[0], color[1], color[2]))
+    })
+    .absolute()
+    .size(width as f32, height as f32)
+    .translate((left + offset[0]) as f32, (top + offset[1]) as f32)
+    .accessibility_hidden(true))
+}
+
 /// Local coordinates leave a one-point inset for the centered stroke and its antialiasing fringe.
 fn outline(
     kind: ShapeKind,
@@ -125,6 +184,11 @@ fn outline(
     let mut path = PathBuilder::fill().with_style(style);
     let point = |x, y| quickgui::Point::new(x + 1., y + 1.);
     match kind {
+        ShapeKind::Line => {
+            return Err(compositor::invalid(
+                "Line previews require their endpoints.",
+            ));
+        }
         ShapeKind::Ellipse => {
             let radii = Size::new(width / 2., height / 2.);
             path.move_to(point(width, height / 2.));
@@ -187,7 +251,11 @@ mod tests {
         ] {
             cx.update(view, |view, cx| {
                 view.0.session_mut().cancel();
-                view.0.tools.shape_ellipse = ellipse;
+                view.0.tools.shape_kind = if ellipse {
+                    compositor::document::ShapeKind::Ellipse
+                } else {
+                    compositor::document::ShapeKind::Rectangle
+                };
                 view.0.tools.shape_radius = radius;
                 view.0.begin_shape([40.5, 60.5]).unwrap();
                 if let Some(Gesture::Shape(draft)) = &mut view.0.gesture {

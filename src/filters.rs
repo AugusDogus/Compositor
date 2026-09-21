@@ -211,6 +211,7 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
     layer.transform = transform;
     layer.content = LayerContent::Raster(Some(Arc::new(result)));
     layer.shape = None;
+    layer.text = None;
     Ok(())
 }
 

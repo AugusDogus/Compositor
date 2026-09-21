@@ -198,7 +198,11 @@ fn shape_drags_preserve_the_starting_radius_and_constrain_from_the_anchor() {
             ),
         ] {
             let mut e = editor(Tool::Shape);
-            e.tools.shape_ellipse = ellipse;
+            e.tools.shape_kind = if ellipse {
+                compositor::document::ShapeKind::Ellipse
+            } else {
+                compositor::document::ShapeKind::Rectangle
+            };
             e.tools.shape_radius = 12.;
             let original = e.session().document.clone();
             e.pointer(&pointer([20., 20.], PointerPhase::Down, modifiers))
@@ -223,7 +227,11 @@ fn shape_drags_preserve_the_starting_radius_and_constrain_from_the_anchor() {
 fn completing_a_shape_targets_its_pixels_and_preserves_the_existing_selection() {
     for ellipse in [false, true] {
         let mut e = editor(Tool::Shape);
-        e.tools.shape_ellipse = ellipse;
+        e.tools.shape_kind = if ellipse {
+            compositor::document::ShapeKind::Ellipse
+        } else {
+            compositor::document::ShapeKind::Rectangle
+        };
         compositor::edits::add_mask(&mut e.session_mut().document, false).unwrap();
         e.tools.mask_target = true;
         e.session_mut().document.selection =
@@ -261,7 +269,11 @@ fn canvas_selection_and_shape_commands_use_source_history_names() {
         (Tool::Shape, true, "Ellipse"),
     ] {
         let mut e = editor(tool);
-        e.tools.shape_ellipse = ellipse;
+        e.tools.shape_kind = if ellipse {
+            compositor::document::ShapeKind::Ellipse
+        } else {
+            compositor::document::ShapeKind::Rectangle
+        };
         let original = e.session().document.clone();
         draw(&mut e, &[[10., 10.], [70., 10.], [70., 70.]]);
         assert_eq!(e.session().undo_label(), Some(label), "{tool:?}");
@@ -348,7 +360,7 @@ fn changing_shape_kind_cancels_the_drag_before_switching_the_header() {
             cx.click(window, "shape-Ellipse").unwrap();
         }
         cx.update(view, |e, _| {
-            assert!(e.tools.shape_ellipse);
+            assert_eq!(e.tools.shape_kind, compositor::document::ShapeKind::Ellipse);
             assert!(
                 e.gesture.is_none(),
                 "Changing shape kind must cancel the old draft"
@@ -607,5 +619,121 @@ fn polygon_toolbar_mode_vertex_deletion_cancel_and_double_click() {
     assert!(
         cx.read(view, |e| e.session().document.selection.is_some())
             .unwrap()
+    );
+}
+
+#[test]
+fn feather_controls_validate_cancel_apply_and_undo() {
+    let mut e = editor(Tool::Rectangle);
+    let original = Selection::rectangle(100, 100, [30., 30.], [70., 70.], false);
+    e.session_mut().document.selection = Some(original.clone());
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("Feather Selection").size(1280., 900.), e)
+        .unwrap();
+    let window = view.window_handle();
+    cx.update(view, |e, cx| e.action(Action::FeatherSelection, cx))
+        .unwrap();
+    cx.click(window, "form-cancel").unwrap();
+    assert_eq!(
+        cx.read(view, |e| e.session().document.selection.clone())
+            .unwrap(),
+        Some(original.clone())
+    );
+    cx.update(view, |e, cx| {
+        assert!(
+            e.apply_form(Action::FeatherSelection, vec!["251".into()])
+                .is_err()
+        );
+        assert!(
+            e.apply_form(Action::FeatherSelection, vec!["1.5".into()])
+                .is_err()
+        );
+        e.action(Action::FeatherSelection, cx);
+        e.update_form_field(0, "8");
+    })
+    .unwrap();
+    cx.click(window, "form-apply").unwrap();
+    let coverage = cx
+        .read(view, |e| {
+            assert!(e.modal.is_none());
+            assert_eq!(e.session().undo_label(), Some("Feather Selection"));
+            e.session()
+                .document
+                .selection
+                .as_ref()
+                .unwrap()
+                .coverage([29.5, 50.5])
+        })
+        .unwrap();
+    assert!(coverage > 0. && coverage < 1.);
+    cx.click(window, "selection-feather").unwrap();
+    cx.update(view, |e, _| {
+        e.session_mut().undo();
+        assert_eq!(
+            e.session()
+                .document
+                .selection
+                .as_ref()
+                .unwrap()
+                .coverage([29.5, 50.5]),
+            coverage
+        );
+        e.session_mut().undo();
+        assert_eq!(e.session().document.selection, Some(original));
+    })
+    .unwrap();
+}
+
+#[test]
+fn line_header_cycles_shapes_and_constrained_drag_keeps_starting_width() {
+    use compositor::document::{ShapeGeometry, ShapeKind};
+    let e = editor(Tool::Shape);
+    let before = e.session().document.clone();
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("Line").size(1280., 900.), e)
+        .unwrap();
+    let window = view.window_handle();
+    cx.focus(window, "workspace").unwrap();
+    cx.simulate_keystrokes(window, "shift-u shift-u").unwrap();
+    assert_eq!(
+        cx.read(view, |e| e.tools.shape_kind).unwrap(),
+        ShapeKind::Line
+    );
+    cx.focus(window, "shape-line-width").unwrap();
+    cx.simulate_keystrokes(window, "ctrl-a").unwrap();
+    cx.simulate_input(window, "6").unwrap();
+    cx.update(view, |e, _| {
+        e.session_mut().zoom = e.session().backing_scale;
+        e.pointer(&pointer([40., 40.], PointerPhase::Down, Modifiers::empty()))
+            .unwrap();
+        e.tools.shape_line_width = 20.;
+        e.pointer(&pointer(
+            [60., 48.],
+            PointerPhase::Up,
+            Modifiers::SHIFT | Modifiers::ALT,
+        ))
+        .unwrap();
+        assert_eq!(e.session().undo_label(), Some("Line"));
+        let layer = e.session().document.active_layer().unwrap();
+        let ShapeGeometry::Line {
+            line_width,
+            start,
+            end,
+        } = layer.shape.unwrap().geometry
+        else {
+            panic!("expected line");
+        };
+        assert_eq!(line_width, 6.);
+        assert_eq!(start[1], end[1]);
+        assert!((layer.transform.geometry_point([0.5, 0.5])[0] - 40.).abs() < 0.01);
+        e.session_mut().undo();
+        assert_eq!(e.session().document, before);
+    })
+    .unwrap();
+    cx.focus(window, "workspace").unwrap();
+    cx.simulate_keystrokes(window, "shift-u").unwrap();
+    assert_eq!(
+        cx.read(view, |e| e.tools.shape_kind).unwrap(),
+        ShapeKind::Rectangle
     );
 }

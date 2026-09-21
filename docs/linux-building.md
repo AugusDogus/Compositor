@@ -18,7 +18,7 @@ cargo run --locked --release -- /path/to/project.comp /path/to/photo.jpg
 
 Other distributions need equivalent development libraries. Use your desktop's XDG portal backend for native file dialogs and your GPU's graphics drivers. Ubuntu 24.04 is the release build baseline, not the only supported distribution.
 
-## Background removal in source builds
+## Inference in source builds
 
 The AppImage already includes this runtime. For a source build, prepare the native inference libraries and models once:
 
@@ -28,7 +28,7 @@ scripts/setup-linux.sh
 scripts/run-linux.sh
 ```
 
-`setup-linux.sh` runs `setup-background.sh`, then builds the release executable. Setup downloads pinned ONNX Runtime libraries and both full BiRefNet Dynamic models, and prepares the GPU model with a build-only Python environment. The editor itself runs native inference and needs no Python runtime. Setup requires network access; subsequent removals work offline.
+`setup-linux.sh` runs `setup-background.sh`, then builds the release executable. Setup downloads pinned ONNX Runtime libraries, full BiRefNet Dynamic models, and the Object Selection model. Model preparation uses a build-only Python environment. The editor itself runs native inference and needs no Python runtime. Setup requires network access; subsequent background removal and object selection work offline.
 
 Models and libraries default to `${XDG_DATA_HOME:-$HOME/.local/share}/compositor/inference`. Set `COMPOSITOR_INFERENCE_DIR` during setup and launch to use another directory. `COMPOSITOR_BACKGROUND_DEVICE=cpu` or `gpu` overrides automatic device selection. GPU inference requires a hardware Vulkan adapter with FP16 shader support.
 

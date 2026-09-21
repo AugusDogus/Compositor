@@ -67,7 +67,11 @@ fn expensive(document: &Document, key: PreviewKey) -> bool {
     let samples = u64::from(key.size[0]) * u64::from(key.size[1]);
     samples >= 500_000
         || document.layers.iter().any(|layer| {
-            (samples >= 65_536 && matches!(layer.content, LayerContent::Adjustment(_)))
+            layer
+                .effects
+                .as_ref()
+                .is_some_and(|e| !e.visible().is_empty())
+                || (samples >= 65_536 && matches!(layer.content, LayerContent::Adjustment(_)))
                 || layer
                     .raster()
                     .is_some_and(|p| u64::from(p.width()) * u64::from(p.height()) >= 4_000_000)
@@ -137,8 +141,9 @@ impl Editor {
         {
             return;
         }
+        let distorted_effects = self.effects_distortion_preview();
         let mut cache = std::mem::take(&mut self.canvas_rendering.cache);
-        if !expensive(&document, key) {
+        if distorted_effects.is_none() && !expensive(&document, key) {
             self.canvas_rendering.work = Work::Running(key);
             let pixels = calculate(&document, key, &mut cache);
             self.canvas_rendering.cache = cache;
@@ -150,7 +155,8 @@ impl Editor {
         self.canvas_rendering.work = Work::Running(key);
         let launched = cx.spawn_background(
             move || {
-                let pixels = calculate(&document, key, &mut cache);
+                let prepared = match distorted_effects { Some(effects) => effects.prepare(&document), None => Ok(document) };
+                let pixels = prepared.and_then(|document| calculate(&document, key, &mut cache));
                 (pixels, cache)
             },
             move |this, result, cx| {
@@ -207,6 +213,24 @@ impl Editor {
                 self.status = error.to_string();
             }
         }
+    }
+
+    /// Test contexts have no background worker pool. Resolve the queued snapshot
+    /// explicitly so screenshot fixtures exercise the real rendering pipeline.
+    #[cfg(test)]
+    pub(super) fn resolve_test_canvas_preview(&mut self) -> Result<()> {
+        let key = self
+            .canvas_rendering
+            .desired
+            .ok_or_else(|| invalid("No canvas preview was requested."))?;
+        let mut cache = std::mem::take(&mut self.canvas_rendering.cache);
+        let pixels = calculate(&self.canvas_content(), key, &mut cache);
+        self.canvas_rendering.cache = cache;
+        self.canvas_rendering.work = Work::Running(key);
+        pixels.as_ref().map_err(|e| invalid(e.to_string()))?;
+        self.receive_canvas_preview(key, pixels);
+        self.status.clear();
+        Ok(())
     }
 
     pub(super) fn canvas_rendering_status(&self, cx: &mut ViewContext<'_, Self>) -> Element {

@@ -1,6 +1,7 @@
 //! Live transform fields preserve the original document until Apply or Cancel.
 use super::*;
 mod drag;
+mod effects;
 #[cfg(test)]
 mod floating_tests;
 mod history;

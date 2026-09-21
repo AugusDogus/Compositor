@@ -61,7 +61,7 @@ impl Editor {
         {
             return Ok(());
         }
-        let pixel = compositor::render::sample(doc, point.map(|v| v.floor() + 0.5));
+        let pixel = compositor::render::sample(doc, point.map(|v| v.floor() + 0.5))?;
         if pixel[3] > 0. {
             self.tools.brush.color = pixel.map(|v| (v * 255.).round() as u8);
             self.tools.brush.color[3] = 255;

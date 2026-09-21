@@ -118,7 +118,12 @@ impl Editor {
             }
             let selection_tool = matches!(
                 self.tools.tool,
-                Tool::Rectangle | Tool::Ellipse | Tool::Lasso | Tool::Polygon | Tool::Wand
+                Tool::Rectangle
+                    | Tool::Ellipse
+                    | Tool::Lasso
+                    | Tool::Polygon
+                    | Tool::Wand
+                    | Tool::Object
             );
             if selection_tool
                 && event.modifiers.contains(Modifiers::CONTROL)
@@ -148,6 +153,7 @@ impl Editor {
                 return Ok(());
             }
             if selection_tool
+                && self.tools.tool != Tool::Object
                 && mode == compositor::selection::SelectionMode::Replace
                 && let Some(selection) = self.session().document.selection.clone()
                 && selection.coverage(point) > 0.5
@@ -357,6 +363,13 @@ impl Editor {
                     self.gesture = Some(Gesture::Crop(self.begin_crop(point, zoom)));
                 }
                 Tool::Shape => self.begin_shape(point)?,
+                Tool::Text => {
+                    self.gesture = Some(Gesture::Text {
+                        start: point,
+                        end: point,
+                        force_new: event.modifiers.contains(Modifiers::ALT),
+                    });
+                }
                 Tool::Rectangle | Tool::Ellipse => {
                     let label = match self.tools.tool {
                         Tool::Rectangle => "Rectangular Marquee",
@@ -383,6 +396,25 @@ impl Editor {
                     });
                 }
                 Tool::Polygon => self.polygon_click(point, zoom, mode)?,
+                Tool::Object => {
+                    let doc = &self.session().document;
+                    if point
+                        .iter()
+                        .zip([doc.width, doc.height])
+                        .any(|(value, size)| {
+                            !value.is_finite() || *value < 0. || *value >= f64::from(size)
+                        })
+                    {
+                        return Ok(());
+                    }
+                    self.gesture = Some(Gesture::Object {
+                        start: point,
+                        end: point,
+                        sample_all: self.tools.object_sample_all,
+                        antialiased: self.tools.selection_antialiased,
+                        mode,
+                    });
+                }
                 Tool::Wand => {
                     let (tolerance, radius, contiguous, sample_all) = (
                         self.tools.wand_tolerance,
@@ -563,8 +595,12 @@ impl Editor {
                     }
                     *guides = [None; 2];
                     if !event.modifiers.contains(Modifiers::CONTROL) {
-                        (target, *guides) =
-                            transform::snap(&self.session().document, *bounds, target, 10. / zoom);
+                        (target, *guides) = self.tools.layout.snap_move(
+                            &self.session().document,
+                            *bounds,
+                            target,
+                            10. / zoom,
+                        );
                     }
                     if event.modifiers.contains(Modifiers::SHIFT) {
                         if target[0].abs() > target[1].abs() {
@@ -600,6 +636,14 @@ impl Editor {
                     s.pan[1] += event.delta.y as f64;
                 }
                 Gesture::Shape(draft) => draft.drag(point, event.modifiers),
+                Gesture::Text { end, .. } => *end = point,
+                Gesture::Object { end, .. } => {
+                    let doc = &self.session().document;
+                    *end = [
+                        point[0].clamp(0., f64::from(doc.width)),
+                        point[1].clamp(0., f64::from(doc.height)),
+                    ];
+                }
                 Gesture::Region {
                     anchor,
                     start,
@@ -632,6 +676,43 @@ impl Editor {
                 }
             }
             if event.phase == PointerPhase::Up {
+                if let Gesture::Object {
+                    start,
+                    end,
+                    sample_all,
+                    antialiased,
+                    mode,
+                } = gesture
+                {
+                    let distance = [
+                        (end[0] - start[0]).abs() * zoom,
+                        (end[1] - start[1]).abs() * zoom,
+                    ];
+                    let target = if distance[0] >= 3. && distance[1] >= 3. {
+                        compositor::object_selection::Target::ObjectBox { start, end }
+                    } else if distance[0].max(distance[1]) < 3. {
+                        compositor::object_selection::Target::Object(start)
+                    } else {
+                        return Ok(());
+                    };
+                    self.queue(jobs::Job::SelectForeground(
+                        compositor::object_selection::Settings {
+                            target,
+                            sample_all,
+                            antialiased,
+                            mode,
+                        },
+                    ));
+                    return Ok(());
+                }
+                if let Gesture::Text {
+                    start,
+                    end,
+                    force_new,
+                } = gesture
+                {
+                    return self.begin_text(start, end, force_new);
+                }
                 if matches!(
                     gesture,
                     Gesture::PixelTransform(_)

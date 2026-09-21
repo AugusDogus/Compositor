@@ -14,7 +14,12 @@ trap 'rm -rf -- "$stage_dir"' EXIT
 bundle_dir="$stage_dir/$package_name"
 install -Dm755 "$package_binary" "$bundle_dir/bin/compositor"
 install -Dm755 packaging/linux/install.sh "$bundle_dir/install.sh"
-install -Dm755 scripts/setup-background.sh "$bundle_dir/setup-background.sh"
+for script in setup-background.sh setup-object-selection.sh; do
+    install -Dm755 "scripts/$script" "$bundle_dir/$script"
+done
+for file in background_model.py test_background_model.py requirements-inference-build.txt object-selection-model.json object_selection_model.py requirements-object-model-build.txt; do
+    install -Dm644 "scripts/$file" "$bundle_dir/$file"
+done
 install -Dm644 packaging/linux/compositor.desktop "$bundle_dir/share/applications/compositor.desktop"
 install -Dm644 Compositor/Assets.xcassets/AppIcon.appiconset/app-icon-256.png "$bundle_dir/share/icons/hicolor/256x256/apps/compositor.png"
 install -Dm644 README.md "$bundle_dir/README.md"

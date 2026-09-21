@@ -38,7 +38,7 @@ impl Editor {
                 self.finish_pending_edits()?;
                 self.session_mut().edit("Layer Opacity", |doc| {
                     for layer in &mut doc.layers {
-                        if doc.selected.contains(&layer.id) && !layer.is_group() {
+                        if doc.selected.contains(&layer.id) {
                             layer.opacity = opacity;
                         }
                     }
@@ -245,7 +245,7 @@ mod tests {
                 .iter()
                 .map(|l| l.opacity)
                 .collect::<Vec<_>>(),
-            [0.5, 0.5, 1.]
+            [0.5, 0.5, 0.5]
         );
         e.session_mut().undo();
         assert!(e.session().document.layers.iter().all(|l| l.opacity == 1.));

@@ -39,6 +39,7 @@ pub fn apply(
     });
     layer.content = LayerContent::Raster(Some(Arc::new(result)));
     layer.shape = None;
+    layer.text = None;
     Ok(())
 }
 

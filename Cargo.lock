@@ -129,6 +129,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ag-psd"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6470c6a2f96a00a8d4154504020b34807c2282438c98f90f5069ef3f8cb0e7bf"
+dependencies = [
+ "flate2",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -725,8 +734,9 @@ dependencies = [
 
 [[package]]
 name = "compositor"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
+ "ag-psd",
  "arboard",
  "bytemuck",
  "cc",
@@ -739,6 +749,7 @@ dependencies = [
  "png 0.18.1",
  "pollster",
  "quickgui",
+ "quickgui-cosmic-text",
  "quickgui-winit",
  "raw-window-handle",
  "resvg",

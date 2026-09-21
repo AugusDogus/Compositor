@@ -226,11 +226,17 @@ fn own_pixel(layer: &Layer, point: Point, backgrounds: &HashMap<Uuid, f64>) -> [
     color
 }
 
+#[derive(Clone, Copy)]
+struct InheritedCoverage {
+    mask: f64,
+    opacity: f64,
+}
+
 fn paint_children(
     doc: &Document,
     parent: Option<Uuid>,
     point: Point,
-    inherited_mask: f64,
+    inherited: InheritedCoverage,
     out: &mut [f64; 4],
     depth: usize,
     state: &RenderState,
@@ -251,7 +257,10 @@ fn paint_children(
                 doc,
                 Some(layer.id),
                 point,
-                inherited_mask * mask_alpha(layer, point, &state.backgrounds),
+                InheritedCoverage {
+                    mask: inherited.mask * mask_alpha(layer, point, &state.backgrounds),
+                    opacity: inherited.opacity * layer.opacity,
+                },
                 out,
                 depth + 1,
                 state,
@@ -266,31 +275,38 @@ fn paint_children(
                     adjust(
                         child,
                         point,
-                        child.opacity * mask_alpha(child, point, &state.backgrounds),
+                        child.opacity
+                            * inherited.opacity
+                            * mask_alpha(child, point, &state.backgrounds),
                         &mut group,
                     );
                 } else {
-                    group = child
-                        .blend
-                        .composite(group, own_pixel(child, point, &state.backgrounds));
+                    let mut top = own_pixel(child, point, &state.backgrounds);
+                    top[3] *= inherited.opacity;
+                    group = child.blend.composite(group, top);
                 }
             }
             // The stack shares its base's coverage. Source-over of separately clipped children
             // would thicken translucent edges and let adjustments affect unrelated lower layers.
-            group[3] = alpha * inherited_mask;
+            group[3] = alpha * inherited.mask * inherited.opacity;
             *out = layer.blend.composite(*out, group);
         } else if matches!(layer.content, LayerContent::Adjustment(_)) {
             if layer.clip_source.is_none() {
                 adjust(
                     layer,
                     point,
-                    layer.opacity * mask_alpha(layer, point, &state.backgrounds) * inherited_mask,
+                    layer.opacity
+                        * mask_alpha(layer, point, &state.backgrounds)
+                        * inherited.mask
+                        * inherited.opacity,
                     out,
                 );
             }
         } else if let Some(image) = layer.raster() {
             let mut top = pixel(image, layer.transform.unit(point), layer.transform.sampling);
-            top[3] = coverage(doc, layer, point, 0, &state.backgrounds) * inherited_mask;
+            top[3] = coverage(doc, layer, point, 0, &state.backgrounds)
+                * inherited.mask
+                * inherited.opacity;
             *out = layer.blend.composite(*out, top);
         }
     }
@@ -303,10 +319,11 @@ pub struct Sampler<'a> {
 }
 
 impl Sampler<'static> {
-    pub fn new(document: &Document) -> Self {
-        Self::from_document(Cow::Owned(
-            DownsampleCache::default().prepare(document, [1., 1.]),
-        ))
+    pub fn new(document: &Document) -> crate::Result<Self> {
+        Ok(Self::from_document(Cow::Owned(
+            DownsampleCache::default()
+                .prepare(&crate::effects::prepare(document, false)?, [1., 1.]),
+        )))
     }
 }
 
@@ -317,16 +334,33 @@ impl<'a> Sampler<'a> {
     }
     pub fn sample(&self, point: Point) -> [f64; 4] {
         let mut out = [0.; 4];
-        paint_children(&self.document, None, point, 1., &mut out, 0, &self.state);
+        paint_children(
+            &self.document,
+            None,
+            point,
+            InheritedCoverage {
+                mask: 1.,
+                opacity: 1.,
+            },
+            &mut out,
+            0,
+            &self.state,
+        );
         out
     }
 }
 
-pub fn sample(doc: &Document, point: Point) -> [f64; 4] {
-    Sampler::new(doc).sample(point)
+pub fn sample(doc: &Document, point: Point) -> crate::Result<[f64; 4]> {
+    Ok(Sampler::new(doc)?.sample(point))
 }
 
-pub fn region(doc: &Document, width: u32, height: u32, origin: Point, step: Point) -> RgbaImage {
+pub fn region(
+    doc: &Document,
+    width: u32,
+    height: u32,
+    origin: Point,
+    step: Point,
+) -> crate::Result<RgbaImage> {
     region_cached(
         doc,
         width,
@@ -344,10 +378,11 @@ pub fn region_cached(
     origin: Point,
     step: Point,
     cache: &mut DownsampleCache,
-) -> RgbaImage {
-    let prepared = cache.prepare(doc, step);
+) -> crate::Result<RgbaImage> {
+    let effects = crate::effects::prepare(doc, false)?;
+    let prepared = cache.prepare(&effects, step);
     let sampler = Sampler::from_document(Cow::Borrowed(&prepared));
-    RgbaImage::from_fn(width, height, |x, y| {
+    Ok(RgbaImage::from_fn(width, height, |x, y| {
         let point = [
             origin[0] + (x as f64 + 0.5) * step[0],
             origin[1] + (y as f64 + 0.5) * step[1],
@@ -357,10 +392,17 @@ pub fn region_cached(
                 .sample(point)
                 .map(|v| (v.clamp(0., 1.) * 255.).round() as u8),
         )
-    })
+    }))
 }
 
 /// Compile the viewport and resize pipelines before the first large preview.
+pub(crate) fn gpu_effects(
+    image: &RgbaImage,
+    effects: &crate::effects::LayerEffects,
+) -> crate::Result<Option<RgbaImage>> {
+    gpu::effects::render(image, effects)
+}
+
 pub fn initialize_gpu() -> crate::Result<()> {
     gpu::initialize()
 }
@@ -375,14 +417,15 @@ pub fn region_accelerated(
     step: Point,
     cache: &mut DownsampleCache,
 ) -> crate::Result<RgbaImage> {
-    let prepared = cache.prepare_accelerated(doc, step)?;
+    let effects = crate::effects::prepare(doc, true)?;
+    let prepared = cache.prepare_accelerated(&effects, step)?;
     if let Some(image) = gpu::render(&prepared, [width, height], origin, step)? {
         return Ok(image);
     }
-    Ok(region_cached(&prepared, width, height, origin, step, cache))
+    region_cached(&prepared, width, height, origin, step, cache)
 }
 
-pub fn render(doc: &Document, width: u32, height: u32) -> RgbaImage {
+pub fn render(doc: &Document, width: u32, height: u32) -> crate::Result<RgbaImage> {
     region(
         doc,
         width,
@@ -395,11 +438,11 @@ pub fn render(doc: &Document, width: u32, height: u32) -> RgbaImage {
     )
 }
 
-pub fn below(doc: &Document, id: Uuid) -> RgbaImage {
+pub fn below(doc: &Document, id: Uuid) -> crate::Result<RgbaImage> {
     render(&below_source(doc, id), doc.width, doc.height)
 }
 
-pub fn sample_below(doc: &Document, id: Uuid, point: Point) -> [f64; 4] {
+pub fn sample_below(doc: &Document, id: Uuid, point: Point) -> crate::Result<[f64; 4]> {
     sample(&below_source(doc, id), point)
 }
 
@@ -432,12 +475,50 @@ fn below_source(doc: &Document, id: Uuid) -> Document {
     source
 }
 
+pub(crate) fn gpu_coverage_blur(
+    image: &image::GrayImage,
+    sigma: f32,
+) -> crate::Result<Option<image::GrayImage>> {
+    gpu::gaussian::blur(image, sigma)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::document::Mask;
     use image::{GrayImage, Luma};
     use std::sync::Arc;
+
+    #[test]
+    fn folder_opacity_multiplies_nested_children_without_changing_their_values() {
+        let mut doc = Document::new(1, 1).unwrap();
+        doc.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(
+            1,
+            1,
+            Rgba([255, 0, 0, 255]),
+        ))));
+        doc.layers[0].opacity = 0.5;
+        let mut outer = Layer::blank("Outer", 1, 1);
+        outer.content = LayerContent::Group;
+        outer.opacity = 0.5;
+        let mut inner = outer.clone();
+        inner.id = Uuid::new_v4();
+        inner.name = "Inner".into();
+        inner.parent = Some(outer.id);
+        doc.layers[0].parent = Some(inner.id);
+        doc.layers.extend([inner, outer]);
+        doc.validate().unwrap();
+        assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([255, 0, 0, 32]));
+        assert_eq!(doc.layers[0].opacity, 0.5);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("folders.comp");
+        crate::project::save(&doc, &path).unwrap();
+        let reopened = crate::project::load(&path).unwrap();
+        assert_eq!(
+            render(&reopened, 1, 1).unwrap(),
+            render(&doc, 1, 1).unwrap()
+        );
+    }
 
     #[test]
     fn clipping_stack_keeps_base_alpha_instead_of_thickening_edges() {
@@ -455,7 +536,7 @@ mod tests {
         ))));
         child.clip_source = Some(doc.layers[0].id);
         doc.add(child).unwrap();
-        assert_eq!(render(&doc, 1, 1)[(0, 0)], Rgba([255, 0, 0, 128]));
+        assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([255, 0, 0, 128]));
         let mut group = Layer::blank("Folder", 1, 1);
         group.content = LayerContent::Group;
         group.mask = Some(Mask {
@@ -468,7 +549,7 @@ mod tests {
             layer.parent = Some(group.id);
         }
         doc.add(group).unwrap();
-        assert_eq!(render(&doc, 1, 1)[(0, 0)], Rgba([255, 0, 0, 64]));
+        assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([255, 0, 0, 64]));
     }
 
     #[test]
@@ -493,7 +574,7 @@ mod tests {
         adjustment.clip_source = Some(base.id);
         doc.add(base).unwrap();
         doc.add(adjustment).unwrap();
-        let result = render(&doc, 2, 1);
+        let result = render(&doc, 2, 1).unwrap();
         assert_eq!(result[(0, 0)], Rgba([128, 0, 255, 255]));
         assert_eq!(result[(1, 0)], Rgba([0, 0, 255, 255]));
         assert_eq!(
@@ -510,7 +591,7 @@ mod tests {
             Rgba([c, c, c, 255])
         }));
         doc.layers[0].content = LayerContent::Raster(Some(source.clone()));
-        let pixel = render(&doc, 1, 1)[(0, 0)];
+        let pixel = render(&doc, 1, 1).unwrap()[(0, 0)];
         assert!((126..=129).contains(&pixel[0]));
         assert!(Arc::ptr_eq(doc.layers[0].raster().unwrap(), &source));
         assert_eq!(
@@ -526,7 +607,7 @@ mod tests {
             LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(4000, 2, |x, _| {
                 Rgba([(x % 256) as u8, 0, 0, 255])
             }))));
-        let image = region(&doc, 3, 1, [2500., 1.], [1., 1.]);
+        let image = region(&doc, 3, 1, [2500., 1.], [1., 1.]).unwrap();
         assert_eq!(image[(0, 0)], Rgba([196, 0, 0, 255]));
         assert_eq!(image[(1, 0)], Rgba([197, 0, 0, 255]));
         assert_eq!(image[(2, 0)], Rgba([198, 0, 0, 255]));
@@ -547,7 +628,7 @@ mod tests {
         adjustment.blend = crate::blend::Blend::Multiply;
         adjustment.opacity = 0.5;
         doc.add(adjustment).unwrap();
-        assert_eq!(render(&doc, 1, 1)[(0, 0)], Rgba([96, 96, 96, 128]));
+        assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([96, 96, 96, 128]));
     }
 
     #[test]
@@ -567,7 +648,7 @@ mod tests {
         ))));
         top.clip_source = Some(doc.layers[0].id);
         doc.add(top).unwrap();
-        assert_eq!(render(&doc, 1, 1)[(0, 0)], Rgba([255, 0, 0, 128]));
+        assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([255, 0, 0, 128]));
     }
     #[test]
     fn group_masks_multiply_child_coverage() {
@@ -587,6 +668,6 @@ mod tests {
             Rgba([255, 0, 0, 255]),
         ))));
         doc.add(group).unwrap();
-        assert_eq!(render(&doc, 1, 1)[(0, 0)], Rgba([255, 0, 0, 128]));
+        assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([255, 0, 0, 128]));
     }
 }

@@ -17,6 +17,7 @@ pub(super) enum Glyph {
     Lasso(Badge),
     Polygon(Badge),
     Wand(Badge),
+    Object(Badge),
     Eyedropper,
     ZoomIn,
     ZoomOut,
@@ -115,6 +116,18 @@ fn drawing(glyph: Glyph) -> ([u32; 2], [u16; 2], String) {
                     "{cross}<g fill=\"none\">{tool}</g>{}",
                     badge(mode, 34., 23.)
                 ),
+            )
+        }
+        Object(mode) => {
+            let tool = outlined(
+                "M4 10V4H10M18 4H24V10M24 18V24H18M10 24H4V18M10 14H18M14 10V18",
+                3.2,
+                1.2,
+            );
+            (
+                [36, 32],
+                [14, 14],
+                format!("{tool}{}", badge(mode, 29., 25.)),
             )
         }
         Wand(mode) => {

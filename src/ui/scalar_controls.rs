@@ -14,15 +14,18 @@ pub(super) struct SliderDrag {
 
 #[derive(Clone, Copy)]
 pub(super) enum Scalar {
+    Effect(super::layer_effects::Parameter),
     BrushSize,
     BrushHardness,
     BrushOpacity,
     LayerOpacity,
     GradientOpacity,
     ShapeRadius,
+    ShapeLineWidth,
     WandTolerance,
     SelectionExpand,
     SelectionContract,
+    SelectionFeather,
     Field(usize),
     Parameter(usize, super::parameter_controls::Scale),
     JpegQuality,
@@ -30,14 +33,20 @@ pub(super) enum Scalar {
 impl Scalar {
     fn value(self, editor: &Editor) -> f64 {
         match self {
+            Self::Effect(p) => match &editor.modal {
+                Some(Form::Effects(e)) => e.number(p),
+                _ => 0.,
+            },
             Self::BrushSize => editor.tools.brush.diameter,
             Self::BrushHardness => editor.tools.brush.hardness * 100.,
             Self::BrushOpacity => editor.tools.brush.opacity * 100.,
             Self::GradientOpacity => editor.tools.gradient.opacity * 100.,
             Self::ShapeRadius => editor.tools.shape_radius,
+            Self::ShapeLineWidth => editor.tools.shape_line_width,
             Self::WandTolerance => f64::from(editor.tools.wand_tolerance),
             Self::SelectionExpand => f64::from(editor.tools.selection_expand_amount),
             Self::SelectionContract => f64::from(editor.tools.selection_contract_amount),
+            Self::SelectionFeather => f64::from(editor.tools.selection_feather_amount),
             Self::LayerOpacity => editor
                 .current_document()
                 .and_then(Document::active_layer)
@@ -60,6 +69,7 @@ impl Scalar {
     }
     fn set(self, editor: &mut Editor, value: f64) -> Result<()> {
         match self {
+            Self::Effect(p) => editor.change_effect(|e| e.set_number(p, value)),
             Self::BrushSize => editor.tools.brush.diameter = value,
             Self::BrushHardness => editor.tools.brush.hardness = value / 100.,
             Self::BrushOpacity => editor.tools.brush.opacity = value / 100.,
@@ -72,8 +82,10 @@ impl Scalar {
                 result?;
             }
             Self::ShapeRadius => editor.tools.shape_radius = value.round(),
+            Self::ShapeLineWidth => editor.tools.shape_line_width = value.round(),
             Self::WandTolerance => editor.tools.wand_tolerance = value.round() as u8,
             Self::SelectionExpand => editor.tools.selection_expand_amount = value.round() as u16,
+            Self::SelectionFeather => editor.tools.selection_feather_amount = value.round() as u16,
             Self::SelectionContract => {
                 editor.tools.selection_contract_amount = value.round() as u16
             }
@@ -169,7 +181,7 @@ impl Editor {
             }
             let layer = matches!(scalar, Scalar::LayerOpacity);
             if layer && event.phase == PointerPhase::Down {
-                if !this.can_edit_appearance() {
+                if !this.can_edit_opacity() {
                     return;
                 }
                 let result = this
@@ -228,7 +240,7 @@ impl Editor {
             this.changed(cx);
         });
         let key = cx.key_down_listener(id, move |this, event, cx| {
-            if matches!(scalar, Scalar::LayerOpacity) && !this.can_edit_appearance() {
+            if matches!(scalar, Scalar::LayerOpacity) && !this.can_edit_opacity() {
                 return;
             }
             let forward = matches!(event.key, Key::ArrowUp | Key::ArrowRight);

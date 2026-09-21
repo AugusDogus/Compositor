@@ -289,6 +289,7 @@ impl WarpStroke {
         layer.transform = expanded.transform;
         layer.mask = expanded.mask;
         layer.shape = None;
+        layer.text = None;
         Ok(())
     }
 }
@@ -331,7 +332,7 @@ mod tests {
             )
             .unwrap();
             stroke.to(&mut doc, [12., 5.]).unwrap();
-            let result = render::render(&doc, 20, 10);
+            let result = render::render(&doc, 20, 10).unwrap();
             assert!(result[(10, 5)][3] > 0, "{mode:?}");
             assert_eq!(result[(10, 5)][0], 255);
             doc.validate().unwrap();

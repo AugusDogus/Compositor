@@ -223,20 +223,16 @@ fn cancelling_a_floating_drag_preserves_the_previous_draft_and_transaction() {
         assert!(editor.pending_pixels.is_some());
         assert_eq!(editor.session().document, before);
         assert!(editor.session().undo_label().is_none());
+        let collapsed = editor.pending_pixels.as_ref().unwrap().placement.corners()[2];
         pointer(&mut editor, PointerPhase::Down, corner, Modifiers::CONTROL);
         pointer(
             &mut editor,
             PointerPhase::Move,
-            [100., 100.],
+            collapsed,
             Modifiers::CONTROL,
         );
         assert_eq!(editor.session().document, before);
-        pointer(
-            &mut editor,
-            PointerPhase::Up,
-            [100., 100.],
-            Modifiers::CONTROL,
-        );
+        pointer(&mut editor, PointerPhase::Up, collapsed, Modifiers::CONTROL);
         editor.finish_toolbar_transform(true).unwrap();
         assert_eq!(editor.session().undo_label(), Some("Transform Selection"));
         editor.session_mut().undo();

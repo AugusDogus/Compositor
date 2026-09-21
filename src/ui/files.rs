@@ -6,19 +6,25 @@ impl Editor {
     pub(super) fn file_action(&mut self, action: Action, cx: &mut EventContext) {
         let operation = alerts::Operation::for_action(action);
         match action {
-            Action::Open | Action::Import => {
+            Action::Open | Action::OpenPsd | Action::Import => {
                 let options = if matches!(action, Action::Open) {
                     PathPromptOptions::new()
                         .files(false)
                         .directories(true)
                         .title("Open Project")
+                } else if matches!(action, Action::OpenPsd) {
+                    PathPromptOptions::new()
+                        .title("Open Photoshop Document")
+                        .filters([file_filter("Photoshop document", &["psd"])])
                 } else {
                     PathPromptOptions::new()
                         .multiple(true)
                         .title("Import Images")
                         .filters([file_filter(
                             "Images",
-                            &["jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp"],
+                            &[
+                                "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp", "psd",
+                            ],
                         )])
                 };
                 match cx.prompt_for_paths(options) {
@@ -35,6 +41,7 @@ impl Editor {
                     Err(error) => self.show_error(operation, format!("Could not open a file dialog: {error}. Drop files onto the canvas instead.")),
                 }
             }
+            Action::ExportPsd => self.prepare_psd_export(),
             Action::Save if self.session().path.is_some() => {
                 if let Some(path) = self.session().path.clone() {
                     self.save_to(path, cx);
@@ -118,6 +125,42 @@ impl Editor {
                 Err(error) => this.show_error(operation, format!("JPEG export dialog failed: {error}. Your edits are still open. Choose Export JPEG to retry.")),
             }),
             Err(error) => self.show_error(operation, format!("Could not open the JPEG export dialog: {error}. Your edits are still open. Choose Export JPEG to retry.")),
+        }
+    }
+
+    pub(super) fn prompt_psd_path(&mut self, document: Document, cx: &mut EventContext) {
+        let operation = alerts::Operation::ExportPsd;
+        let options = SaveDialog::Psd.options(self.session().path.as_deref());
+        match cx.prompt_for_new_path(options) {
+            Ok(response) => {
+                self.await_response(
+                    cx,
+                    operation,
+                    response,
+                    move |this, result, _| match result {
+                        Ok(Some(path)) => match SaveDialog::Psd.destination(path) {
+                            Ok(path) => this.queue_file(super::file_jobs::FileJob::ExportPsd {
+                                document,
+                                path,
+                            }),
+                            Err(error) => this.show_error(operation, error.to_string()),
+                        },
+                        Ok(None) => {
+                            this.status = "PSD export cancelled. Your edits are still open.".into()
+                        }
+                        Err(error) => this.show_error(
+                            operation,
+                            format!(
+                                "PSD export dialog failed: {error}. Your edits are still open."
+                            ),
+                        ),
+                    },
+                )
+            }
+            Err(error) => self.show_error(
+                operation,
+                format!("Could not open PSD export dialog: {error}. Your edits are still open."),
+            ),
         }
     }
 

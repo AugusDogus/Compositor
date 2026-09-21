@@ -1,6 +1,8 @@
 //! Vulkan viewport compositing. The CPU renderer remains the reference and the
 //! fallback for unavailable hardware or scenes exceeding the bounded GPU budget.
 mod adjustments;
+pub(super) mod effects;
+pub(super) mod gaussian;
 pub(super) mod resize;
 mod scene;
 #[cfg(test)]
@@ -55,6 +57,7 @@ pub(super) struct Engine {
     queue: wgpu::Queue,
     pipeline: wgpu::ComputePipeline,
     resize_pipeline: wgpu::ComputePipeline,
+    effects_pipeline: wgpu::ComputePipeline,
     output: wgpu::Buffer,
     readback: wgpu::Buffer,
 }
@@ -108,6 +111,18 @@ impl Engine {
             compilation_options: Default::default(),
             cache: None,
         });
+        let effects_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Layer effects"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("gpu/effects.wgsl").into()),
+        });
+        let effects_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Layer effects"),
+            layout: None,
+            module: &effects_shader,
+            entry_point: Some("effects"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
         let output = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Canvas pixels"),
             size: (BATCH_PIXELS * 4) as u64,
@@ -126,6 +141,7 @@ impl Engine {
             queue,
             pipeline,
             resize_pipeline,
+            effects_pipeline,
             output,
             readback,
         })

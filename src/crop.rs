@@ -64,6 +64,11 @@ impl Drag {
         }
     }
 
+    pub fn with_targets(mut self, targets: [Vec<f64>; 2]) -> Self {
+        self.targets = targets;
+        self
+    }
+
     pub fn updated(
         &self,
         point: Point,

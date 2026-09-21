@@ -127,7 +127,7 @@ fn canvas_black_and_white_presets_hide_the_color_well_and_fill_new_pixels() {
         cx.read(view, |e| {
             assert!(e.modal.is_none());
             assert_eq!(
-                compositor::render::sample(&e.session().document, [200.5, 100.5]),
+                compositor::render::sample(&e.session().document, [200.5, 100.5]).unwrap(),
                 expected
             );
         })

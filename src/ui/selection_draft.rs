@@ -83,6 +83,13 @@ impl Editor {
         } else {
             match &self.gesture {
                 Some(Gesture::Lasso { points, .. }) => Outline::Freehand(points),
+                Some(Gesture::Text { start, end, .. } | Gesture::Object { start, end, .. }) => {
+                    Outline::Marquee {
+                        start: *start,
+                        end: *end,
+                        kind: ShapeKind::Rectangle,
+                    }
+                }
                 Some(Gesture::Region {
                     start, end, tool, ..
                 }) => Outline::Marquee {
@@ -203,12 +210,20 @@ mod tests {
                 DraftView(Editor::with_test_document()),
             )
             .unwrap();
-        for tool in [Tool::Lasso, Tool::Rectangle, Tool::Ellipse] {
+        for tool in [Tool::Lasso, Tool::Rectangle, Tool::Ellipse, Tool::Object] {
             cx.update(view, |view, cx| {
                 view.0.gesture = Some(if tool == Tool::Lasso {
                     Gesture::Lasso {
                         points: vec![[30.5, 30.5], [140.5, 30.5], [140.5, 110.5]],
                         base: None,
+                        mode: SelectionMode::Replace,
+                    }
+                } else if tool == Tool::Object {
+                    Gesture::Object {
+                        start: [30.5, 30.5],
+                        end: [140.5, 110.5],
+                        sample_all: true,
+                        antialiased: true,
                         mode: SelectionMode::Replace,
                     }
                 } else {

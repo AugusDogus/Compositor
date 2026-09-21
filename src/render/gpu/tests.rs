@@ -10,7 +10,7 @@ use std::sync::Arc;
 fn check(engine: &mut Engine, doc: &Document, size: [u32; 2], origin: Point, step: Point) {
     let scene = Scene::compile(doc, origin, step).unwrap();
     let actual = engine.render(&scene, size, origin, step).unwrap();
-    let expected = super::super::region(doc, size[0], size[1], origin, step);
+    let expected = super::super::region(doc, size[0], size[1], origin, step).unwrap();
     for (i, (a, b)) in actual.as_raw().iter().zip(expected.as_raw()).enumerate() {
         assert!(a.abs_diff(*b) <= 2, "byte {i}: GPU {a}, CPU {b}");
     }
@@ -91,6 +91,8 @@ fn compositing_matches_masks_groups_clipping_blends_and_adjustments() {
         l.parent = Some(group.id);
     }
     doc.add(group).unwrap();
+    check(&mut engine, &doc, [97, 85], [-6.3, -4.7], [0.87, 0.91]);
+    doc.layers.last_mut().unwrap().opacity = 0.45;
     check(&mut engine, &doc, [97, 85], [-6.3, -4.7], [0.87, 0.91]);
 }
 
@@ -194,7 +196,7 @@ fn viewport_batches_high_quality_reductions_and_sparse_coordinates_match() {
         let actual =
             super::super::region_accelerated(&doc, size[0], size[1], origin, step, &mut cache)
                 .unwrap();
-        let expected = super::super::region(&doc, size[0], size[1], origin, step);
+        let expected = super::super::region(&doc, size[0], size[1], origin, step).unwrap();
         for (i, (a, b)) in actual.as_raw().iter().zip(expected.as_raw()).enumerate() {
             assert!(
                 a.abs_diff(*b) <= 2,

@@ -90,6 +90,7 @@ fn import_under_hue_preserves_preview_and_has_independent_history() {
                 layers: vec![imported],
                 center: None,
                 projects: Vec::new(),
+                psds: Vec::new(),
             },
             cx,
         )

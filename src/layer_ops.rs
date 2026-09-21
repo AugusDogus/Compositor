@@ -255,7 +255,7 @@ pub fn merge(doc: &mut Document, all: bool) -> Result<()> {
         (region[3] - region[1]) as u32,
     );
     crate::document::validate_size(width, height)?;
-    let pixels = render::region(&source, width, height, [region[0], region[1]], [1., 1.]);
+    let pixels = render::region(&source, width, height, [region[0], region[1]], [1., 1.])?;
     let mut bounds = [width, height, 0, 0];
     for (x, y, p) in pixels.enumerate_pixels() {
         if p[3] > 0 {
@@ -300,7 +300,7 @@ pub enum Position {
     Below(Uuid),
 }
 
-/// Duplicates the active non-folder layer immediately above its source, retaining its properties.
+/// Duplicates the active layer or folder subtree immediately above its source.
 /// The caller owns the edit transaction so a subsequent drag can share one undo step.
 pub fn duplicate_active(doc: &mut Document) -> Result<()> {
     let index = doc
@@ -309,9 +309,18 @@ pub fn duplicate_active(doc: &mut Document) -> Result<()> {
         .position(|layer| Some(layer.id) == doc.active)
         .ok_or_else(|| invalid("Select a layer before duplicating it."))?;
     if doc.layers[index].is_group() {
-        return Err(invalid(
-            "Select a layer inside the folder before duplicating it.",
-        ));
+        let (id, parent) = (doc.layers[index].id, doc.layers[index].parent);
+        let mut source = doc.clone();
+        source.select(id, false);
+        copy_layers(&source, doc, id, true)?;
+        let copy = doc
+            .active
+            .ok_or_else(|| invalid("The duplicated folder is missing."))?;
+        place(doc, copy, parent, Position::Above(id))?;
+        if let Some(layer) = doc.active_layer_mut() {
+            layer.name.push_str(" copy");
+        }
+        return Ok(());
     }
     if doc.layers.len() >= 10_000 {
         return Err(invalid(
@@ -523,6 +532,7 @@ pub fn copy_to_project(
             if let Some(pixels) = render::clipped_pixels(source, layer)? {
                 layer.content = LayerContent::Raster(Some(Arc::new(pixels)));
                 layer.shape = None;
+                layer.text = None;
             }
             layer.clip_source = None;
         }

@@ -301,7 +301,8 @@ fn gradient_map_picker_previews_restores_cancel_and_commits_with_the_adjustment(
                     &e.session().document,
                     2,
                     2
-                )[(0, 0)])
+                )
+                .unwrap()[(0, 0)])
                     .unwrap(),
                 image::Rgba([255; 4])
             );
@@ -316,7 +317,7 @@ fn gradient_map_picker_previews_restores_cancel_and_commits_with_the_adjustment(
             assert!(cx.read(view, |e| e.picking_color()).unwrap());
             cx.read(view, |e| {
                 assert_eq!(
-                    compositor::render::render(&e.session().document, 2, 2)[(0, 0)],
+                    compositor::render::render(&e.session().document, 2, 2).unwrap()[(0, 0)],
                     image::Rgba([0, 0, 255, 255])
                 );
                 assert_eq!(e.tools.brush.color, [100, 20, 30, 255]);
@@ -339,7 +340,8 @@ fn gradient_map_picker_previews_restores_cancel_and_commits_with_the_adjustment(
                         &e.session().document,
                         2,
                         2
-                    )[(0, 0)])
+                    )
+                    .unwrap()[(0, 0)])
                         .unwrap(),
                     image::Rgba([255; 4])
                 );
@@ -348,7 +350,7 @@ fn gradient_map_picker_previews_restores_cancel_and_commits_with_the_adjustment(
         cx.click(window, "form-apply").unwrap();
         cx.read(view, |e| {
             assert_eq!(
-                compositor::render::render(&e.session().document, 2, 2)[(0, 0)],
+                compositor::render::render(&e.session().document, 2, 2).unwrap()[(0, 0)],
                 image::Rgba([0, 0, 255, 255])
             );
             assert!(e.session().undo_label().is_some());

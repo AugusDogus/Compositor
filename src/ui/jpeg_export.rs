@@ -294,13 +294,14 @@ impl Editor {
         let launched = cx.spawn_background(
             move || -> Result<(Arc<image::RgbaImage>, Preview)> {
                 compositor::document::validate_size(document.width, document.height)?;
-                let source = cached.unwrap_or_else(|| {
-                    Arc::new(compositor::render::render(
+                let source = match cached {
+                    Some(source) => source,
+                    None => Arc::new(compositor::render::render(
                         &document,
                         document.width,
                         document.height,
-                    ))
-                });
+                    )?),
+                };
                 let preview = Preview::render(&source, document.resolution, options)?;
                 Ok((source, preview))
             },

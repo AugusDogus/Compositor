@@ -162,7 +162,7 @@ fn sparse_samples_follow_the_arc_between_pointer_positions() {
         stroke.to(&mut doc, circle(degrees as f64)).unwrap();
     }
     stroke.finish(&mut doc).unwrap();
-    let pixels = compositor::render::render(&doc, 300, 300);
+    let pixels = compositor::render::render(&doc, 300, 300).unwrap();
     for degrees in [45., 75., 105., 135.] {
         let point = circle(degrees);
         assert!(
@@ -191,7 +191,7 @@ fn provisional_tail_reaches_pointer_and_leaves_no_chord_after_finish() {
     stroke.to(&mut doc, [280., 60.]).unwrap();
     assert_eq!(doc.layers[0].raster().unwrap()[(278, 60)][3], 255);
     stroke.finish(&mut doc).unwrap();
-    let pixels = compositor::render::render(&doc, 300, 120);
+    let pixels = compositor::render::render(&doc, 300, 120).unwrap();
     assert_eq!(pixels[(215, 40)][3], 0);
     assert_eq!(pixels[(278, 60)][3], 255);
     let finished = doc.clone();
@@ -280,7 +280,7 @@ fn draw(points: &[[f64; 2]], event_spacing: f64, opacity: f64) -> RgbaImage {
         }
     }
     stroke.finish(&mut doc).unwrap();
-    compositor::render::render(&doc, 200, 200)
+    compositor::render::render(&doc, 200, 200).unwrap()
 }
 
 #[test]
@@ -380,7 +380,7 @@ fn strokes_expand_rotated_flipped_sources_without_moving_pixels_or_masks() {
         stroke.to(&mut session.document, [580., 12.]).unwrap();
         stroke.finish(&mut session.document).unwrap();
         session.commit().unwrap();
-        let pixels = compositor::render::render(&session.document, 600, 200);
+        let pixels = compositor::render::render(&session.document, 600, 200).unwrap();
         assert_eq!(
             pixels[(280, 100)],
             Rgba([255, 0, 0, 128]),
@@ -399,6 +399,9 @@ fn strokes_expand_rotated_flipped_sources_without_moving_pixels_or_masks() {
         let path = directory.path().join("paint.comp");
         compositor::project::save(&session.document, &path).unwrap();
         let reopened = compositor::project::load(&path).unwrap();
-        assert_eq!(compositor::render::render(&reopened, 600, 200), pixels);
+        assert_eq!(
+            compositor::render::render(&reopened, 600, 200).unwrap(),
+            pixels
+        );
     }
 }

@@ -102,7 +102,7 @@ impl Editor {
             {
                 return Ok(());
             }
-            let Some(hue) = sampled_hue(compositor::render::sample(doc, point)) else {
+            let Some(hue) = sampled_hue(compositor::render::sample(doc, point)?) else {
                 self.status =
                     "Choose a colored, nontransparent pixel. Neutral colors have no hue to sample."
                         .into();

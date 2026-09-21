@@ -68,8 +68,7 @@ impl Editor {
             return false;
         }
         let doc = &self.session().document;
-        doc.active_layer().is_some_and(|layer| !layer.is_group())
-            && (doc.selection.is_none() || self.can_copy_pixels())
+        doc.active_layer().is_some() && (doc.selection.is_none() || self.can_copy_pixels())
     }
 
     pub(super) fn can_receive_tab_layers(&self, index: usize) -> bool {
@@ -86,7 +85,9 @@ impl Editor {
     }
 
     pub(super) fn can_edit_layers(&self) -> bool {
-        self.has_document()
+        self.layout_drag.is_none()
+            && self.psd_conversion.is_none()
+            && self.has_document()
             && !self.pending
             && self.gesture.is_none()
             && self.rename.is_none()

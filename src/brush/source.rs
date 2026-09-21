@@ -6,27 +6,24 @@ use crate::{
 
 pub(super) enum Source {
     Blur(Box<super::blur::Blur>),
-    Clone {
-        canvas: [u32; 2],
-        input: Box<CloneInput>,
-    },
+    Clone { canvas: [u32; 2], input: CloneInput },
 }
 
 pub(super) enum CloneInput {
-    Layer(Layer),
-    Composite(render::Sampler<'static>),
+    Layer(Box<Layer>),
+    Composite(Box<render::Sampler<'static>>),
 }
 
 impl Source {
-    pub fn clone_snapshot(doc: &Document, layer: &Layer, sample_all: bool) -> Self {
-        Self::Clone {
+    pub fn clone_snapshot(doc: &Document, layer: &Layer, sample_all: bool) -> crate::Result<Self> {
+        Ok(Self::Clone {
             canvas: [doc.width, doc.height],
-            input: Box::new(if sample_all {
-                CloneInput::Composite(render::Sampler::new(doc))
+            input: if sample_all {
+                CloneInput::Composite(Box::new(render::Sampler::new(doc)?))
             } else {
-                CloneInput::Layer(layer.clone())
-            }),
-        }
+                CloneInput::Layer(Box::new(layer.clone()))
+            },
+        })
     }
 
     pub fn sample(&self, point: Point, sampling: Sampling) -> [f64; 4] {
@@ -48,7 +45,7 @@ impl Source {
                 x.clamp(0., canvas[0] as f64 - 1.) + 0.5,
                 y.clamp(0., canvas[1] as f64 - 1.) + 0.5,
             ];
-            let color = match input.as_ref() {
+            let color = match input {
                 CloneInput::Composite(sampler) => sampler.sample(p),
                 CloneInput::Layer(layer) => layer.raster().map_or([0.; 4], |image| {
                     render::pixel(image, layer.transform.unit(p), layer.transform.sampling)
@@ -111,9 +108,9 @@ mod tests {
         });
         for all in [false, true] {
             let layer = &doc.layers[0];
-            let source = Source::clone_snapshot(&doc, layer, all);
+            let source = Source::clone_snapshot(&doc, layer, all).unwrap();
             let expected = if all {
-                render::render(&doc, doc.width, doc.height)
+                render::render(&doc, doc.width, doc.height).unwrap()
             } else {
                 RgbaImage::from_fn(doc.width, doc.height, |x, y| {
                     Rgba(

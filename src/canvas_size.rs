@@ -110,7 +110,7 @@ mod tests {
         resize(&mut doc, [5, 3], [0.5, 0.5], Some([255, 0, 0, 255])).unwrap();
         assert_eq!(doc.active, active);
         assert_eq!(doc.layers[1].transform.origin, [1., 0.]);
-        let pixels = crate::render::render(&doc, 5, 3);
+        let pixels = crate::render::render(&doc, 5, 3).unwrap();
         assert_eq!(pixels[(1, 0)], Rgba([0; 4]));
         assert_eq!(pixels[(0, 0)], Rgba([255, 0, 0, 255]));
         assert_eq!(pixels[(1, 2)], Rgba([255, 0, 0, 255]));

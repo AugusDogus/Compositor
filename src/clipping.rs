@@ -146,6 +146,7 @@ pub fn delete_selected(doc: &mut Document, mode: DeleteMode) -> Result<()> {
             if let Some(pixels) = baked.remove(&layer.id) {
                 layer.content = LayerContent::Raster(Some(pixels));
                 layer.shape = None;
+                layer.text = None;
             }
         }
     }
@@ -271,8 +272,9 @@ mod tests {
         assert_eq!(baked.raster().unwrap()[(0, 0)], Rgba([230, 40, 80, 50]));
         assert_eq!(baked.raster().unwrap()[(3, 0)][3], 0);
         for (before, after) in render::render(&original, 20, 20)
+            .unwrap()
             .pixels()
-            .zip(render::render(&session.document, 20, 20).pixels())
+            .zip(render::render(&session.document, 20, 20).unwrap().pixels())
         {
             assert!(
                 before

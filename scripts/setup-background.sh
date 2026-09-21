@@ -71,4 +71,5 @@ done
 for library in "$stage_dir/lib/"*; do
     mv -Tf "$library" "$inference_dir/lib/$(basename "$library")"
 done
-printf 'Native Vulkan and CPU background removal installed in %s. The application needs no Python runtime.\n' "$inference_dir"
+COMPOSITOR_INFERENCE_DIR="$inference_dir" "$script_dir/setup-object-selection.sh"
+printf 'Native Vulkan and CPU background removal and object selection installed in %s. The application needs no Python runtime.\n' "$inference_dir"

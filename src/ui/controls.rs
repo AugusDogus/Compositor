@@ -142,6 +142,11 @@ impl Editor {
                 "Lasso (L)",
             ),
             (Tool::Wand, Icon::WandSparkles, "Magic Wand (W)"),
+            (
+                Tool::Object,
+                Icon::ScanSearch,
+                "Object Selection (O): click an object or drag a box around it",
+            ),
             (Tool::Crop, Icon::Crop, "Crop (C)"),
             (
                 brush,
@@ -163,8 +168,9 @@ impl Editor {
             (
                 Tool::Shape,
                 Icon::Shapes,
-                "Shape (U) · Shift-U switches Rectangle/Ellipse",
+                "Shape (U) · Shift-U cycles Rectangle/Ellipse/Line",
             ),
+            (Tool::Text, Icon::Type, "Type (T)"),
             (Tool::Eyedropper, Icon::Pipette, "Eyedropper (I)"),
             (Tool::Hand, Icon::Hand, "Hand (H)"),
             (Tool::Zoom, Icon::Zoom, "Zoom (Z)"),
@@ -173,7 +179,11 @@ impl Editor {
                 .iter()
                 .position(|(candidate, _)| *candidate == tool)
                 .unwrap_or(0);
-            let id = if matches!(tool, Tool::Brush | Tool::Erase) {
+            let id = if tool == Tool::Text {
+                quickgui::ElementId::from("text-tool")
+            } else if tool == Tool::Object {
+                quickgui::ElementId::from("object-tool")
+            } else if matches!(tool, Tool::Brush | Tool::Erase) {
                 quickgui::ElementId::from("brush-tool")
             } else {
                 quickgui::ElementId::from(300 + index as u64)
@@ -268,6 +278,7 @@ impl Editor {
                     Tool::Rectangle | Tool::Ellipse => "Marquee",
                     Tool::Polygon | Tool::Lasso => "Lasso",
                     Tool::Wand => "Magic Wand",
+                    Tool::Object => "Object Selection",
                     Tool::Clone => "Clone Stamp",
                     Tool::Heal => "Spot Healing",
                     Tool::Blur | Tool::Smudge | Tool::Liquify => "Smear",
@@ -346,10 +357,15 @@ impl Editor {
 
         if matches!(
             self.tools.tool,
-            Tool::Rectangle | Tool::Ellipse | Tool::Lasso | Tool::Polygon | Tool::Wand
+            Tool::Rectangle
+                | Tool::Ellipse
+                | Tool::Lasso
+                | Tool::Polygon
+                | Tool::Wand
+                | Tool::Object
         ) {
             bar = bar.child(self.selection_mode_controls(cx));
-            if self.tools.tool == Tool::Wand {
+            if matches!(self.tools.tool, Tool::Wand | Tool::Object) {
                 bar = bar.child(self.brush_mode_controls(cx));
             }
             if self.tools.tool != Tool::Rectangle {
@@ -367,6 +383,9 @@ impl Editor {
 
         if self.tools.tool == Tool::Crop {
             bar = bar.child(self.crop_header(cx));
+        }
+        if self.tools.tool == Tool::Text {
+            bar = bar.child(self.text_header(cx));
         }
         if self.tools.tool == Tool::Shape {
             bar = bar.child(self.shape_header(cx));

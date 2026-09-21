@@ -41,7 +41,8 @@ impl Action {
     pub(super) fn edits_selection(self) -> bool {
         matches!(
             self,
-            Self::SelectAll
+            Self::SelectSubject
+                | Self::SelectAll
                 | Self::Deselect
                 | Self::InvertSelection
                 | Self::LoadAlpha
@@ -99,6 +100,28 @@ impl Editor {
                 .as_ref()
                 .is_some_and(|s| s.bounds().is_some())
     }
+    pub(super) fn feather_selection(&mut self, amount: u16) -> Result<()> {
+        if !self.can_modify_selection() {
+            return Err(compositor::invalid(
+                "Finish the current edit and draw a nonempty selection before feathering.",
+            ));
+        }
+        self.apply_selection_feather(amount)
+    }
+
+    pub(super) fn apply_selection_feather(&mut self, amount: u16) -> Result<()> {
+        self.session_mut().edit("Feather Selection", |doc| {
+            let selection = doc
+                .selection
+                .as_ref()
+                .ok_or_else(|| compositor::invalid("Draw a selection before feathering."))?;
+            doc.selection = Some(selection.feathered(amount, doc.width, doc.height)?);
+            Ok(())
+        })?;
+        self.tools.selection_feather_amount = amount;
+        Ok(())
+    }
+
     pub(super) fn resize_selection(&mut self, expand: bool, amount: u16) -> Result<()> {
         if !(1..=500).contains(&amount) {
             return Err(compositor::invalid(

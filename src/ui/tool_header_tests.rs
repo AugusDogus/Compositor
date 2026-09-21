@@ -181,7 +181,7 @@ fn tool_rail_and_segments_expose_the_current_choice() {
         (Tool::Erase, "Brush (B) · Eraser (E)", "Erase"),
         (
             Tool::Shape,
-            "Shape (U) · Shift-U switches Rectangle/Ellipse",
+            "Shape (U) · Shift-U cycles Rectangle/Ellipse/Line",
             "Rectangle",
         ),
     ] {

@@ -33,6 +33,7 @@ struct Invoke {
 enum Command {
     Edit(Action),
     About,
+    Shortcuts,
     Updates,
     Quit,
     Handles,
@@ -50,6 +51,16 @@ mod popup;
 mod row;
 pub(super) mod style;
 use entries::entries;
+
+pub(super) fn shortcut_definitions() -> Vec<(&'static str, &'static str)> {
+    (0..8)
+        .flat_map(entries)
+        .filter_map(|entry| match entry {
+            Entry::Item(label, chord, _) if !chord.is_empty() => Some((label, chord)),
+            _ => None,
+        })
+        .collect()
+}
 
 #[derive(Clone, Copy)]
 enum MenuInput {

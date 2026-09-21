@@ -21,6 +21,7 @@ impl Editor {
                     let checked = match command {
                         Command::Handles => Some(self.tools.show_transform_controls),
                         Command::Edit(Action::PixelGrid) => Some(self.tools.pixel_grid),
+                        Command::Edit(action) => self.layout_checked(action),
                         _ => None,
                     };
                     let item = match checked {
@@ -28,7 +29,7 @@ impl Editor {
                         None => PopoverMenuItem::action(id, label, invoke),
                     };
                     item.close_on_activate(false)
-                        .shortcut(shortcut)
+                        .shortcut(self.keymap.menu_label(shortcut))
                         .disabled(!if index == 8 {
                             self.row_menu_available(command)
                         } else {
@@ -97,7 +98,10 @@ impl Editor {
         }
         if matches!(
             command,
-            Command::Quit | Command::Edit(Action::New | Action::Open | Action::CloseTab)
+            Command::Quit
+                | Command::Edit(
+                    Action::New | Action::Open | Action::OpenClipboard | Action::CloseTab
+                )
         ) {
             return self.can_switch_projects();
         }
@@ -110,9 +114,16 @@ impl Editor {
         if matches!(
             command,
             Command::About
+                | Command::Shortcuts
                 | Command::Updates
                 | Command::Quit
-                | Command::Edit(Action::New | Action::Open | Action::Import | Action::Paste)
+                | Command::Edit(
+                    Action::New
+                        | Action::Open
+                        | Action::OpenClipboard
+                        | Action::Import
+                        | Action::Paste
+                )
         ) {
             return true;
         }
@@ -146,6 +157,7 @@ impl Editor {
             Command::Handles => self.tools.tool == Tool::Move,
             Command::Edit(Action::LoadAlpha) => layer.is_some_and(|l| l.raster().is_some()),
             Command::ResizeSelection { .. } => self.can_modify_selection(),
+            Command::Edit(Action::FeatherSelection) => self.can_modify_selection(),
             Command::Edit(Action::Clip) => {
                 layer.is_some_and(|active| compositor::clipping::change(doc, active.id).is_some())
             }

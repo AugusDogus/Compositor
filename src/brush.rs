@@ -97,7 +97,7 @@ impl Stroke {
             ));
         }
         let source = if matches!(mode, PaintMode::Clone { .. }) {
-            Some(Source::clone_snapshot(doc, layer, sample_all))
+            Some(Source::clone_snapshot(doc, layer, sample_all)?)
         } else if mode == PaintMode::Blur {
             Some(Source::Blur(Box::new(blur::Blur::new(
                 layer,
@@ -222,6 +222,7 @@ impl Stroke {
             let healed = crate::filters::heal(image, &coverage, mode, 1.)?;
             layer.content = LayerContent::Raster(Some(Arc::new(healed)));
             layer.shape = None;
+            layer.text = None;
         }
         Ok(())
     }
@@ -354,6 +355,7 @@ impl Stroke {
         {
             if changed {
                 layer.shape = None;
+                layer.text = None;
             }
             return Ok(());
         }
@@ -428,6 +430,7 @@ impl Stroke {
         }
         if changed && !self.mask {
             layer.shape = None;
+            layer.text = None;
         }
         Ok(())
     }
@@ -456,7 +459,7 @@ mod tests {
             2,
             Rgba([0, 255, 0, 255]),
         ))));
-        let before = render::render(&doc, 12, 4);
+        let before = render::render(&doc, 12, 4).unwrap();
         let brush = Brush {
             diameter: 2.,
             opacity: 0.5,
@@ -467,7 +470,7 @@ mod tests {
             Stroke::start(&mut doc, [2.5, 2.5], brush, PaintMode::Paint, false, false).unwrap();
         stroke.to(&mut doc, [8.5, 2.5]).unwrap();
         stroke.to(&mut doc, [2.5, 2.5]).unwrap();
-        let after = render::render(&doc, 12, 4);
+        let after = render::render(&doc, 12, 4).unwrap();
         assert_eq!(after[(2, 2)], Rgba([255, 0, 0, 128]));
         assert_eq!(after[(5, 0)], before[(5, 0)]);
         assert_eq!(after[(8, 2)], Rgba([255, 0, 0, 128]));

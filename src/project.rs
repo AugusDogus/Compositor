@@ -32,6 +32,8 @@ struct Manifest {
     #[serde(rename = "activeLayerID")]
     active_layer_id: Option<Uuid>,
     layers: Vec<Record>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    guides: Option<Vec<crate::guides::Guide>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -63,6 +65,10 @@ struct Record {
     adjustment: Option<Adjustment>,
     #[serde(skip_serializing_if = "Option::is_none")]
     shape: Option<Shape>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<crate::text::Text>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    effects: Option<crate::effects::LayerEffects>,
 }
 
 fn asset_name(id: Uuid, mask: bool) -> String {
@@ -97,13 +103,17 @@ pub fn load(path: &Path) -> Result<Document> {
     if manifest.format != "com.compositor.project" || manifest.color_space != "sRGB" {
         return Err(invalid("This is not an sRGB Compositor project."));
     }
-    if !(1..=7).contains(&manifest.version) {
+    if !(1..=8).contains(&manifest.version) {
         return Err(invalid(format!(
-            "Project version {} is unsupported. Supported versions: 1 through 7.",
+            "Project version {} is unsupported. Supported versions: 1 through 8.",
             manifest.version
         )));
     }
     let mut doc = Document::new(manifest.width, manifest.height)?;
+    doc.guides = manifest.guides.unwrap_or_default();
+    if manifest.version < 8 && !doc.guides.is_empty() {
+        return Err(invalid("Saved guides require project format version 8."));
+    }
     doc.id = manifest.document_id;
     doc.resolution = manifest.resolution.unwrap_or(72.);
     doc.active = manifest.active_layer_id;
@@ -139,6 +149,28 @@ pub fn load(path: &Path) -> Result<Document> {
                 record.name, manifest.version
             )));
         }
+        if let Some(effects) = &record.effects
+            && (!effects.validate()
+                || (!effects.is_empty()
+                    && (group || record.adjustment.is_some() || record.image_file.is_none())))
+        {
+            return Err(invalid(
+                "Layer effects require valid settings and a raster image; folder and adjustment effects are not supported.",
+            ));
+        }
+        if let Some(text) = &record.text {
+            text.validate()?;
+        }
+        if record.text.is_some()
+            && (group
+                || record.adjustment.is_some()
+                || record.image_file.is_none()
+                || record.shape.is_some())
+        {
+            return Err(invalid(
+                "Editable text requires a raster image and cannot be a group, shape, or adjustment.",
+            ));
+        }
         doc.layers.push(Layer {
             id: record.id,
             name: record.name.clone(),
@@ -150,6 +182,8 @@ pub fn load(path: &Path) -> Result<Document> {
             clip_source: record.mask_source_id,
             mask: None,
             shape: None,
+            text: None,
+            effects: None,
             content: if group {
                 LayerContent::Group
             } else if let Some(adjustment) = &record.adjustment {
@@ -205,7 +239,9 @@ pub fn load(path: &Path) -> Result<Document> {
                 layer.content = LayerContent::Raster(Some(Arc::new(image)));
             }
         }
+        layer.effects = record.effects;
         layer.shape = record.shape;
+        layer.text = record.text;
     }
     doc.validate()?;
     Ok(doc)
@@ -213,7 +249,10 @@ pub fn load(path: &Path) -> Result<Document> {
 
 pub fn save(document: &Document, path: &Path) -> Result<()> {
     document.validate()?;
-    if path.extension().is_none_or(|ext| ext != "comp") {
+    if path
+        .extension()
+        .is_none_or(|ext| !ext.eq_ignore_ascii_case("comp"))
+    {
         return Err(invalid(
             "Use a .comp folder name to save a Compositor project.",
         ));
@@ -266,6 +305,8 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
             mask_placement: layer.mask.as_ref().and_then(|m| m.placement),
             mask_linked: layer.mask.as_ref().map(|m| m.linked),
             shape: layer.shape,
+            text: layer.text.clone(),
+            effects: layer.effects.clone(),
             adjustment: match &layer.content {
                 LayerContent::Adjustment(a) => Some(a.as_ref().clone()),
                 _ => None,
@@ -274,7 +315,7 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
     }
     let manifest = Manifest {
         format: "com.compositor.project".into(),
-        version: 7,
+        version: if document.guides.is_empty() { 7 } else { 8 },
         color_space: "sRGB".into(),
         document_id: document.id,
         width: document.width,
@@ -282,6 +323,7 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
         resolution: Some(document.resolution),
         active_layer_id: document.active,
         layers: records,
+        guides: (!document.guides.is_empty()).then(|| document.guides.clone()),
     };
     let data = serde_json::to_vec_pretty(&manifest)?;
     if data.len() as u64 > MANIFEST_LIMIT {

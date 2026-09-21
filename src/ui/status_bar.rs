@@ -20,6 +20,9 @@ impl Editor {
             Tool::Polygon => {
                 "Click corners · Click start, double-click or Enter to close · Backspace removes corner · Escape cancel"
             }
+            Tool::Object => {
+                "Click an object or drag a box around it · Shift add · Alt subtract · Escape cancel · W switches to Magic Wand"
+            }
             Tool::Wand => {
                 "Click to select similar colors · Shift add · Alt subtract · Drag inside to move · Ctrl-drag moves pixels · Delete clears · Ctrl+D deselect"
             }
@@ -48,11 +51,17 @@ impl Editor {
             Tool::Gradient => {
                 "Drag to draw · Drag ends to adjust · Shift 45° · 1–0 opacity · Enter apply · Escape cancel"
             }
-            Tool::Shape if self.tools.shape_ellipse => {
-                "Drag to draw a shape on a new layer · Shift circle · Alt from center · Shift+U rectangle · Escape cancel · Space to pan"
+            Tool::Shape if self.tools.shape_kind == compositor::document::ShapeKind::Line => {
+                "Drag a line · Shift snaps to 45° · Alt draws from center · Shift-U cycles shape kind"
+            }
+            Tool::Shape if self.tools.shape_kind == compositor::document::ShapeKind::Ellipse => {
+                "Drag to draw a shape on a new layer · Shift circle · Alt from center · Shift+U line · Escape cancel · Space to pan"
             }
             Tool::Shape => {
                 "Drag to draw a shape on a new layer · Shift square · Alt from center · Shift+U ellipse · Escape cancel · Space to pan"
+            }
+            Tool::Text => {
+                "Click to create or edit text · Drag a paragraph box · Ctrl+Enter applies text · Escape cancels"
             }
             Tool::Eyedropper => "Click to sample the foreground color · Space to pan",
             Tool::Hand => "Drag to pan · Pinch to zoom",

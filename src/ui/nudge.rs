@@ -30,7 +30,12 @@ impl Editor {
         } else if selection
             && matches!(
                 self.tools.tool,
-                Tool::Rectangle | Tool::Ellipse | Tool::Lasso | Tool::Polygon | Tool::Wand
+                Tool::Rectangle
+                    | Tool::Ellipse
+                    | Tool::Lasso
+                    | Tool::Polygon
+                    | Tool::Wand
+                    | Tool::Object
             )
         {
             Target::Outline

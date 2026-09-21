@@ -1,7 +1,7 @@
 use crate::{
     Result,
     blend::Blend,
-    document::{Document, Layer, LayerContent, Mask, Shape, ShapeKind, validate_size},
+    document::{Document, Layer, LayerContent, Mask, Shape, validate_size},
     geometry::Point,
     invalid,
     selection::Selection,
@@ -39,6 +39,9 @@ pub fn canvas_size(doc: &mut Document, width: u32, height: u32, anchor: Point) -
             }
         }
     }
+    for guide in &mut doc.guides {
+        guide.position += delta[guide.axis.index()];
+    }
     doc.width = width;
     doc.height = height;
     doc.selection = None;
@@ -51,6 +54,11 @@ pub fn flip_canvas(doc: &mut Document, horizontal: bool) {
     } else {
         doc.height as f64 / 2.
     };
+    for guide in &mut doc.guides {
+        if (guide.axis == crate::guides::Axis::Vertical) == horizontal {
+            guide.position = 2. * axis - guide.position;
+        }
+    }
     for layer in &mut doc.layers {
         layer.transform = layer.transform.mirrored(horizontal, axis);
         if let Some(placement) = layer.mask.as_mut().and_then(|m| m.placement.as_mut()) {
@@ -75,6 +83,9 @@ pub fn crop(doc: &mut Document, a: Point, b: Point) -> Result<()> {
             t.origin[0] -= left;
             t.origin[1] -= top;
         }
+    }
+    for guide in &mut doc.guides {
+        guide.position -= [left, top][guide.axis.index()];
     }
     doc.width = width;
     doc.height = height;
@@ -135,6 +146,9 @@ pub fn fill(doc: &mut Document, color: [u8; 4], erase: bool, mask: bool) -> Resu
     let layer = doc
         .active_layer_mut()
         .ok_or_else(|| invalid("Select a layer to fill."))?;
+    if !mask && !erase && selection.is_none() && layer.text.is_some() {
+        return crate::text::recolor_layer(layer, color);
+    }
     if !mask && !erase {
         crate::raster_extent::expand(layer, [0., 0., canvas[0], canvas[1]])?;
     }
@@ -197,13 +211,14 @@ pub fn fill(doc: &mut Document, color: [u8; 4], erase: bool, mask: bool) -> Resu
             }
         }
         layer.shape = None;
+        layer.text = None;
     } else {
         return Err(invalid("Select a pixel layer or a mask to fill."));
     }
     Ok(())
 }
 
-pub fn shape(doc: &mut Document, a: Point, b: Point, shape: Shape) -> Result<()> {
+pub fn shape(doc: &mut Document, a: Point, b: Point, mut shape: Shape) -> Result<()> {
     if a.iter()
         .chain(b.iter())
         .any(|v| !v.is_finite() || v.abs() > 1_000_000.)
@@ -212,18 +227,34 @@ pub fn shape(doc: &mut Document, a: Point, b: Point, shape: Shape) -> Result<()>
             "Shape coordinates exceed supported bounds. Draw closer to the canvas.",
         ));
     }
-    let a = a.map(f64::round);
-    let b = b.map(f64::round);
+    if !shape.valid() {
+        return Err(invalid(
+            "Shape settings are invalid. Existing layers are unchanged.",
+        ));
+    }
+    let mut a = a.map(f64::round);
+    let mut b = b.map(f64::round);
+    if a == b {
+        return Ok(());
+    }
+    if let crate::document::ShapeGeometry::Line { line_width, .. } = shape.geometry {
+        let from = a;
+        let to = b;
+        a = std::array::from_fn(|i| (from[i].min(to[i]) - line_width / 2.).floor());
+        b = std::array::from_fn(|i| (from[i].max(to[i]) + line_width / 2.).ceil());
+        shape.geometry = crate::document::ShapeGeometry::Line {
+            line_width,
+            start: std::array::from_fn(|i| (from[i] - a[i]) / (b[i] - a[i])),
+            end: std::array::from_fn(|i| (to[i] - a[i]) / (b[i] - a[i])),
+        };
+    }
     let w = (a[0] - b[0]).abs() as u32;
     let h = (a[1] - b[1]).abs() as u32;
     if w == 0 || h == 0 {
         return Ok(());
     }
     validate_size(w, h)?;
-    let kind = match shape.kind {
-        ShapeKind::Rectangle => "Rectangle",
-        ShapeKind::Ellipse => "Ellipse",
-    };
+    let kind = shape.kind().label();
     let mut number = 1;
     while doc
         .layers
@@ -258,12 +289,29 @@ pub fn shape_pixels(w: u32, h: u32, shape: Shape) -> RgbaImage {
             for ox in [0.25, 0.75] {
                 let px = x as f64 + ox;
                 let py = y as f64 + oy;
-                let hit = match shape.kind {
-                    ShapeKind::Ellipse => {
+                let hit = match shape.geometry {
+                    crate::document::ShapeGeometry::Line {
+                        line_width,
+                        start,
+                        end,
+                    } => {
+                        let a = [start[0] * w as f64, start[1] * h as f64];
+                        let b = [end[0] * w as f64, end[1] * h as f64];
+                        let d = [b[0] - a[0], b[1] - a[1]];
+                        let length2 = d[0] * d[0] + d[1] * d[1];
+                        let t = if length2 > 0. {
+                            ((px - a[0]) * d[0] + (py - a[1]) * d[1]) / length2
+                        } else {
+                            0.
+                        }
+                        .clamp(0., 1.);
+                        (px - a[0] - t * d[0]).hypot(py - a[1] - t * d[1]) <= line_width / 2.
+                    }
+                    crate::document::ShapeGeometry::Ellipse => {
                         ((px / w as f64 - 0.5) * 2.).powi(2) + ((py / h as f64 - 0.5) * 2.).powi(2)
                             <= 1.
                     }
-                    ShapeKind::Rectangle => {
+                    crate::document::ShapeGeometry::Rectangle => {
                         let r = shape.corner_radius.min(w.min(h) as f64 / 2.);
                         let cx = px.clamp(r, w as f64 - r);
                         let cy = py.clamp(r, h as f64 - r);
@@ -444,7 +492,7 @@ mod tests {
     fn shape_click_is_empty_and_shapes_follow_active_group_and_numbering() {
         let mut session = crate::session::Session::new(Document::new(100, 100).unwrap(), None);
         let style = Shape {
-            kind: ShapeKind::Rectangle,
+            geometry: crate::document::ShapeGeometry::Rectangle,
             red: 1.,
             green: 0.,
             blue: 0.,
@@ -488,16 +536,16 @@ mod tests {
         add_mask(&mut doc, false).unwrap();
         // Adding the mask consumes its selection. Draw a new selection for the flip.
         doc.selection = Some(Selection::rectangle(6, 4, [0., 0.], [2., 2.], false));
-        let before = render::render(&doc, 6, 4);
+        let before = render::render(&doc, 6, 4).unwrap();
         flip_canvas(&mut doc, true);
         assert_eq!(
-            render::render(&doc, 6, 4),
+            render::render(&doc, 6, 4).unwrap(),
             image::imageops::flip_horizontal(&before)
         );
         assert_eq!(doc.selection.as_ref().unwrap().coverage([4.5, 0.5]), 1.);
         assert_eq!(doc.selection.as_ref().unwrap().coverage([0.5, 0.5]), 0.);
         flip_canvas(&mut doc, true);
-        assert_eq!(render::render(&doc, 6, 4), before);
+        assert_eq!(render::render(&doc, 6, 4).unwrap(), before);
     }
 
     #[test]

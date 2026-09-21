@@ -270,20 +270,15 @@ pub fn snap(
     delta: Point,
     tolerance: f64,
 ) -> (Point, [Option<f64>; 2]) {
-    let ids = target_ids(doc);
-    let mut targets = [
-        vec![0., doc.width as f64 / 2., doc.width as f64],
-        vec![0., doc.height as f64 / 2., doc.height as f64],
-    ];
-    for layer in doc
-        .layers
-        .iter()
-        .filter(|l| l.raster().is_some() && doc.layer_is_visible(l.id) && !ids.contains(&l.id))
-    {
-        let b = layer.transform.bounds();
-        targets[0].extend([b[0], (b[0] + b[2]) / 2., b[2]]);
-        targets[1].extend([b[1], (b[1] + b[3]) / 2., b[3]]);
-    }
+    crate::guides::Settings::default().snap_move(doc, original, delta, tolerance)
+}
+
+pub(crate) fn snap_to_targets(
+    original: Transform,
+    delta: Point,
+    tolerance: f64,
+    targets: &[Vec<f64>; 2],
+) -> (Point, [Option<f64>; 2]) {
     let b = original.bounds();
     let mut offset = delta;
     let mut guides = [None; 2];
@@ -401,14 +396,14 @@ mod tests {
     }
     #[test]
     fn shape_resize_keeps_corner_radius_and_mask_placement() {
-        use crate::document::{Shape, ShapeKind};
+        use crate::document::Shape;
         let mut doc = Document::new(100, 100).unwrap();
         edits::shape(
             &mut doc,
             [0., 0.],
             [20., 20.],
             Shape {
-                kind: ShapeKind::Rectangle,
+                geometry: crate::document::ShapeGeometry::Rectangle,
                 red: 1.,
                 green: 0.,
                 blue: 0.,

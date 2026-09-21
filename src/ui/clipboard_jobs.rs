@@ -2,6 +2,7 @@ use super::*;
 use compositor::invalid;
 
 pub(super) enum Request {
+    Open,
     Paste(uuid::Uuid),
     CanvasSize(uuid::Uuid),
 }
@@ -9,6 +10,7 @@ pub(super) enum Request {
 impl Request {
     fn operation(&self) -> alerts::Operation {
         match self {
+            Self::Open => alerts::Operation::Clipboard,
             Self::Paste(_) => alerts::Operation::Paint,
             Self::CanvasSize(_) => alerts::Operation::Clipboard,
         }
@@ -30,6 +32,7 @@ enum Source {
 }
 
 enum Completed {
+    Open(image::RgbaImage),
     Paste(uuid::Uuid, image::RgbaImage),
     CanvasSize(uuid::Uuid, Result<Option<[u32; 2]>>),
 }
@@ -47,6 +50,10 @@ impl Job {
             Source::Encoded(bytes) => Ok(bytes),
         };
         match self.request {
+            Request::Open => {
+                let pixels = decode_first(bytes?, image_io::read_encoded)?.ok_or_else(|| invalid("The clipboard does not contain a supported image. Copy an image and try Open from Clipboard again."))?;
+                Ok(Completed::Open(pixels))
+            }
             Request::Paste(session) => {
                 let pixels = decode_first(bytes?, image_io::read_encoded)?.ok_or_else(|| invalid("The clipboard does not contain a supported image. Copy a PNG, TIFF, JPEG, or WebP image first."))?;
                 Ok(Completed::Paste(session, pixels))
@@ -106,6 +113,18 @@ impl Editor {
 
     fn finish_clipboard_job(&mut self, completed: Completed) -> Result<()> {
         match completed {
+            Completed::Open(pixels) => {
+                let mut document = Document::new(pixels.width(), pixels.height())?;
+                document.layers[0].name = "Clipboard".into();
+                document.layers[0].content =
+                    compositor::document::LayerContent::Raster(Some(Arc::new(pixels)));
+                let session = Session::created(document, "Open from Clipboard")?;
+                self.tabs.push(session.into());
+                self.activate_tab(self.tabs.len() - 1);
+                self.preview = None;
+                self.status = "Opened clipboard image as a new project.".into();
+                Ok(())
+            }
             Completed::Paste(session, pixels) => self.paste_pixels(session, pixels),
             Completed::CanvasSize(target, size) => self.suggest_canvas_size(target, size),
         }
@@ -147,6 +166,29 @@ fn decode_first<T>(images: Vec<Vec<u8>>, decode: impl Fn(&[u8]) -> Result<T>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn open_clipboard_creates_an_image_sized_project_only_after_success() {
+        let mut editor = Editor::with_test_document();
+        let before = editor.session().document.clone();
+        let count = editor.tabs.len();
+        let empty = Job {
+            request: Request::Open,
+            source: Source::Encoded(vec![]),
+        };
+        assert!(empty.run().is_err());
+        assert_eq!(editor.tabs.len(), count);
+        let pixels = image::RgbaImage::from_pixel(13, 7, image::Rgba([120, 40, 90, 128]));
+        editor
+            .finish_clipboard_job(Completed::Open(pixels.clone()))
+            .unwrap();
+        assert_eq!(editor.tabs.len(), count + 1);
+        assert_eq!(editor.tabs[0].session().unwrap().document, before);
+        let doc = &editor.session().document;
+        assert_eq!((doc.width, doc.height), (13, 7));
+        assert_eq!(doc.layers[0].raster().unwrap().as_ref(), &pixels);
+        assert!(editor.session().dirty());
+    }
 
     #[test]
     fn delayed_paste_stays_with_its_destination_tab_and_preserves_other_tabs() {

@@ -18,5 +18,11 @@ Download the **x86_64 AppImage**, make it executable, and run it. Requires glibc
 
 Background removal works offline immediately: native ONNX Runtime, its Vulkan/WebGPU plugin and both full BiRefNet Dynamic models are bundled. No Python or dependency installation is required. One AppImage supports NVIDIA and AMD Vulkan GPUs with FP16 shader support, with CPU inference when no compatible hardware adapter is available. Graphics drivers come from your system.
 
+Object Selection uses bundled SAM 3.1 with click and box prompts, native GPU/CPU inference and cached image embeddings. Select Subject uses BiRefNet.
+
 The `.bin` and `linux-update.json` assets support existing standalone executable installations. AppImage users update by downloading the new AppImage and replacing the previous one after closing the editor. SHA-256 files verify download integrity; these releases are unsigned.
 NOTES
+if [[ -f "docs/releases/v$version.md" ]]; then
+    printf '\n' >> dist/release-notes.md
+    cat "docs/releases/v$version.md" >> dist/release-notes.md
+fi

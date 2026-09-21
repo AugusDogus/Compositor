@@ -1177,7 +1177,8 @@ fn adjustment_dialog_cancel_keeps_the_created_layer_and_undo_removes_it() {
             &e.session().document,
             2,
             2
-        )[(0, 0)][0]
+        )
+        .unwrap()[(0, 0)][0]
             > 100)
             .unwrap()
     );

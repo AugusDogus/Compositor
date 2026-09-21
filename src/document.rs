@@ -90,22 +90,83 @@ pub struct Layer {
     pub mask: Option<Mask>,
     pub clip_source: Option<Uuid>,
     pub shape: Option<Shape>,
+    pub text: Option<crate::text::Text>,
+    pub effects: Option<crate::effects::LayerEffects>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ShapeKind {
     Rectangle,
     Ellipse,
+    Line,
+}
+
+impl ShapeKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Rectangle => "Rectangle",
+            Self::Ellipse => "Ellipse",
+            Self::Line => "Line",
+        }
+    }
+    pub fn next(self) -> Self {
+        match self {
+            Self::Rectangle => Self::Ellipse,
+            Self::Ellipse => Self::Line,
+            Self::Line => Self::Rectangle,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all_fields = "camelCase")]
+pub enum ShapeGeometry {
+    Rectangle,
+    Ellipse,
+    Line {
+        line_width: f64,
+        start: [f64; 2],
+        end: [f64; 2],
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Shape {
-    pub kind: ShapeKind,
+    #[serde(flatten)]
+    pub geometry: ShapeGeometry,
     pub red: f64,
     pub green: f64,
     pub blue: f64,
     pub corner_radius: f64,
+}
+
+impl Shape {
+    pub fn kind(self) -> ShapeKind {
+        match self.geometry {
+            ShapeGeometry::Rectangle => ShapeKind::Rectangle,
+            ShapeGeometry::Ellipse => ShapeKind::Ellipse,
+            ShapeGeometry::Line { .. } => ShapeKind::Line,
+        }
+    }
+    pub fn valid(self) -> bool {
+        [self.red, self.green, self.blue]
+            .iter()
+            .all(|v| (0. ..=1.).contains(v))
+            && self.corner_radius.is_finite()
+            && self.corner_radius >= 0.
+            && match self.geometry {
+                ShapeGeometry::Line {
+                    line_width,
+                    start,
+                    end,
+                } => {
+                    (1. ..=5000.).contains(&line_width)
+                        && start.iter().chain(&end).all(|v| (0. ..=1.).contains(v))
+                }
+                _ => true,
+            }
+    }
 }
 
 impl Layer {
@@ -122,6 +183,8 @@ impl Layer {
             mask: None,
             clip_source: None,
             shape: None,
+            text: None,
+            effects: None,
         }
     }
     pub fn raster(&self) -> Option<&Arc<RgbaImage>> {
@@ -145,6 +208,7 @@ pub struct Document {
     pub active: Option<Uuid>,
     pub selected: HashSet<Uuid>,
     pub selection: Option<Selection>,
+    pub guides: Vec<crate::guides::Guide>,
 }
 
 impl Document {
@@ -160,6 +224,7 @@ impl Document {
             selected: HashSet::from([layer.id]),
             layers: vec![layer],
             selection: None,
+            guides: Vec::new(),
         })
     }
     /// Visibility includes every parent folder, independently of opacity and clipping.
@@ -223,6 +288,7 @@ impl Document {
         }
     }
     pub fn validate(&self) -> Result<()> {
+        crate::guides::validate(&self.guides)?;
         validate_canvas_size(self.width, self.height)?;
         if let Some(selection) = &self.selection {
             selection.validate()?;
@@ -241,13 +307,33 @@ impl Document {
         let mut pixels = 0_u64;
         let mut mask_pixels = 0_u64;
         for layer in &self.layers {
+            if let Some(text) = &layer.text {
+                text.validate()?;
+                if layer.raster().is_none() || layer.shape.is_some() {
+                    return Err(invalid(
+                        "Editable text requires a cached raster and cannot also be a shape.",
+                    ));
+                }
+            }
+            if layer
+                .effects
+                .as_ref()
+                .is_some_and(|effects| !effects.is_empty())
+                && layer.raster().is_none()
+            {
+                return Err(invalid(
+                    "Layer effects require a pixel, shape, or text layer. Folder and adjustment effects are not supported.",
+                ));
+            }
+            if layer
+                .effects
+                .as_ref()
+                .is_some_and(|effects| !effects.validate())
+            {
+                return Err(invalid("Layer effects contain invalid settings."));
+            }
             if let Some(shape) = layer.shape
-                && (![shape.red, shape.green, shape.blue]
-                    .iter()
-                    .all(|v| (0. ..=1.).contains(v))
-                    || !shape.corner_radius.is_finite()
-                    || shape.corner_radius < 0.
-                    || layer.raster().is_none())
+                && (!shape.valid() || layer.raster().is_none())
             {
                 return Err(invalid("Shape metadata is invalid or has no raster asset."));
             }
@@ -258,7 +344,7 @@ impl Document {
                 || !(0. ..=1.).contains(&layer.opacity)
                 || layer.name.trim().is_empty()
                 || layer.name.len() > 16_384
-                || (layer.is_group() && (layer.opacity != 1. || layer.blend != Blend::Normal))
+                || (layer.is_group() && layer.blend != Blend::Normal)
             {
                 return Err(invalid(format!(
                     "Layer '{}' has invalid metadata.",
@@ -266,6 +352,15 @@ impl Document {
                 )));
             }
             if let Some(image) = layer.raster() {
+                if layer
+                    .effects
+                    .as_ref()
+                    .is_some_and(|effects| !effects.validate_size(image.width(), image.height()))
+                {
+                    return Err(invalid(
+                        "Layer effects exceed the 100 megapixel surface limit. Reduce the image size or effect distance, blur, or stroke size.",
+                    ));
+                }
                 validate_size(image.width(), image.height())?;
                 pixels += u64::from(image.width()) * u64::from(image.height());
             }

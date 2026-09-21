@@ -49,6 +49,8 @@ impl Draft {
 #[derive(Clone)]
 enum Purpose {
     Palette,
+    LayerEffect { form: Box<Form> },
+    LayerText { form: Box<Form> },
     GradientMap { original: GradientMap },
     CanvasExtension { form: Box<Form> },
     JpegBackground { form: Box<Form> },
@@ -80,6 +82,40 @@ impl Picker {
 }
 
 impl Editor {
+    pub(super) fn open_text_color_picker(&mut self) {
+        let Some(form @ Form::Text(_)) = self.modal.clone() else {
+            return;
+        };
+        let style = match &form {
+            Form::Text(draft) => draft.parsed().unwrap_or_else(|_| draft.style.clone()),
+            _ => return,
+        };
+        let rgb = [
+            (style.red * 255.).round() as u8,
+            (style.green * 255.).round() as u8,
+            (style.blue * 255.).round() as u8,
+            255,
+        ];
+        let mut picker = Picker::new(rgb, [255; 4]);
+        picker.purpose = Purpose::LayerText {
+            form: Box::new(form),
+        };
+        self.modal = Some(Form::Color(Box::new(picker)));
+    }
+    pub(super) fn open_effect_color_picker(&mut self) {
+        let Some(form @ Form::Effects(_)) = self.modal.clone() else {
+            return;
+        };
+        let rgb = match &form {
+            Form::Effects(edit) => edit.rgb(),
+            _ => return,
+        };
+        let mut picker = Picker::new(rgb, [255; 4]);
+        picker.purpose = Purpose::LayerEffect {
+            form: Box::new(form),
+        };
+        self.modal = Some(Form::Color(Box::new(picker)));
+    }
     pub(super) fn open_jpeg_background_picker(&mut self) {
         let Some(
             form @ Form::Edit {
@@ -160,6 +196,15 @@ impl Editor {
         let Some(Form::Color(picker)) = &self.modal else {
             return Ok(());
         };
+        if let Purpose::LayerEffect { form } = &picker.purpose {
+            let original_form = form.clone();
+            let color = picker.colors[0].hsb.rgb();
+            let picker_form = self.modal.take();
+            self.modal = Some(*original_form);
+            self.change_effect(|edit| edit.set_color(color));
+            self.modal = picker_form;
+            return Ok(());
+        }
         let Purpose::GradientMap { original } = &picker.purpose else {
             return Ok(());
         };
@@ -192,6 +237,22 @@ impl Editor {
             return Ok(());
         };
         match picker.purpose.clone() {
+            Purpose::LayerText { mut form } => {
+                if apply && let Form::Text(draft) = form.as_mut() {
+                    let [r, g, b, _] = picker.colors[0].hsb.rgb();
+                    draft.color = format!("#{r:02X}{g:02X}{b:02X}");
+                }
+                self.modal = Some(*form);
+            }
+            Purpose::LayerEffect { form } => {
+                let color = picker.colors[0].hsb.rgb();
+                self.modal = Some(*form);
+                self.change_effect(|edit| {
+                    if apply {
+                        edit.set_color(color);
+                    }
+                });
+            }
             Purpose::JpegBackground { form } => {
                 let [r, g, b, _] = picker.colors[0].hsb.rgb();
                 self.modal = Some(*form);
@@ -265,7 +326,13 @@ impl Editor {
         {
             return;
         }
-        let pixel = compositor::render::sample(doc, point.map(|v| v.floor() + 0.5));
+        let pixel = match compositor::render::sample(doc, point.map(|v| v.floor() + 0.5)) {
+            Ok(pixel) => pixel,
+            Err(error) => {
+                self.show_error(alerts::Operation::Paint, error.to_string());
+                return;
+            }
+        };
         if pixel[3] <= 0. {
             return;
         }

@@ -7,6 +7,8 @@ pub enum Blend {
     Multiply,
     Screen,
     Overlay,
+    #[serde(rename = "Soft Light")]
+    SoftLight,
     Darken,
     Lighten,
     Difference,
@@ -21,11 +23,12 @@ pub enum Blend {
 }
 
 impl Blend {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Normal,
         Self::Multiply,
         Self::Screen,
         Self::Overlay,
+        Self::SoftLight,
         Self::Darken,
         Self::Lighten,
         Self::Difference,
@@ -43,6 +46,7 @@ impl Blend {
             Self::Multiply => "Multiply",
             Self::Screen => "Screen",
             Self::Overlay => "Overlay",
+            Self::SoftLight => "Soft Light",
             Self::Darken => "Darken",
             Self::Lighten => "Lighten",
             Self::Difference => "Difference",
@@ -75,6 +79,19 @@ impl Blend {
                         2. * b[i] * s[i]
                     } else {
                         1. - 2. * (1. - b[i]) * (1. - s[i])
+                    }
+                }
+                Self::SoftLight => {
+                    // PDF separable blend formula, evaluated in the document's sRGB space.
+                    if s[i] <= 0.5 {
+                        b[i] - (1. - 2. * s[i]) * b[i] * (1. - b[i])
+                    } else {
+                        let d = if b[i] <= 0.25 {
+                            ((16. * b[i] - 12.) * b[i] + 4.) * b[i]
+                        } else {
+                            b[i].sqrt()
+                        };
+                        b[i] + (2. * s[i] - 1.) * (d - b[i])
                     }
                 }
                 Self::Darken => b[i].min(s[i]),
@@ -150,6 +167,34 @@ fn set_sat(mut c: [f64; 3], value: f64) -> [f64; 3] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn soft_light_uses_pdf_curve_and_straight_alpha() {
+        for (bottom, top, expected) in [
+            (0.4, 0.0, 0.16),
+            (0.4, 0.5, 0.4),
+            (0.04, 1.0, 0.141824),
+            (0.25, 1.0, 0.5),
+            (0.81, 1.0, 0.9),
+        ] {
+            let actual =
+                Blend::SoftLight.composite([bottom, bottom, bottom, 1.], [top, top, top, 1.]);
+            assert!(
+                (actual[0] - expected).abs() < 1e-10,
+                "{bottom}, {top}: {actual:?}"
+            );
+            assert_eq!(actual[3], 1.);
+        }
+        let actual = Blend::SoftLight.composite([0.25, 0.25, 0.25, 0.5], [1., 1., 1., 0.5]);
+        assert_eq!(actual, [7. / 12., 7. / 12., 7. / 12., 0.75]);
+        assert_eq!(
+            serde_json::to_string(&Blend::SoftLight).unwrap(),
+            "\"Soft Light\""
+        );
+        assert_eq!(
+            serde_json::from_str::<Blend>("\"Soft Light\"").unwrap(),
+            Blend::SoftLight
+        );
+    }
     #[test]
     fn transparent_backdrop_keeps_source_color_for_every_mode() {
         for mode in Blend::ALL {

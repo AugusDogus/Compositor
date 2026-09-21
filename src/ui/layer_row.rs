@@ -19,6 +19,8 @@ impl Editor {
             compositor::document::LayerContent::Adjustment(_)
         ) {
             "Adjustment · Double-click to edit".into()
+        } else if layer.text.is_some() {
+            "Text · Double-click to edit".into()
         } else if layer.is_group() {
             "Folder".into()
         } else {
@@ -141,7 +143,16 @@ impl Editor {
                 this.session_mut().select_layer(id, true);
             }
             this.tools.mask_target = false;
-            if event.click_count == 2 {
+            if event.click_count == 2
+                && this
+                    .session()
+                    .document
+                    .active_layer()
+                    .is_some_and(|layer| layer.text.is_some())
+            {
+                let result = this.edit_active_text();
+                this.result(result, cx);
+            } else if event.click_count == 2 {
                 let action = if this.session().document.active_layer().is_some_and(|l| {
                     matches!(l.content, compositor::document::LayerContent::Adjustment(_))
                 }) {

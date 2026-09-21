@@ -113,6 +113,12 @@ impl Editor {
         )
     }
 
+    pub(super) fn can_edit_opacity(&self) -> bool {
+        self.can_edit_layers()
+            && self.session().document.selected.len() == 1
+            && self.session().document.active_layer().is_some()
+    }
+
     pub(super) fn can_edit_appearance(&self) -> bool {
         self.can_edit_layers()
             && self.session().document.selected.len() == 1

@@ -193,7 +193,7 @@ fn perspective_keeps_flipped_source_through_repeated_drags_and_one_undo() {
 }
 
 #[test]
-fn cancelled_drag_restores_numeric_draft_and_invalid_quad_keeps_last_preview() {
+fn cancelled_drag_restores_numeric_draft_and_collapsed_quad_keeps_last_preview() {
     let mut e = Editor::with_test_document();
     let original = patterned_document();
     e.tabs = vec![Session::new(original.clone(), None).into()];
@@ -207,7 +207,11 @@ fn cancelled_drag_restores_numeric_draft_and_invalid_quad_keeps_last_preview() {
         let preview = e.session().document.clone();
         if modifiers == Modifiers::CONTROL {
             pointer(&mut e, PointerPhase::Move, [200., 150.], modifiers);
-            assert_eq!(e.session().document, preview);
+            assert_ne!(e.session().document, preview);
+            let folded = e.session().document.clone();
+            let collapsed = e.transform_placement().unwrap().corners()[2];
+            pointer(&mut e, PointerPhase::Move, collapsed, modifiers);
+            assert_eq!(e.session().document, folded);
         }
         pointer(&mut e, PointerPhase::Cancel, [20.25, 10.], modifiers);
         assert_eq!(e.session().document, draft);

@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 pub(super) enum OpenedProject {
     Existing(Uuid),
+    Psd(compositor::psd::Imported),
     Loaded {
         document: Box<Document>,
         path: Option<PathBuf>,
@@ -26,6 +27,9 @@ impl OpenedProject {
                 path: Some(path),
             });
         }
+        if compositor::psd::is_psd(&path)? {
+            return Ok(Self::Psd(compositor::psd::load(&path)?));
+        }
         let layer = image_io::import(&path)?;
         let mut doc = Document::new(
             layer.transform.size[0] as u32,
@@ -43,7 +47,17 @@ impl OpenedProject {
 impl Editor {
     pub(super) fn show_opened_projects(&mut self, projects: Vec<OpenedProject>) -> Result<()> {
         for project in projects {
+            let project = match project {
+                OpenedProject::Psd(imported) => OpenedProject::Loaded {
+                    document: Box::new(imported.document),
+                    path: None,
+                },
+                project => project,
+            };
             let index = match project {
+                OpenedProject::Psd(_) => {
+                    return Err(compositor::invalid("PSD conversion was not resolved."));
+                }
                 OpenedProject::Existing(id) => self
                     .tabs
                     .iter()

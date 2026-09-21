@@ -11,6 +11,7 @@ pub(super) enum Operation {
     Open,
     Save,
     ExportPng,
+    ExportPsd,
     ExportJpeg,
     CanvasSize,
     ImageSize,
@@ -23,10 +24,11 @@ impl Operation {
     pub(super) fn for_action(action: Action) -> Self {
         match action {
             Action::New => Self::Clipboard,
-            Action::Open => Self::Open,
+            Action::Open | Action::OpenPsd => Self::Open,
             Action::Import => Self::Import,
             Action::Save | Action::SaveAs => Self::Save,
             Action::ExportPng => Self::ExportPng,
+            Action::ExportPsd => Self::ExportPsd,
             Action::ExportJpeg | Action::ExportJpegFile => Self::ExportJpeg,
             Action::CanvasSize => Self::CanvasSize,
             Action::ImageSize => Self::ImageSize,
@@ -42,6 +44,7 @@ impl Operation {
             Self::Open => "Couldn’t open the project",
             Self::Save => "Couldn’t save the project",
             Self::ExportPng => "Couldn’t export PNG",
+            Self::ExportPsd => "Couldn’t export PSD",
             Self::ExportJpeg => "Couldn’t export JPEG",
             Self::CanvasSize => "Couldn’t change canvas size",
             Self::ImageSize => "Couldn’t resize the image",

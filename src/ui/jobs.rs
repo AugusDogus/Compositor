@@ -2,6 +2,7 @@ use super::*;
 use compositor::{background::Quality, filters::Filter, invalid};
 
 pub(super) enum Job {
+    SelectForeground(compositor::object_selection::Settings),
     DeleteLayersBaked,
     CopyLayers {
         source: Box<Document>,
@@ -48,6 +49,16 @@ impl Completion {
 impl Job {
     pub(super) fn completion(&self) -> Completion {
         match self {
+            Self::SelectForeground(settings) => Completion::Pixels(
+                if matches!(
+                    settings.target,
+                    compositor::object_selection::Target::Subject
+                ) {
+                    "Select Subject"
+                } else {
+                    "Object Selection"
+                },
+            ),
             Self::DeleteLayersBaked => Completion::DeleteLayers,
             Self::CopyLayers { .. } => Completion::CopyLayers,
             Self::AdjustColors { settings, .. } => {
@@ -60,6 +71,9 @@ impl Job {
 
     pub(super) fn run(self, mut document: Document) -> Result<Document> {
         match self {
+            Job::SelectForeground(settings) => {
+                compositor::object_selection::select(&mut document, settings)?
+            }
             Job::CopyLayers {
                 source,
                 layer,

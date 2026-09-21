@@ -69,7 +69,11 @@ impl Editor {
         } else {
             Mode::Create
         };
-        let drag = Drag::new(doc, point, frame, mode);
+        let drag = Drag::new(doc, point, frame, mode).with_targets(self.tools.layout.targets(
+            doc,
+            &Default::default(),
+            false,
+        ));
         if matches!(mode, Mode::Create) {
             self.tools.pending_crop = None;
         }

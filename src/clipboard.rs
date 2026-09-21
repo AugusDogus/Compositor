@@ -35,7 +35,7 @@ pub fn copy(doc: &Document, merged: bool, mask: bool) -> Result<PixelClipboard> 
     {
         return Err(invalid("Select a pixel layer or a layer mask to copy."));
     }
-    let sampler = render::Sampler::new(doc);
+    let sampler = render::Sampler::new(doc)?;
     let pixels = RgbaImage::from_fn(width, height, |x, y| {
         let point = [x as f64 + bounds[0] + 0.5, y as f64 + bounds[1] + 0.5];
         let mut color = if merged {
@@ -154,6 +154,9 @@ mod tests {
         edits::fill(&mut doc, [0; 4], true, false).unwrap();
         assert_eq!(doc.layers[0].raster().unwrap()[(6, 6)][3], 0);
         paste(&mut doc, clip).unwrap();
-        assert_eq!(render::render(&doc, 20, 20)[(6, 6)], Rgba([255, 0, 0, 255]));
+        assert_eq!(
+            render::render(&doc, 20, 20).unwrap()[(6, 6)],
+            Rgba([255, 0, 0, 255])
+        );
     }
 }

@@ -8,6 +8,7 @@ const UI_FONT: &[u8] = include_bytes!("../assets/fonts/InterVariable.ttf");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = run();
+    compositor::object_selection::shutdown();
     compositor::background::shutdown();
     result
 }
@@ -73,6 +74,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     editor.set_launch_queue(queue);
     editor.restore_layout();
     editor.restore_update_preferences();
+    editor.restore_shortcuts();
     match compositor::native_clipboard::wayland::WaylandClipboard::new(app.owned_display_handle()) {
         Ok(Some(clipboard)) => {
             app.set_clipboard_provider(clipboard.clone());

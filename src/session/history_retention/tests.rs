@@ -22,6 +22,26 @@ fn pixels(session: &mut Session, label: &str, value: u8) {
 }
 
 #[test]
+fn feathered_selection_history_counts_both_original_and_blurred_masks() {
+    let mut doc = Document::new(40, 40).unwrap();
+    let original = crate::selection::Selection::rectangle(40, 40, [10., 10.], [30., 30.], false);
+    let feathered = original.feathered(4, 40, 40).unwrap();
+    let size = original.pixels.dense().unwrap().as_raw().len()
+        + feathered.pixels.dense().unwrap().as_raw().len();
+    doc.selection = Some(feathered);
+    let mut session = Session::new(doc, None);
+    session
+        .edit("Deselect", |doc| {
+            doc.selection = None;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(session.retained_history_bytes(Canvas::Visible), size);
+    session.trim_history_to(Canvas::Visible, 100, size - 1);
+    assert!(session.undo_label().is_none());
+}
+
+#[test]
 fn shared_live_assets_cost_nothing_and_historical_rasters_and_masks_count_once() {
     let mut doc = document(1);
     doc.layers[0].mask = Some(Mask {

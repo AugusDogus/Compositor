@@ -45,6 +45,10 @@ pub struct SubjectMask {
     pixels: Arc<GrayImage>,
 }
 
+pub(crate) fn foreground_mask(image: &RgbaImage) -> Result<GrayImage> {
+    inference::detect(image)
+}
+
 pub fn remove(doc: &mut Document, quality: Quality) -> Result<()> {
     quality.validate()?;
     SubjectMask::detect(doc)?.apply(doc, quality)

@@ -37,7 +37,7 @@ impl Editor {
             let layer = doc
                 .layers
                 .iter_mut()
-                .find(|l| l.id == draft.layer && !l.is_group())
+                .find(|l| l.id == draft.layer)
                 .ok_or_else(|| {
                     invalid("The layer being edited was removed. No opacity was changed.")
                 })?;
@@ -82,9 +82,9 @@ impl Editor {
             .text_size(13.)
             .bg(Color::rgb8(29, 29, 29))
             .border(1., Color::rgb8(72, 72, 72))
-            .disabled(!self.can_edit_appearance())
+            .disabled(!self.can_edit_opacity())
             .on_input(cx.input_listener(FIELD, |this, value, cx| {
-                if !this.can_edit_appearance() {
+                if !this.can_edit_opacity() {
                     return;
                 }
                 if this.opacity_draft.is_none() {
@@ -114,7 +114,7 @@ impl Editor {
                         cx.prevent_default();
                         cx.stop_propagation();
                     }
-                    Key::ArrowUp | Key::ArrowDown if this.can_edit_appearance() => {
+                    Key::ArrowUp | Key::ArrowDown if this.can_edit_opacity() => {
                         let amount = if event.modifiers.contains(Modifiers::SHIFT) {
                             10.
                         } else {
@@ -147,6 +147,39 @@ impl Editor {
 mod tests {
     use super::*;
     use quickgui::{Application, Keystroke, WindowOptions};
+
+    #[test]
+    fn folder_opacity_field_is_editable_but_blend_stays_disabled() {
+        let mut editor = Editor::with_test_document();
+        compositor::layer_ops::group(&mut editor.session_mut().document).unwrap();
+        let before = editor.session().document.clone();
+        let (mut cx, view) = Application::new()
+            .into_test_context(
+                WindowOptions::new("Folder opacity").size(1280., 900.),
+                editor,
+            )
+            .unwrap();
+        let window = view.window_handle();
+        cx.read(view, |e| {
+            assert!(e.can_edit_opacity());
+            assert!(!e.can_edit_appearance());
+        })
+        .unwrap();
+        cx.focus(window, FIELD).unwrap();
+        cx.simulate_keystrokes(window, "ctrl-a").unwrap();
+        cx.simulate_input(window, "50").unwrap();
+        cx.simulate_keystrokes(window, "enter").unwrap();
+        cx.read(view, |e| {
+            assert_eq!(e.session().document.active_layer().unwrap().opacity, 0.5)
+        })
+        .unwrap();
+        cx.focus(window, "workspace").unwrap();
+        cx.simulate_keystrokes(window, "ctrl-z").unwrap();
+        assert_eq!(
+            cx.read(view, |e| e.session().document.clone()).unwrap(),
+            before
+        );
+    }
 
     #[test]
     fn typed_percentage_commits_on_enter_escape_and_blur_with_one_undo_step() {

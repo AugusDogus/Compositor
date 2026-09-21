@@ -68,15 +68,18 @@ mod inversion;
 mod jobs;
 mod jpeg_export;
 mod jpeg_preferences;
+mod keymap;
 mod layer_cursor;
 mod layer_drag;
 mod layer_editing;
+mod layer_effects;
 mod layer_list;
 mod layer_mask;
 mod layer_opacity;
 mod layer_preview;
 mod layer_row;
 mod layers;
+mod layout_guides;
 mod levels_controls;
 mod levels_handles;
 mod levels_sampling;
@@ -87,6 +90,8 @@ mod navigation_header;
 mod new_canvas;
 mod nudge;
 mod numeric_fields;
+#[cfg(test)]
+mod object_selection_tests;
 mod palette;
 mod palette_controls;
 mod panel_activation;
@@ -101,6 +106,7 @@ mod project_open;
 mod project_sheets;
 mod project_tab;
 mod project_tools;
+mod psd_conversion;
 mod rename;
 mod sample_ring;
 #[cfg(test)]
@@ -117,6 +123,7 @@ mod selection_tools;
 mod selection_tools_tests;
 mod shape_controls;
 mod shape_draft;
+mod shortcut_editor;
 mod shortcuts;
 mod size_dialog;
 #[cfg(test)]
@@ -128,6 +135,7 @@ mod surfaces;
 mod tab_strip;
 #[cfg(test)]
 mod tests;
+mod text_editor;
 mod thumbnails;
 mod titlebar;
 mod tool_cursor;
@@ -169,6 +177,7 @@ pub enum Tool {
     Lasso,
     Polygon,
     Wand,
+    Object,
     Crop,
     Brush,
     Erase,
@@ -179,12 +188,13 @@ pub enum Tool {
     Liquify,
     Gradient,
     Shape,
+    Text,
     Eyedropper,
     Hand,
     Zoom,
 }
 impl Tool {
-    const ALL: [(Self, &'static str); 19] = [
+    const ALL: [(Self, &'static str); 21] = [
         (Self::Move, "V  Move"),
         (Self::Rectangle, "M  Select"),
         (Self::Ellipse, "   Ellipse"),
@@ -204,6 +214,8 @@ impl Tool {
         (Self::Zoom, "Z  Zoom"),
         (Self::Smudge, "   Smudge"),
         (Self::Liquify, "   Liquify"),
+        (Self::Text, "T  Type"),
+        (Self::Object, "O  Object Selection"),
     ];
     fn label(self) -> &'static str {
         if self == Self::Idle {
@@ -220,10 +232,13 @@ impl Tool {
 pub enum Action {
     New,
     Open,
+    OpenClipboard,
     Import,
     Save,
     SaveAs,
     ExportPng,
+    ExportPsd,
+    OpenPsd,
     ExportJpegFile,
     ExportJpeg,
     Undo,
@@ -247,16 +262,28 @@ pub enum Action {
     FlipCanvasY,
     CropSettings,
     PixelGrid,
+    Rulers,
+    Grid,
+    Guides,
+    LockGuides,
+    ClearGuides,
+    Snap,
+    SnapGrid,
+    SnapGuides,
+    SnapLayers,
+    SnapBounds,
     AddMask,
     HideMask,
     ToggleMask,
     DeleteMask,
     Clip,
+    SelectSubject,
     LoadAlpha,
     LoadMask,
     SelectAll,
     Deselect,
     InvertSelection,
+    FeatherSelection,
     Fill,
     FillBackground,
     Clear,
@@ -337,10 +364,16 @@ pub struct Editor {
     background_mode: background_controls::Mode,
     jpeg_export: Option<jpeg_export::JpegExport>,
     rename: Option<rename::LayerRename>,
+    keymap: keymap::Keymap,
+    text_defaults: compositor::text::Text,
+    text_renderer: Option<compositor::text::TextRenderer>,
+    text_preview: Option<text_editor::Preview>,
     pending: bool,
     updates: updates::Updates,
     job: Option<jobs::Job>,
     file_job: Option<file_jobs::FileJob>,
+    psd_conversion: Option<psd_conversion::Conversion>,
+    layout_drag: Option<layout_guides::Drag>,
     clipboard_job: Option<clipboard_jobs::Job>,
     close_intent: Option<CloseProgress>,
 }
@@ -360,7 +393,12 @@ impl Editor {
 
     pub fn new(paths: Vec<PathBuf>) -> Result<Self> {
         let mut tabs: Vec<ProjectTab> = Vec::new();
+        let launch_queue = crate::launch::LaunchQueue::default();
         for path in paths {
+            if compositor::psd::is_psd(&path)? {
+                launch_queue.push(vec![path])?;
+                continue;
+            }
             if path.is_dir() {
                 let path = path.canonicalize()?;
                 if !tabs.iter().any(|tab: &ProjectTab| {
@@ -390,7 +428,7 @@ impl Editor {
             tools: project_tools::ProjectTools::default(),
             next_tab_number: 2,
             tab_scrolling: tab_strip::TabScrolling::default(),
-            launch_queue: crate::launch::LaunchQueue::default(),
+            launch_queue,
             space_pan: false,
             pending_gradient: None,
             pending_pixels: None,
@@ -440,10 +478,16 @@ impl Editor {
             background_mode: background_controls::Mode::Basic,
             jpeg_export: None,
             rename: None,
+            keymap: keymap::Keymap::default(),
+            text_defaults: compositor::text::Text::default(),
+            text_renderer: None,
+            text_preview: None,
             pending: false,
             updates: updates::Updates::default(),
             job: None,
             file_job: None,
+            psd_conversion: None,
+            layout_drag: None,
             clipboard_job: None,
             close_intent: None,
         })
@@ -567,7 +611,10 @@ impl View for Editor {
                 modifiers,
                 repeat: false,
                 ..
-            } if *modifiers == Modifiers::CONTROL && key.eq_ignore_ascii_case("q") => {
+            } if *modifiers == Modifiers::CONTROL
+                && key.eq_ignore_ascii_case("q")
+                && !matches!(&self.modal, Some(Form::Shortcuts(draft)) if draft.is_recording()) =>
+            {
                 cx.prevent_default();
                 self.request_close(CloseIntent::Window, cx);
             }
@@ -582,9 +629,7 @@ impl View for Editor {
                     cx.invalidate();
                 }
             }
-            Event::KeyUp {
-                key: Key::Space, ..
-            } => {
+            Event::KeyUp { key, .. } if self.keymap.pan_released(key) => {
                 self.space_pan = false;
                 cx.invalidate();
             }
@@ -657,6 +702,7 @@ impl View for Editor {
             self.form_overlays(cx, workspace)
         };
         let root = root
+            .children(self.psd_conversion_view(cx))
             .children(self.error_view(cx))
             .relative()
             .children(self.window_resize_edges(cx))
@@ -739,6 +785,7 @@ impl Editor {
                     | Tool::Lasso
                     | Tool::Polygon
                     | Tool::Wand
+                    | Tool::Object
                     | Tool::Crop
                     | Tool::Shape
                     | Tool::Gradient
@@ -774,8 +821,7 @@ impl Editor {
         let content = self.workspace_content(cx);
         let canvas_focused = cx.is_focused(cx.focus_handle("workspace"));
         let key = cx.key_down_listener("workspace", move |this, event, cx| {
-            if event.key == Key::Space
-                && event.modifiers.is_empty()
+            if this.keymap.is_pan(&event.key, event.modifiers)
                 && canvas_focused
                 && !this.pending
                 && this.rename.is_none()

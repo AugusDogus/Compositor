@@ -111,7 +111,7 @@ impl Editor {
                     .flex_col()
                     .p(12.)
                     .gap(8.)
-                    .opacity(if self.can_edit_appearance() { 1. } else { 0.4 })
+                    .opacity(if self.can_edit_opacity() { 1. } else { 0.4 })
                     .child(
                         div()
                             .flex_row()
@@ -135,7 +135,7 @@ impl Editor {
                             .child(text("Opacity").text_size(10.).line_height(13.).w(38.))
                             .child(
                                 self.layer_opacity_slider(cx)
-                                    .disabled(!self.can_edit_appearance()),
+                                    .disabled(!self.can_edit_opacity()),
                             )
                             .child(
                                 div()
@@ -192,6 +192,7 @@ impl Editor {
                             .h(41.)
                             .text_color(Color::rgb8(164, 164, 164)),
                     )
+                    .child(self.effects_button(cx))
                     .child(
                         self.layer_menu_button(cx)
                             .w(33.)

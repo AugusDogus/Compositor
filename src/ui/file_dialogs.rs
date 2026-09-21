@@ -28,6 +28,7 @@ pub(super) enum SaveDialog {
     Project,
     ProjectAs,
     Png,
+    Psd,
     Jpeg,
 }
 
@@ -37,6 +38,7 @@ impl SaveDialog {
             Self::Project => "Save Project",
             Self::ProjectAs => "Save Project As",
             Self::Png => "Export PNG",
+            Self::Psd => "Export PSD",
             Self::Jpeg => "Export JPEG",
         }
     }
@@ -45,6 +47,7 @@ impl SaveDialog {
         match self {
             Self::Project | Self::ProjectAs => &["comp"],
             Self::Png => &["png"],
+            Self::Psd => &["psd"],
             Self::Jpeg => &["jpg", "jpeg"],
         }
     }
@@ -66,6 +69,7 @@ impl SaveDialog {
         let filter = match self {
             Self::Project | Self::ProjectAs => "Compositor project",
             Self::Png => "PNG image",
+            Self::Psd => "Photoshop document",
             Self::Jpeg => "JPEG image",
         };
         SavePathOptions::new(directory)

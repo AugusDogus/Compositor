@@ -4,11 +4,11 @@ Repository: https://github.com/AugusDogus/Compositor
 
 ## Running an AppImage
 
-Download the `compositor-linux-x86_64` artifact from a successful [Actions run](https://github.com/AugusDogus/Compositor/actions/workflows/linux-release.yml) and extract it. GitHub requires sign-in to download Actions artifacts. Tagged builds are published to [Releases](https://github.com/AugusDogus/Compositor/releases).
+Download the AppImage from the [latest release](https://github.com/AugusDogus/Compositor/releases/latest).
 
 ```sh
 chmod +x Compositor-*-x86_64.AppImage
-./Compositor-0.1.0-x86_64.AppImage
+./Compositor-0.2.0-x86_64.AppImage
 ```
 
 Use the filename for the version you downloaded. If FUSE is unavailable, add `--appimage-extract-and-run`. Tools such as [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and its icon to your desktop's application menu.
@@ -43,12 +43,12 @@ Do not move published tags or overwrite released artifacts. Publish a new versio
 
 ## Artifacts
 
-- `Compositor-<VERSION>-x86_64.AppImage`: the desktop application with its icon, launcher, client libraries, image codecs, ONNX Runtime, the Vulkan/WebGPU plugin, both BiRefNet models and license notices.
+- `Compositor-<VERSION>-x86_64.AppImage`: the desktop application with its icon, launcher, client libraries, image codecs, ONNX Runtime, the Vulkan/WebGPU plugin, BiRefNet and SAM 3.1 models and license notices.
 - `Compositor-<VERSION>-linux-x86_64.bin`: a raw executable for existing standalone installations, which still require compatible system libraries.
 - `.sha256` files: checksums for the two executable artifacts.
 - `linux-update.json`: the version feed for standalone executable installations.
 
-The AppImage requires glibc 2.39 or newer. It includes the libheif HEIC decoder plugin and dynamically loaded Wayland/X11 and graphics client libraries. It uses the host's graphics drivers and desktop portals. Native inference libraries and both full BiRefNet Dynamic models are bundled at build time. Background removal works offline without a setup command. The same artifact supports NVIDIA and AMD through Vulkan with FP16 shader support. Graphics drivers remain a host requirement; machines without a compatible hardware adapter select CPU inference automatically. Zstandard compression reduces the complete bundle's download size. Packaging enforces GitHub's 2 GiB per-asset limit.
+The AppImage requires glibc 2.39 or newer. It includes the libheif HEIC decoder plugin and dynamically loaded Wayland/X11 and graphics client libraries. It uses the host's graphics drivers and desktop portals. Native inference libraries, full BiRefNet Dynamic models and SAM 3.1 are bundled at build time. Background removal and object selection work offline without a setup command. The same artifact supports NVIDIA and AMD through Vulkan with FP16 shader support. Graphics drivers remain a host requirement; machines without a compatible hardware adapter select CPU inference automatically. Zstandard compression reduces the complete bundle's download size. Packaging enforces GitHub's 2 GiB per-asset limit.
 
 ## Local validation
 

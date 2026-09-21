@@ -48,16 +48,14 @@ impl FloatingPixels {
         }
         self.render(
             transform.bounds(),
-            |p| transform.unit(p),
-            |p| transform.point(self.placement.unit(p)),
+            crate::distort::Mapping::Affine(transform),
             transform.sampling,
             duplicate,
         )
     }
 
     pub fn preview_distorted(&self, corners: [Point; 4], duplicate: bool) -> Result<Document> {
-        let forward = crate::distort::Homography::new(corners)?;
-        let inverse = forward.inverse()?;
+        let mapping = crate::distort::Mapping::new(corners)?;
         let bounds = [
             corners.iter().map(|p| p[0]).fold(f64::INFINITY, f64::min),
             corners.iter().map(|p| p[1]).fold(f64::INFINITY, f64::min),
@@ -70,20 +68,13 @@ impl FloatingPixels {
                 .map(|p| p[1])
                 .fold(f64::NEG_INFINITY, f64::max),
         ];
-        self.render(
-            bounds,
-            |p| inverse.map(p),
-            |p| forward.map(self.placement.unit(p)),
-            self.placement.sampling,
-            duplicate,
-        )
+        self.render(bounds, mapping, self.placement.sampling, duplicate)
     }
 
     fn render(
         &self,
         bounds: [f64; 4],
-        unit: impl Fn(Point) -> Point,
-        forward: impl Fn(Point) -> Point,
+        mapping: crate::distort::Mapping,
         sampling: Sampling,
         duplicate: bool,
     ) -> Result<Document> {
@@ -102,7 +93,13 @@ impl FloatingPixels {
         let (w, h) = pixels.dimensions();
         for (x, y, p) in Arc::make_mut(pixels).enumerate_pixels_mut() {
             let point = placement.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]);
-            let top = render::pixel(&self.pixels.pixels, unit(point), sampling);
+            let top = mapping.inverse_points(point).into_iter().flatten().fold(
+                [0.; 4],
+                |bottom, unit| {
+                    Blend::Normal
+                        .composite(bottom, render::pixel(&self.pixels.pixels, unit, sampling))
+                },
+            );
             if top[3] > 0. {
                 *p = Rgba(
                     Blend::Normal
@@ -112,11 +109,32 @@ impl FloatingPixels {
             }
         }
         layer.shape = None;
+        layer.text = None;
         doc.selection = self
             .original
             .selection
             .as_ref()
-            .map(|s| s.mapped(bounds, forward, |point| self.placement.point(unit(point))))
+            .map(|s| {
+                if matches!(mapping, crate::distort::Mapping::Folded(_)) {
+                    crate::selection::Selection::rasterize(bounds, |point| {
+                        mapping
+                            .inverse_points(point)
+                            .into_iter()
+                            .flatten()
+                            .map(|unit| s.coverage(self.placement.point(unit)))
+                            .fold(0., f64::max)
+                    })
+                } else {
+                    s.mapped(
+                        bounds,
+                        |point| mapping.map(self.placement.unit(point)),
+                        |point| {
+                            self.placement
+                                .point(mapping.inverse_points(point)[0].unwrap_or([f64::NAN; 2]))
+                        },
+                    )
+                }
+            })
             .transpose()?;
         Ok(doc)
     }
@@ -197,6 +215,11 @@ mod tests {
         assert!(
             source
                 .preview_distorted([[0., 0.], [2., 2.], [2., 0.], [0., 2.]], false)
+                .is_ok()
+        );
+        assert!(
+            source
+                .preview_distorted([[0., 0.], [1., 0.], [2., 0.], [0., 2.]], false)
                 .is_err()
         );
     }
@@ -205,14 +228,18 @@ mod tests {
         let mut doc = Document::new(4, 4).unwrap();
         doc.selection = Some(Selection::rectangle(4, 4, [1., 1.], [3., 3.], false));
         edits::fill(&mut doc, [60, 120, 180, 255], false, false).unwrap();
-        let before = render::render(&doc, 4, 4);
+        let before = render::render(&doc, 4, 4).unwrap();
         move_pixels(&mut doc, [-8., 6.], false).unwrap();
         assert_eq!(
             doc.selection.as_ref().unwrap().bounds(),
             Some([-7., 7., -5., 9.])
         );
         move_pixels(&mut doc, [8., -6.], false).unwrap();
-        for (actual, expected) in render::render(&doc, 4, 4).pixels().zip(before.pixels()) {
+        for (actual, expected) in render::render(&doc, 4, 4)
+            .unwrap()
+            .pixels()
+            .zip(before.pixels())
+        {
             assert_eq!(actual[3], expected[3]);
             if expected[3] > 0 {
                 assert_eq!(actual, expected);

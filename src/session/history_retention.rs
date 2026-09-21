@@ -63,6 +63,15 @@ impl Session {
 
 fn visit_assets(document: &Document, seen: &mut HashSet<usize>) -> usize {
     let mut bytes = 0usize;
+    if let Some(selection) = &document.selection {
+        selection.visit_masks(&mut |coverage| {
+            if seen.insert(Arc::as_ptr(coverage) as usize)
+                && let Some(pixels) = coverage.dense()
+            {
+                bytes = bytes.saturating_add(pixels.as_raw().len());
+            }
+        });
+    }
     for layer in &document.layers {
         if let Some(pixels) = layer.raster()
             && seen.insert(Arc::as_ptr(pixels) as usize)

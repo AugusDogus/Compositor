@@ -50,7 +50,7 @@ fn jpeg_sheet_over_hue_exports_committed_pixels_and_restores_the_panel() {
 }
 fn complete(e: &mut Editor) -> Vec<u8> {
     let edit = e.jpeg_export.as_mut().unwrap();
-    let source = Arc::new(compositor::render::render(&edit.document, 16, 16));
+    let source = Arc::new(compositor::render::render(&edit.document, 16, 16).unwrap());
     let preview = Preview::render(&source, 72., edit.options).unwrap();
     let bytes = preview.bytes.clone();
     edit.running = false;

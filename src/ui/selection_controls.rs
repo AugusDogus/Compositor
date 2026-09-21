@@ -8,8 +8,11 @@ impl Editor {
         if let Some(draft) = &self.tools.polygon {
             return draft.mode;
         }
-        if let Some(canvas::Gesture::Region { mode, .. } | canvas::Gesture::Lasso { mode, .. }) =
-            &self.gesture
+        if let Some(
+            canvas::Gesture::Region { mode, .. }
+            | canvas::Gesture::Lasso { mode, .. }
+            | canvas::Gesture::Object { mode, .. },
+        ) = &self.gesture
         {
             return *mode;
         }
@@ -68,7 +71,34 @@ impl Editor {
             }
             row = row.child(control);
         }
-        row = row.child(div().flex_1());
+        let mut feather = div()
+            .flex_row()
+            .items_center()
+            .gap(6.)
+            .flex_shrink_0()
+            .child(Self::tool_header_control("Feather").on_click(cx.listener(
+                "selection-feather",
+                |this, cx| {
+                    let result = this.feather_selection(this.tools.selection_feather_amount);
+                    this.operation_result(alerts::Operation::Paint, result, cx);
+                },
+            )))
+            .child(Self::unit_suffix(
+                self.brush_value(
+                    cx,
+                    "selection-feather-amount",
+                    Scalar::SelectionFeather,
+                    (1., 250.),
+                )
+                .text_right()
+                .w(40.),
+                "px",
+            ));
+        if !self.can_modify_selection() {
+            feather.disable_subtree();
+            feather = feather.opacity(0.45);
+        }
+        row = row.child(feather).child(div().flex_1());
         if let Some(selection) = self
             .current_document()
             .and_then(|doc| doc.selection.as_ref())

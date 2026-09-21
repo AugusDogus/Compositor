@@ -102,6 +102,8 @@ mod tests {
             )
             .unwrap();
         let window = view.window_handle();
+        cx.simulate_retained_scroll(window, "tool-rail", quickgui::Vector::new(0., -1000.))
+            .unwrap();
         let rail = cx.element_bounds(window, 320_u64).unwrap();
         let shadows = cx.element_bounds(window, "gradient-map-shadows").unwrap();
         let ramp = cx.element_bounds(window, "gradient-map-ramp").unwrap();

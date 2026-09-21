@@ -103,6 +103,7 @@ fn invert_pixels(doc: &mut Document, mask_target: bool) -> Result<()> {
             }
         }
         layer.shape = None;
+        layer.text = None;
         Ok(())
     } else {
         Err(invalid("Select a pixel layer to invert."))

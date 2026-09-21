@@ -404,3 +404,27 @@ fn captured_pan_keeps_closed_hand_outside_canvas_until_release() {
             .unwrap()
     );
 }
+
+#[test]
+fn object_cursor_keeps_prompt_badges_inside_selection_and_retains_ctrl_pixel_moves() {
+    let mut editor = Editor::with_test_document();
+    editor.tools.tool = Tool::Object;
+    editor.canvas_pointer = Some([25., 25.]);
+    editor.session_mut().document.selection = Some(Selection::rectangle(
+        1280,
+        800,
+        [20., 20.],
+        [80., 80.],
+        false,
+    ));
+    for (modifiers, glyph) in [
+        (Modifiers::empty(), Glyph::Object(Badge::New)),
+        (Modifiers::SHIFT, Glyph::Object(Badge::Add)),
+        (Modifiers::ALT, Glyph::Object(Badge::Subtract)),
+        (Modifiers::CONTROL, Glyph::MovePixels),
+        (Modifiers::CONTROL | Modifiers::ALT, Glyph::Duplicate),
+    ] {
+        editor.keyboard_modifiers = modifiers;
+        assert_eq!(editor.canvas_cursor(1., [0.; 2]), Cursor::Image(glyph));
+    }
+}

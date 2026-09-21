@@ -126,10 +126,16 @@ impl Editor {
             _ => {}
         }
         match self.tools.tool {
+            Tool::Text => System(CursorStyle::IBeam),
             Tool::Hand => System(CursorStyle::OpenHand),
             Tool::Zoom => Image(if alt { Glyph::ZoomOut } else { Glyph::ZoomIn }),
             Tool::Clone if self.tools.clone_source.is_some() && !alt => Hidden,
-            Tool::Rectangle | Tool::Ellipse | Tool::Lasso | Tool::Polygon | Tool::Wand => {
+            Tool::Rectangle
+            | Tool::Ellipse
+            | Tool::Lasso
+            | Tool::Polygon
+            | Tool::Wand
+            | Tool::Object => {
                 let mode = self.displayed_selection_mode();
                 let over_selection = self.gesture.is_none()
                     && self.tools.polygon.is_none()
@@ -139,7 +145,10 @@ impl Editor {
                         .selection
                         .as_ref()
                         .is_some_and(|s| s.coverage(point) > 0.5);
-                if over_selection && (control || mode == SelectionMode::Replace) {
+                if over_selection
+                    && (control
+                        || (mode == SelectionMode::Replace && self.tools.tool != Tool::Object))
+                {
                     return Image(if control {
                         if alt {
                             Glyph::Duplicate
@@ -160,6 +169,7 @@ impl Editor {
                     Tool::Ellipse => Glyph::Ellipse(badge),
                     Tool::Lasso => Glyph::Lasso(badge),
                     Tool::Polygon => Glyph::Polygon(badge),
+                    Tool::Object => Glyph::Object(badge),
                     _ => Glyph::Wand(badge),
                 })
             }

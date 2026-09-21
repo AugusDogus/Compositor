@@ -1,0 +1,9 @@
+# Build-time CPU export only. No Python environment is shipped in the AppImage.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.0+cpu
+transformers==5.17.0
+safetensors==0.8.0
+onnx==1.23.0
+onnxruntime==1.30.0
+onnxconverter-common==1.16.0
+numpy==2.5.2

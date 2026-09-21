@@ -56,7 +56,7 @@ fn moving_pixels_from_rotated_flipped_layers_preserves_source_mask_and_history()
             let mask = layer.mask.as_ref().unwrap();
             assert!(Arc::ptr_eq(&mask.pixels, &original_mask));
             assert_eq!(mask.placement, Some(original_transform));
-            let pixels = render::render(&moved, 160, 120);
+            let pixels = render::render(&moved, 160, 120).unwrap();
             assert_eq!(
                 pixels[(110, 70)],
                 Rgba([80, 140, 200, 255]),
@@ -95,7 +95,7 @@ fn moving_pixels_from_rotated_flipped_layers_preserves_source_mask_and_history()
             let path = directory.path().join("transformed.comp");
             project::save(&session.document, &path).unwrap();
             assert_eq!(
-                render::render(&project::load(&path).unwrap(), 160, 120),
+                render::render(&project::load(&path).unwrap(), 160, 120).unwrap(),
                 pixels
             );
         }
@@ -156,7 +156,7 @@ fn scaling_rotating_and_distorting_selected_pixels_preserves_transformed_source_
                         .unwrap()
                 };
                 transformed.validate().unwrap();
-                let rendered = render::render(&transformed, 180, 120);
+                let rendered = render::render(&transformed, 180, 120).unwrap();
                 assert_eq!(rendered[(123, 55)], color);
                 assert_eq!(rendered[(30, 30)][3], if duplicate { 255 } else { 0 });
                 assert_eq!(transformed.layers[0].mask, doc.layers[0].mask);
@@ -183,7 +183,7 @@ fn scaling_rotating_and_distorting_selected_pixels_preserves_transformed_source_
                 let path = directory.path().join("transformed.comp");
                 project::save(&session.document, &path).unwrap();
                 assert_eq!(
-                    render::render(&project::load(&path).unwrap(), 180, 120),
+                    render::render(&project::load(&path).unwrap(), 180, 120).unwrap(),
                     rendered
                 );
             }

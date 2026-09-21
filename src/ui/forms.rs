@@ -4,7 +4,10 @@ use quickgui::Dialog;
 
 #[derive(Clone)]
 pub(super) enum Form {
+    Effects(Box<super::layer_effects::EffectsEditor>),
     Updates,
+    Shortcuts(Box<super::shortcut_editor::Draft>),
+    Text(Box<super::text_editor::Draft>),
     Blend,
     MaskColor(palette::MaskSwatch),
     Color(Box<super::color_picker::Picker>),
@@ -72,6 +75,13 @@ impl Editor {
             &self.session().document
         };
         let (title, fields): (&'static str, Vec<(&'static str, String)>) = match action {
+            Action::FeatherSelection => (
+                "Feather Selection",
+                vec![(
+                    "Radius (px)",
+                    self.tools.selection_feather_amount.to_string(),
+                )],
+            ),
             Action::Filter(filter) => Self::filter_fields(filter),
             Action::RemoveBackground => (
                 "Remove Background",
@@ -166,6 +176,12 @@ impl Editor {
     }
 
     pub(super) fn form_view(&mut self, cx: &mut ViewContext<'_, Self>, form: Form) -> Element {
+        if let Form::Shortcuts(draft) = &form {
+            return self.shortcuts_view(cx, draft);
+        }
+        if let Form::Text(draft) = &form {
+            return self.text_editor_view(cx, draft);
+        }
         if let Form::Color(picker) = &form {
             return self.color_picker_view(cx, picker);
         }
@@ -200,7 +216,10 @@ impl Editor {
         .dismiss_on_backdrop(false);
         let title = match &form {
             Form::Edit { title, .. } => *title,
+            Form::Effects(_) => "Layer Effects",
             Form::Updates => "Updates",
+            Form::Text(_) => "Text",
+            Form::Shortcuts(_) => "Keyboard Shortcuts",
             Form::Close | Form::DeleteLayers => return self.confirmation_view(cx, &form),
             Form::Color(_) => "Color picker",
             Form::Blend => "Blend Mode",
@@ -294,6 +313,11 @@ impl Editor {
                 .child(dialog.title_with(Self::sheet_heading(title, size_sheet || jpeg_sheet)));
         }
         match form {
+            Form::Text(draft) => return self.text_editor_view(cx, &draft),
+            Form::Shortcuts(draft) => return self.shortcuts_view(cx, &draft),
+            Form::Effects(edit) => {
+                contents = contents.child(self.effects_controls(cx, &edit));
+            }
             Form::Updates => {
                 contents = contents
                     .child(self.update_controls(cx))
@@ -546,6 +570,15 @@ impl Editor {
             Ok(n as u32)
         };
         match action {
+            Action::FeatherSelection => {
+                let amount = number(0)?;
+                if amount.fract() != 0. || !(1. ..=250.).contains(&amount) {
+                    return Err(invalid(
+                        "Enter a whole feather amount from 1 to 250 pixels.",
+                    ));
+                }
+                self.apply_selection_feather(amount as u16)?;
+            }
             Action::Filter(filter) => {
                 if !self.filter_source_is_current() {
                     self.cancel_filter();

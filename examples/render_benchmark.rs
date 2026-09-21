@@ -55,14 +55,7 @@ fn main() {
                 Arc::make_mut(pixels).put_pixel(2000, 2000, Rgba([255; 4]));
             }
             let result = if cpu {
-                Ok(render::region_cached(
-                    &doc,
-                    1200,
-                    900,
-                    [0., 0.],
-                    [4000. / 1200.; 2],
-                    &mut cache,
-                ))
+                render::region_cached(&doc, 1200, 900, [0., 0.], [4000. / 1200.; 2], &mut cache)
             } else {
                 render::region_accelerated(
                     &doc,

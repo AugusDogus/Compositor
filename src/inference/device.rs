@@ -4,13 +4,13 @@ use ort::{environment::Environment, session::builder::SessionBuilder};
 use std::{path::Path, sync::OnceLock};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) enum Device {
+pub(crate) enum Device {
     Gpu,
     Cpu,
 }
 
 impl Device {
-    pub(super) fn select() -> Result<Self> {
+    pub(crate) fn select(operation: &str) -> Result<Self> {
         match std::env::var("COMPOSITOR_BACKGROUND_DEVICE").as_deref() {
             Ok("cpu") => Ok(Self::Cpu),
             // Accept the previous CUDA setting when updating an existing installation.
@@ -36,6 +36,7 @@ impl Device {
                 })
             }
             _ => Err(failed(
+                operation,
                 "select an inference device",
                 "COMPOSITOR_BACKGROUND_DEVICE must be gpu or cpu",
             )),
@@ -43,10 +44,14 @@ impl Device {
     }
 }
 
-pub(super) fn configure_gpu(builder: SessionBuilder, root: &Path) -> Result<SessionBuilder> {
+pub(super) fn configure_gpu(
+    builder: SessionBuilder,
+    root: &Path,
+    operation: &str,
+) -> Result<SessionBuilder> {
     // Environment registration survives failed model loads and must only happen once.
     static REGISTERED: OnceLock<std::result::Result<(), String>> = OnceLock::new();
-    let env = Environment::current().map_err(|e| failed("access ONNX Runtime", e))?;
+    let env = Environment::current().map_err(|e| failed(operation, "access ONNX Runtime", e))?;
     REGISTERED
         .get_or_init(|| {
             env.register_ep_library(
@@ -59,6 +64,7 @@ pub(super) fn configure_gpu(builder: SessionBuilder, root: &Path) -> Result<Sess
         .as_ref()
         .map_err(|e| {
             failed(
+                operation,
                 "load its Vulkan inference plugin (restart after replacing runtime files)",
                 e,
             )
@@ -72,6 +78,7 @@ pub(super) fn configure_gpu(builder: SessionBuilder, root: &Path) -> Result<Sess
         })
         .ok_or_else(|| {
             failed(
+                operation,
                 "start GPU inference",
                 "no WebGPU device was found; check your Vulkan driver",
             )
@@ -80,20 +87,26 @@ pub(super) fn configure_gpu(builder: SessionBuilder, root: &Path) -> Result<Sess
     // Bucket caching retains oversized buffers and can exhaust 8 GB cards.
     builder
         .with_config_entry("ep.webgpuexecutionprovider.dawnBackendType", "Vulkan")
-        .map_err(|e| failed("configure Vulkan inference", e))?
+        .map_err(|e| failed(operation, "configure Vulkan inference", e))?
         // GridSample uses NCHW. Keeping convolutions in that layout avoids large
         // temporary transposes around each deformable-convolution replacement.
         .with_config_entry("ep.webgpuexecutionprovider.preferredLayout", "NCHW")
-        .map_err(|e| failed("configure the model tensor layout", e))?
+        .map_err(|e| failed(operation, "configure the model tensor layout", e))?
         .with_config_entry(
             "ep.webgpuexecutionprovider.storageBufferCacheMode",
             "disabled",
         )
-        .map_err(|e| failed("configure GPU memory usage", e))?
+        .map_err(|e| failed(operation, "configure GPU memory usage", e))?
         // Submit small batches so temporary tensors can retire while the editor
         // also owns canvas and brush resources on the same GPU.
         .with_config_entry("ep.webgpuexecutionprovider.maxNumPendingDispatches", "4")
-        .map_err(|e| failed("configure GPU dispatch batches", e))?
+        .map_err(|e| failed(operation, "configure GPU dispatch batches", e))?
         .with_devices([device], None)
-        .map_err(|e| failed("start Vulkan inference (check your graphics driver)", e))
+        .map_err(|e| {
+            failed(
+                operation,
+                "start Vulkan inference (check your graphics driver)",
+                e,
+            )
+        })
 }

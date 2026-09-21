@@ -2,8 +2,8 @@ use super::*;
 use compositor::{document::Layer, geometry::Point, levels_sample::LevelsSample};
 
 enum Source {
-    Pixels(Layer),
-    Composite(Document, uuid::Uuid),
+    Pixels(Box<Layer>),
+    Composite(Box<Document>, uuid::Uuid),
 }
 
 pub(super) struct LevelsSampling {
@@ -15,7 +15,7 @@ pub(super) struct LevelsSampling {
 impl LevelsSampling {
     pub fn pixels(layer: Layer, canvas: [u32; 2]) -> Self {
         Self {
-            source: Source::Pixels(layer),
+            source: Source::Pixels(Box::new(layer)),
             canvas,
             mode: None,
         }
@@ -24,26 +24,28 @@ impl LevelsSampling {
     pub fn composite(document: Document, layer: uuid::Uuid) -> Self {
         Self {
             canvas: [document.width, document.height],
-            source: Source::Composite(document, layer),
+            source: Source::Composite(Box::new(document), layer),
             mode: None,
         }
     }
 
-    fn color(&self, point: Point) -> Option<[f64; 3]> {
+    fn color(&self, point: Point) -> Result<Option<[f64; 3]>> {
         if point
             .iter()
             .zip(self.canvas)
             .any(|(v, limit)| !v.is_finite() || *v < 0. || *v >= limit as f64)
         {
-            return None;
+            return Ok(None);
         }
         let rgba = match &self.source {
             Source::Pixels(layer) => {
                 let unit = layer.transform.unit(point);
                 if unit.iter().any(|v| !(0. ..1.).contains(v)) {
-                    return None;
+                    return Ok(None);
                 }
-                let image = layer.raster()?;
+                let Some(image) = layer.raster() else {
+                    return Ok(None);
+                };
                 image[(
                     (unit[0] * image.width() as f64).floor() as u32,
                     (unit[1] * image.height() as f64).floor() as u32,
@@ -52,10 +54,10 @@ impl LevelsSampling {
                     .map(|v| v as f64 / 255.)
             }
             Source::Composite(document, layer) => {
-                compositor::render::sample_below(document, *layer, point)
+                compositor::render::sample_below(document, *layer, point)?
             }
         };
-        (rgba[3] > 0.).then_some([rgba[0], rgba[1], rgba[2]])
+        Ok((rgba[3] > 0.).then_some([rgba[0], rgba[1], rgba[2]]))
     }
 }
 
@@ -108,7 +110,7 @@ impl Editor {
         let Some(mode) = sample.mode else {
             return Ok(());
         };
-        let Some(rgb) = sample.color(point) else {
+        let Some(rgb) = sample.color(point)? else {
             self.status = "Choose a nontransparent pixel inside the original image. The Levels settings are unchanged.".into();
             return Ok(());
         };

@@ -139,7 +139,7 @@ impl Editor {
             ];
             drag.guides = [None; 2];
             if !modifiers.contains(Modifiers::CONTROL) {
-                (delta, drag.guides) = compositor::transform::snap(
+                (delta, drag.guides) = self.tools.layout.snap_move(
                     &self.session().document,
                     bounds,
                     delta,

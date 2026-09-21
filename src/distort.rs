@@ -1,3 +1,6 @@
+mod mapping;
+pub(crate) use mapping::Mapping;
+
 use crate::{
     Result,
     document::{Document, LayerContent, validate_size},
@@ -95,11 +98,9 @@ impl Homography {
     }
 }
 
-/// Whether interactive corners form a supported, nondegenerate convex quad.
+/// Convex quads use perspective; folded quads use two nondegenerate triangles.
 pub fn usable_corners(corners: [Point; 4]) -> bool {
-    Homography::new(corners)
-        .and_then(Homography::inverse)
-        .is_ok()
+    Mapping::new(corners).is_ok()
 }
 
 pub fn apply(
@@ -110,8 +111,7 @@ pub fn apply(
 ) -> Result<()> {
     bounds.flip_x = false;
     bounds.flip_y = false;
-    let warp = Homography::new(corners)?;
-    let inverse = warp.inverse()?;
+    let warp = Mapping::new(corners)?;
     let ids = transform::target_ids(doc);
     let mask_target = mask_target && doc.selected.len() == 1;
     for layer in doc.layers.iter_mut().filter(|l| ids.contains(&l.id)) {
@@ -125,8 +125,9 @@ pub fn apply(
         } else {
             layer.transform
         };
-        let points = [[0., 0.], [1., 0.], [1., 1.], [0., 1.]]
-            .map(|p| warp.map(bounds.unit(old.geometry_point(p))));
+        let points = warp.mapped_outline(
+            [[0., 0.], [1., 0.], [1., 1.], [0., 1.]].map(|p| bounds.unit(old.geometry_point(p))),
+        );
         let left = points
             .iter()
             .map(|p| p[0])
@@ -159,20 +160,32 @@ pub fn apply(
             origin: [left, top],
             ..Transform::new(w, h)
         };
-        let source_point =
-            |x, y| bounds.point(inverse.map([left + x as f64 + 0.5, top + y as f64 + 0.5]));
+        let source_points =
+            |x, y| warp.inverse_points([left + x as f64 + 0.5, top + y as f64 + 0.5]);
         if !mask_only {
             if let Some(image) = layer.raster() {
                 let pixels = RgbaImage::from_fn(w, h, |x, y| {
-                    Rgba(
-                        render::pixel(image, old.unit(source_point(x, y)), old.sampling)
-                            .map(|v| (v * 255.).round() as u8),
-                    )
+                    let pixel =
+                        source_points(x, y)
+                            .into_iter()
+                            .flatten()
+                            .fold([0.; 4], |bottom, point| {
+                                crate::blend::Blend::Normal.composite(
+                                    bottom,
+                                    render::pixel(
+                                        image,
+                                        old.unit(bounds.point(point)),
+                                        old.sampling,
+                                    ),
+                                )
+                            });
+                    Rgba(pixel.map(|v| (v * 255.).round() as u8))
                 });
                 layer.content = LayerContent::Raster(Some(Arc::new(pixels)));
             }
             layer.transform = placed;
             layer.shape = None;
+            layer.text = None;
         }
         if let Some(mask) = &mut layer.mask {
             if mask_only || mask.linked {
@@ -183,7 +196,10 @@ pub fn apply(
                     0.
                 };
                 let pixels = GrayImage::from_fn(w, h, |x, y| {
-                    let u = t.unit(source_point(x, y));
+                    let Some(point) = source_points(x, y).into_iter().flatten().last() else {
+                        return Luma([0]);
+                    };
+                    let u = t.unit(bounds.point(point));
                     if u.iter().any(|v| !(0. ..1.).contains(v)) {
                         Luma([(background * 255.) as u8])
                     } else {

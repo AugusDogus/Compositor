@@ -17,6 +17,8 @@ impl Editor {
             116. + (available.height - 146. - HEIGHT) / 2.,
         ]);
         let title = match picker.purpose {
+            Purpose::LayerEffect { .. } => "Layer effect color",
+            Purpose::LayerText { .. } => "Text color",
             Purpose::CanvasExtension { .. } => "Canvas extension color",
             Purpose::JpegBackground { .. } => "JPEG background color",
             Purpose::Palette if matches!(picker.target, Target::Background) => {

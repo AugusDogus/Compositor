@@ -5,7 +5,7 @@ use uuid::Uuid;
 /// Immutable inputs from before the adjustment preview changed the document.
 #[derive(Clone)]
 enum Source {
-    Pixels(Layer, Option<Selection>),
+    Pixels(Box<Layer>, Option<Selection>),
     Below(Document, Uuid),
 }
 
@@ -15,7 +15,9 @@ impl Source {
             Self::Pixels(layer, selection) => Histogram::for_layer(layer, selection.as_ref()),
             Self::Below(document, layer) => {
                 compositor::document::validate_size(document.width, document.height)?;
-                Ok(Histogram::new(&compositor::render::below(document, *layer)))
+                Ok(Histogram::new(&compositor::render::below(
+                    document, *layer,
+                )?))
             }
         }
     }
@@ -36,7 +38,7 @@ pub(super) struct AdjustmentHistogram {
 
 impl AdjustmentHistogram {
     pub fn pixels(layer: Layer, selection: Option<Selection>) -> Self {
-        Self::new(Source::Pixels(layer, selection))
+        Self::new(Source::Pixels(Box::new(layer), selection))
     }
 
     pub fn below(document: Document, layer: Uuid) -> Self {

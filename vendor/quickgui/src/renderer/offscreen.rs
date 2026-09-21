@@ -37,6 +37,18 @@ impl OffscreenRenderer {
         profile: PerformanceProfile,
         font_system: SharedFontSystem,
     ) -> Result<Self, crate::VisualTestError> {
+        // Concurrent cold Vulkan loader initialization can race in native ICDs.
+        // Serialize only driver initialization; renderers retain independent
+        // instances (including their EGL contexts), devices, and parallel work.
+        #[cfg(not(target_arch = "wasm32"))]
+        let instance = {
+            static INITIALIZATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
+            let _initialization = INITIALIZATION.lock().map_err(|_| {
+                crate::VisualTestError::Adapter("Native graphics initialization panicked".into())
+            })?;
+            Instance::new(InstanceDescriptor::new_without_display_handle())
+        };
+        #[cfg(target_arch = "wasm32")]
         let instance = Instance::new(InstanceDescriptor::new_without_display_handle());
         let adapter = instance
             .request_adapter(&RequestAdapterOptions {

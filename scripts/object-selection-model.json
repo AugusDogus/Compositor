@@ -1,0 +1,52 @@
+{
+  "id": "sam3.1-tracker",
+  "name": "SAM 3.1 interactive tracker",
+  "license": "SAM License (November 19, 2025)",
+  "build": {
+    "checkpoint": {
+      "path": "sam3.1_multiplex_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/f38cd62b71494b53ac2b56ca36e24f3c8d565581/checkpoints/sam3.1_multiplex_fp16.safetensors",
+      "sha256": "9ba99c92703c2e8b4f47de2d34a539bb8e18923049e238b780d70dbe6368eb03",
+      "bytes": 1745546848
+    },
+    "config": {
+      "path": "sam31-config.json",
+      "url": "https://huggingface.co/onnx-community/sam3-tracker-ONNX/resolve/429305c8a5b3de597243d919a07e4e6bdcd00ef7/config.json",
+      "sha256": "c3de7457775d88dce15e7451e1f035e5f634d7ce2a9c38a8c04b7915e7482d12",
+      "bytes": 5078
+    }
+  },
+  "files": [
+    {
+      "path": "object-selection/prompt_encoder_mask_decoder_fp16.onnx",
+      "source": "build",
+      "sha256": "a1207cc0a025875c389da2adc989c15d4584f578e48c2b37ea0ef8118eb63b4b",
+      "bytes": 319359
+    },
+    {
+      "path": "object-selection/prompt_encoder_mask_decoder_fp16.onnx_data",
+      "source": "build",
+      "sha256": "e1b56d8222e232d9aa1379b41dd3a38ca0a9f99e5bbcbeaaa4fe993469099be2",
+      "bytes": 8354816
+    },
+    {
+      "path": "object-selection/vision_encoder_fp16.onnx",
+      "source": "build",
+      "sha256": "6f58522bbc3427ef119ace3a12f35f09b46203edf44dd54afc19478428460c2b",
+      "bytes": 21584828
+    },
+    {
+      "path": "object-selection/vision_encoder_fp16.onnx_data",
+      "source": "build",
+      "sha256": "9de45c9f0dd9b8e89bdca9ab7077ff11f837da03a8e37f2af76b41b15a4c11b1",
+      "bytes": 906418176
+    },
+    {
+      "path": "licenses/sam3.txt",
+      "url": "https://raw.githubusercontent.com/facebookresearch/sam3/2345a4ad109ac29c569da749c91d84f10dc08c40/LICENSE",
+      "sha256": "4dea99bfaa016e21bc860d73f344236bd1e5c4977d1a9a8fd32f822b500ae1be",
+      "bytes": 7353,
+      "source": "download"
+    }
+  ]
+}

@@ -97,8 +97,13 @@ impl Editor {
                 self.add_empty_tab();
                 self.suggest_new_canvas(cx)
             }
+            Action::OpenClipboard => self.queue_clipboard(clipboard_jobs::Request::Open, cx),
             Action::Transform => self.start_toolbar_transform(),
-            Action::CanvasSize | Action::ImageSize | Action::CropSettings | Action::Color => {
+            Action::CanvasSize
+            | Action::ImageSize
+            | Action::CropSettings
+            | Action::Color
+            | Action::FeatherSelection => {
                 self.open_form(action);
                 if matches!(self.modal, Some(Form::MaskColor(_))) {
                     cx.focus(quickgui::FocusHandle::new("mask-color-false"));
@@ -121,7 +126,13 @@ impl Editor {
                 self.open_jpeg(None);
                 Ok(())
             }
-            Action::Open | Action::Import | Action::Save | Action::SaveAs | Action::ExportPng => {
+            Action::Open
+            | Action::OpenPsd
+            | Action::Import
+            | Action::Save
+            | Action::SaveAs
+            | Action::ExportPng
+            | Action::ExportPsd => {
                 self.file_action(action, cx);
                 Ok(())
             }
@@ -258,6 +269,17 @@ impl Editor {
                 .active
                 .ok_or_else(|| invalid("Select a layer to clip."))
                 .and_then(|target| self.toggle_clipping(target)),
+            Action::SelectSubject => {
+                self.queue(jobs::Job::SelectForeground(
+                    compositor::object_selection::Settings {
+                        target: compositor::object_selection::Target::Subject,
+                        sample_all: self.tools.object_sample_all,
+                        antialiased: self.tools.selection_antialiased,
+                        mode: self.tools.selection_mode,
+                    },
+                ));
+                Ok(())
+            }
             Action::LoadAlpha | Action::LoadMask => {
                 let mode = compositor::selection::SelectionMode::Replace;
                 let antialiased = self.tools.selection_antialiased;
@@ -313,6 +335,16 @@ impl Editor {
                 self.session_mut()
                     .edit(label, |doc| edits::fill(doc, color, clear && !mask, mask))
             }
+            Action::Rulers
+            | Action::Grid
+            | Action::Guides
+            | Action::LockGuides
+            | Action::ClearGuides
+            | Action::Snap
+            | Action::SnapGrid
+            | Action::SnapGuides
+            | Action::SnapLayers
+            | Action::SnapBounds => self.layout_action(action),
             Action::PixelGrid => {
                 self.tools.pixel_grid = !self.tools.pixel_grid;
                 Ok(())
@@ -402,7 +434,12 @@ impl Editor {
             "v" => Some(Tool::Move),
             "m" => Some(self.tools.tool_preferences.marquee()),
             "l" => Some(self.tools.tool_preferences.lasso()),
-            "w" => Some(Tool::Wand),
+            "w" => Some(if self.tools.tool == Tool::Wand {
+                Tool::Object
+            } else {
+                Tool::Wand
+            }),
+            "o" => Some(Tool::Object),
             "c" => Some(Tool::Crop),
             "b" => Some(Tool::Brush),
             "e" => Some(Tool::Erase),
@@ -410,9 +447,10 @@ impl Editor {
             "j" => Some(Tool::Heal),
             "r" => Some(self.tools.tool_preferences.smear()),
             "g" => Some(Tool::Gradient),
+            "t" => Some(Tool::Text),
             "u" => {
                 if shift && self.tools.tool == Tool::Shape {
-                    self.set_shape_kind(!self.tools.shape_ellipse);
+                    self.set_shape_kind(self.tools.shape_kind.next());
                 }
                 Some(Tool::Shape)
             }
@@ -457,7 +495,22 @@ impl Editor {
     }
 
     pub(super) fn key(&mut self, key: &Key, modifiers: Modifiers, cx: &mut EventContext) {
-        if !self.errors.is_empty() {
+        if self.layout_drag.is_some() {
+            if *key == Key::Escape {
+                self.layout_drag = None;
+                cx.invalidate();
+            }
+            return;
+        }
+        if let Some((key, modifiers)) = self.keymap.translate(key, modifiers, false) {
+            self.default_key(&key, modifiers, cx);
+        } else {
+            cx.prevent_default();
+        }
+    }
+
+    fn default_key(&mut self, key: &Key, modifiers: Modifiers, cx: &mut EventContext) {
+        if self.psd_conversion.is_some() || !self.errors.is_empty() {
             return;
         }
         let menu = if *key == Key::Function(10) && modifiers.is_empty() {
@@ -600,6 +653,9 @@ impl Editor {
                     cx.invalidate();
                     None
                 }
+                "r" if !alt && !shift => Some(Action::Rulers),
+                "\'" if !alt && !shift => Some(Action::Grid),
+                ";" | ":" if !alt => Some(if shift { Action::Snap } else { Action::Guides }),
                 "w" => Some(Action::CloseTab),
                 "0" => Some(Action::Fit),
                 "1" => Some(Action::Actual),

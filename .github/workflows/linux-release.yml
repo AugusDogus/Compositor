@@ -51,7 +51,7 @@ jobs:
             target/release
             target/appimage-tools
             ~/.cache/compositor/inference-downloads
-          key: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock', 'vendor/quickgui/**', 'scripts/setup-background.sh', 'scripts/background_model.py', 'scripts/requirements-inference-build.txt') }}
+          key: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock', 'vendor/quickgui/**', 'scripts/setup-background.sh', 'scripts/setup-object-selection.sh', 'scripts/object-selection-model.json', 'scripts/object_selection_model.py', 'scripts/requirements-object-model-build.txt', 'scripts/background_model.py', 'scripts/requirements-inference-build.txt') }}
           restore-keys: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-
       - name: Validate version
         id: version
@@ -81,8 +81,12 @@ jobs:
           echo "88431cd9653ccd539741b555fb0a46b61558b301d4110412b5bc28b5e3ea6cb5  $RUNNER_TEMP/astronaut.png" | sha256sum --check
           test_binary="$(cargo test --locked --test linux_integrations --no-run --message-format json | jq -r 'select(.reason == "compiler-artifact" and .target.name == "linux_integrations" and .executable != null) | .executable')"
           test -x "$test_binary"
+          object_test_binary="$(cargo test --locked --lib --no-run --message-format json | jq -r 'select(.reason == "compiler-artifact" and .target.name == "compositor" and .executable != null) | .executable')"
+          test -x "$object_test_binary"
           COMPOSITOR_BACKGROUND_DEVICE=cpu COMPOSITOR_TEST_PHOTO="$RUNNER_TEMP/astronaut.png" \
-            COMPOSITOR_INFERENCE_TEST_BINARY="$test_binary" scripts/check-appimage.sh dist/*.AppImage
+            COMPOSITOR_INFERENCE_TEST_BINARY="$test_binary" \
+            COMPOSITOR_OBJECT_SELECTION_TEST_BINARY="$object_test_binary" \
+            scripts/check-appimage.sh dist/*.AppImage
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: compositor-linux-x86_64

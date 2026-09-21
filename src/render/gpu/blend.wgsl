@@ -21,15 +21,19 @@ fn blend(mode:u32, bottom:vec4<f32>, top:vec4<f32>) -> vec4<f32> {
         case 1u: { color=b*s; }
         case 2u: { color=b+s-b*s; }
         case 3u: { color=select(vec3(1.0)-2.0*(vec3(1.0)-b)*(vec3(1.0)-s),2.0*b*s,b<=vec3(0.5)); }
-        case 4u: { color=min(b,s); }
-        case 5u: { color=max(b,s); }
-        case 6u: { color=abs(b-s); }
-        case 7u: { for(var i=0u;i<3u;i++){ if b[i]==0.0 {color[i]=0.0;} else if s[i]==1.0 {color[i]=1.0;} else {color[i]=min(b[i]/(1.0-s[i]),1.0);} } }
-        case 8u: { for(var i=0u;i<3u;i++){ if b[i]==1.0 {color[i]=1.0;} else if s[i]==0.0 {color[i]=0.0;} else {color[i]=1.0-min((1.0-b[i])/s[i],1.0);} } }
-        case 9u: { color=set_lum(set_sat(s,sat(b)),lum(b)); }
-        case 10u: { color=set_lum(set_sat(b,sat(s)),lum(b)); }
-        case 11u: { color=set_lum(s,lum(b)); }
-        case 12u: { color=set_lum(b,lum(s)); }
+        case 4u: {
+            let d=select(sqrt(b),((16.0*b-vec3(12.0))*b+vec3(4.0))*b,b<=vec3(0.25));
+            color=select(b+(2.0*s-vec3(1.0))*(d-b),b-(vec3(1.0)-2.0*s)*b*(vec3(1.0)-b),s<=vec3(0.5));
+        }
+        case 5u: { color=min(b,s); }
+        case 6u: { color=max(b,s); }
+        case 7u: { color=abs(b-s); }
+        case 8u: { for(var i=0u;i<3u;i++){ if b[i]==0.0 {color[i]=0.0;} else if s[i]==1.0 {color[i]=1.0;} else {color[i]=min(b[i]/(1.0-s[i]),1.0);} } }
+        case 9u: { for(var i=0u;i<3u;i++){ if b[i]==1.0 {color[i]=1.0;} else if s[i]==0.0 {color[i]=0.0;} else {color[i]=1.0-min((1.0-b[i])/s[i],1.0);} } }
+        case 10u: { color=set_lum(set_sat(s,sat(b)),lum(b)); }
+        case 11u: { color=set_lum(set_sat(b,sat(s)),lum(b)); }
+        case 12u: { color=set_lum(s,lum(b)); }
+        case 13u: { color=set_lum(b,lum(s)); }
         default: {}
     }
     return vec4((top.a*((1.0-bottom.a)*s+bottom.a*color)+bottom.a*(1.0-top.a)*b)/alpha,alpha);

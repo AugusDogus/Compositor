@@ -5,7 +5,20 @@ impl Editor {
         if !self.errors.is_empty() || self.panel_applying() {
             return;
         }
-        let panel_command = (*key == Key::Function(10) && modifiers.is_empty())
+        if *key == Key::Enter
+            && modifiers.is_empty()
+            && matches!(self.modal, Some(Form::Effects(_)))
+        {
+            cx.prevent_default();
+            cx.stop_propagation();
+            let result = self.finish_effects(true);
+            self.result(result, cx);
+            return;
+        }
+        let mapped = self.keymap.translate(key, modifiers, false);
+        let panel_command = mapped.as_ref().is_some_and(|(key, modifiers)| {
+            let modifiers = *modifiers;
+            (*key == Key::Function(10) && modifiers.is_empty())
             || (modifiers == Modifiers::ALT
                 && matches!(key, Key::Character(c) if ["f", "e", "i", "l", "s", "t", "v", "h"].contains(&c.to_lowercase().as_str())))
             || (modifiers == Modifiers::CONTROL
@@ -15,7 +28,8 @@ impl Editor {
             || (modifiers == (Modifiers::CONTROL | Modifiers::ALT)
                 && matches!(key, Key::Character(c) if ["c", "i"].contains(&c.to_lowercase().as_str())))
             || (modifiers == (Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT)
-                && matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("s")));
+                && matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("s")))
+        });
         if self.floating_panel_kind().is_some() && panel_command {
             cx.prevent_default();
             cx.stop_propagation();
@@ -29,12 +43,13 @@ impl Editor {
             self.size_menus.close(cx);
             self.submit_form(cx);
             self.changed(cx);
-        } else if modifiers == Modifiers::ALT
-            && matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("p"))
-            && self
-                .adjustment_edit
-                .as_ref()
-                .is_some_and(|edit| edit.settings.kind == Kind::Levels)
+        } else if mapped.as_ref().is_some_and(|(key, modifiers)| {
+            *modifiers == Modifiers::ALT
+                && matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("p"))
+        }) && self
+            .adjustment_edit
+            .as_ref()
+            .is_some_and(|edit| edit.settings.kind == Kind::Levels)
         {
             cx.prevent_default();
             cx.stop_propagation();

@@ -79,6 +79,10 @@ pub fn resize(
         }
         layer.transform = transform;
         layer.shape = None;
+        layer.text = None;
+    }
+    for guide in &mut doc.guides {
+        guide.position *= [sx, sy][guide.axis.index()];
     }
     doc.width = width;
     doc.height = height;
@@ -111,8 +115,8 @@ mod tests {
         let original = doc.clone();
         resize(&mut doc, 20, 30, 300., Sampling::Nearest).unwrap();
         assert_eq!(doc.layers[0].transform.rotation, 0.);
-        let result = render::render(&doc, 20, 30);
-        let sampler = render::Sampler::new(&original);
+        let result = render::render(&doc, 20, 30).unwrap();
+        let sampler = render::Sampler::new(&original).unwrap();
         for (x, y, p) in result.enumerate_pixels() {
             assert_eq!(
                 p.0,

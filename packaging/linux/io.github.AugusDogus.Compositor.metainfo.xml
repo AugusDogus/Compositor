@@ -6,7 +6,7 @@
   <name>Compositor</name>
   <summary>A layered image editor for Linux</summary>
   <description>
-    <p>Edit images with layers, masks, selections, painting, transforms and color adjustments. This Linux fork uses Rust and QuickGUI, with Vulkan acceleration and optional local CUDA background removal.</p>
+    <p>Edit images with layers, masks, selections, painting, transforms and color adjustments. This Linux fork uses Rust and QuickGUI, with Vulkan acceleration and bundled offline background removal and object selection.</p>
   </description>
   <launchable type="desktop-id">compositor.desktop</launchable>
   <url type="homepage">https://github.com/AugusDogus/Compositor</url>

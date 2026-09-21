@@ -9,6 +9,7 @@ impl Action {
                 | Self::ImageSize
                 | Self::Save
                 | Self::SaveAs
+                | Self::ExportPsd
                 | Self::ExportPng
                 | Self::ExportJpeg
                 | Self::ExportJpegFile
@@ -19,7 +20,9 @@ impl Action {
 
 impl Editor {
     pub(super) fn can_start_project_operation(&self) -> bool {
-        self.errors.is_empty()
+        self.layout_drag.is_none()
+            && self.psd_conversion.is_none()
+            && self.errors.is_empty()
             && !self.pending
             && self.retained_panel.is_none()
             && self.gesture.is_none()
@@ -32,7 +35,9 @@ impl Editor {
     }
 
     pub(super) fn action_available(&self, action: Action) -> bool {
-        if !self.errors.is_empty()
+        if self.layout_drag.is_some()
+            || self.psd_conversion.is_some()
+            || !self.errors.is_empty()
             || self.pending
             || self.gesture.is_some()
             || self.retained_panel.is_some()
@@ -46,6 +51,8 @@ impl Editor {
                     | Action::Redo
                     | Action::New
                     | Action::Open
+                    | Action::OpenPsd
+                    | Action::OpenClipboard
                     | Action::Import
                     | Action::Paste
                     | Action::CloseTab
@@ -56,10 +63,19 @@ impl Editor {
         }
         match action {
             action if action.is_project_operation() => self.can_start_project_operation(),
-            Action::New | Action::Open | Action::CloseTab => self.can_switch_projects(),
+            Action::New | Action::Open | Action::OpenPsd | Action::CloseTab => {
+                self.can_switch_projects()
+            }
+            Action::OpenClipboard => self.can_switch_projects(),
             Action::Undo => self.can_undo(),
             Action::Redo => self.can_redo(),
             Action::Duplicate => self.can_duplicate_layer(),
+            Action::ClearGuides => {
+                !self.tools.layout.locked
+                    && !self.session().document.guides.is_empty()
+                    && self.can_edit_layers()
+            }
+            Action::FeatherSelection => self.can_modify_selection(),
             Action::AdjustPixels(_) | Action::RemoveBackground => self.can_adjust_colors(),
             Action::Filter(compositor::filters::Filter::ContentFill) => {
                 self.can_content_aware_fill()

@@ -79,6 +79,11 @@ impl Editor {
         if self.panel_applying() {
             return;
         }
+        if matches!(self.modal, Some(Form::Effects(_))) {
+            let result = self.finish_effects(false);
+            self.result(result, cx);
+            return;
+        }
         self.size_menus.close(cx);
         self.jpeg_export = None;
         if self.retained_panel.is_none() {

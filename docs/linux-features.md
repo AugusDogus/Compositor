@@ -1,27 +1,29 @@
 # Linux feature status
 
-Compared on September 20, 2026. This Linux implementation is based on [macOS 1.0.4 (`a19db90`)](https://github.com/robbietilton/Compositor/tree/a19db9011282399785dc18efcfded904627bdcc2). The upstream version checked here is [1.1.6 (`9d5582d`)](https://github.com/robbietilton/Compositor/tree/9d5582dc59429501e270828b27879de9ca30a853).
+Linux v0.2.0 targets [Compositor for macOS 1.1.6 (`9d5582d`)](https://github.com/robbietilton/Compositor/tree/9d5582dc59429501e270828b27879de9ca30a853).
 
-The 1.0.4 editing inventory has been implemented and exercised on Linux. This is implementation coverage, not a claim of 100% equivalence with current macOS. The [README](../README.md#features-and-parity) lists the available tools; the [acceptance inventory](linux-port.md#parity-acceptance-and-platform-differences) records their verification.
+## Added since v0.1.0
 
-## Newer macOS features not yet ported
+| Feature | Linux behavior |
+| --- | --- |
+| Editable text | Point and paragraph text, installed fonts and styles, size, color, alignment, tracking and leading. Editable `.comp` metadata and cached pixels. A modal editor provides live preview. |
+| Layer effects | Editable inside/outside stroke, drop shadow, color overlay and inner shadow, with GPU rendering, visibility, copying and undo. |
+| Line shapes | Round ends, adjustable width, Shift angle snapping and Alt center drawing. Remain editable through resizing and project saving. |
+| Selection feathering | Select > Feather and direct header control, 1–250 px, GPU Gaussian blur, repeated feathering, retained outline and undo. |
+| Soft Light | Fourteenth blend mode on CPU and GPU. |
+| Folder opacity and duplication | Pass-through opacity multiplies descendant layers. Duplication preserves nested groups, masks and clipping links. |
+| Keyboard shortcuts | Searchable editor, custom bindings, conflict detection, reset and local persistence. |
+| Folded distortion | Concave and crossed corners render as two triangles; collapsed triangles are rejected. |
+| PSD import/export | Layered 8-bit RGB/grayscale PSD, groups, opacity, supported blends, masks and clipping. Editable rectangle, rounded rectangle and ellipse imports; editable Levels, Curves and Hue/Saturation import/export. Conversion reports precede unsupported conversions. Export is separate from saving `.comp`. |
+| Object selection / Select Subject | SAM 3.1 selects individual objects from point/box prompts, including touching instances; BiRefNet selects the whole foreground. Cached image embeddings, This Layer/All Layers, antialiasing and selection combination modes. |
+| Rulers, guides and grid | Pixel rulers, drag guides to create/move/delete, lock/clear, 8 px grid, selectable snapping targets, saved guides, resize/flip/crop handling and undo. |
+| Open from Clipboard | Opens clipboard images in a new image-sized document without replacing existing tabs. |
 
-| Feature | Current Linux behavior | Source evidence |
-| --- | --- | --- |
-| Editable text | No Type tool or editable text-layer metadata | [`LayerContent`](../src/document.rs), [upstream Type tool](https://github.com/robbietilton/Compositor/blob/9d5582dc59429501e270828b27879de9ca30a853/Compositor/Document/TypeTool.swift) |
-| Layer effects | No editable stroke, shadow, overlay or other layer-effect stack | [`Layer`](../src/document.rs), [upstream effects](https://github.com/robbietilton/Compositor/blob/9d5582dc59429501e270828b27879de9ca30a853/Compositor/Document/LayerEffects.swift) |
-| Line shapes | Rectangle, rounded rectangle and ellipse shapes only; straight brush strokes are available | [`ShapeKind`](../src/document.rs) |
-| Selection feathering | Antialiasing and expand/contract are available; no Feather command | [`Selection`](../src/selection.rs), [upstream addition](https://github.com/robbietilton/Compositor/commit/2e8ebd7) |
-| Soft Light | The original 13 blend modes are available | [`Blend`](../src/blend.rs), [upstream addition](https://github.com/robbietilton/Compositor/commit/e521ca0) |
-| Folder duplication | Duplicate Layer excludes groups | [`duplicate_active`](../src/layer_ops.rs), [upstream addition](https://github.com/robbietilton/Compositor/commit/9f49d67) |
-| Folder opacity | Groups must retain full opacity and Normal blend mode; masks remain available | [Document validation](../src/document.rs), [upstream addition](https://github.com/robbietilton/Compositor/commit/391042d) |
-| Keyboard-shortcuts window | Commands have shortcuts and menu hints, but no dedicated reference window | [Menus](../src/ui/menus/entries.rs), [upstream addition](https://github.com/robbietilton/Compositor/commit/391042d) |
-
-These are identified feature gaps in the newer upstream changes. Smaller behavior and UI refinements in those commits have not all been reconciled.
+PSD text and smart objects use cached raster pixels when available. Supported primitives remain editable on import; other solid vector paths can rasterize from geometry without cached pixels. Shape export rasterizes. Photoshop effects and unsupported adjustments are reported before conversion. Editable shape imports omit Photoshop strokes; rasterized vector strokes use solid, centered strokes, with unsupported alignment, dashes and blending reported. [Upstream PSD PR #39](https://github.com/robbietilton/Compositor/pull/39) likewise rasterizes shape exports and omits live-shape strokes, but its raster stroke rendering is not identical to this implementation. PSB, CMYK and non-8-bit PSD files are rejected. Import and native-project persistence are tested with Photoshop CS6, CC 2019 and 22.5 files. Reopening our exports in the Photoshop application remains unverified.
 
 ## Compatibility and platform differences
 
-- **Projects:** reads schema versions 1 through 7 and writes version 7 `.comp` directory packages. Unknown metadata is rejected to avoid silently losing edits. Newer macOS projects containing text, effects, line shapes, Soft Light or folder opacity can therefore fail to open even when their format version is still 7. Opening Linux-saved projects in the real macOS app remains unverified. See [project I/O](../src/project.rs) and [compatibility tests](../tests/project_compatibility.rs).
+- **Projects:** reads schema versions 1 through 8 and writes version 7 `.comp` directory packages, or version 8 when guides are present. Editable text, layer effects, line shapes, Soft Light and folder opacity are preserved. Unknown project fields are rejected where the schema requires it. Opening Linux-saved projects in the real macOS app remains unverified. See [project I/O](../src/project.rs) and [compatibility tests](../tests/project_compatibility.rs).
 - **Background removal:** full BiRefNet Dynamic replaces Apple's proprietary Vision model. Basic/Advanced refinement, editable masks, selection handling and undo are implemented. One AppImage bundles native ONNX Runtime, the WebGPU/Vulkan plugin and both GPU/CPU models. Compatible NVIDIA and AMD Vulkan GPUs need FP16 shader support; no compatible adapter selects CPU. NVIDIA and CPU paths have been tested, physical AMD hardware has not. GPU execution failures report an error rather than silently rerunning on CPU.
 - **Rendering:** large brushes, compositing and preview reduction have GPU paths with CPU fallbacks. Tests compare those paths with the Rust CPU reference; they do not establish identical macOS pixels or performance. The raster budget is 100 million pixels, and sparse canvases support up to 30,000 pixels per side.
 - **Desktop:** Wayland and X11, Ctrl/Alt shortcuts, portal file dialogs and native clipboard integration. Linux window styling differs from AppKit. AppImage updates open GitHub Releases; they do not use Sparkle or replace the mounted executable.
@@ -39,9 +41,21 @@ The README's additional status rows were checked against Xuan at the same revisi
 | Background removal | Bundled offline BiRefNet neural segmentation, Vulkan/CPU inference | Border-color matte for simple backgrounds |
 | Healing and content-aware fill | Reuses upstream's portable C kernels | Portable texture-matching implementation with differing results |
 | Imported color profiles | Little CMS conversion to sRGB, including RGB, grayscale, CMYK and Lab | Imported raster ICC profiles are not converted or preserved |
-| Text and RAW | No editable text or dedicated RAW development | Editable text; Nikon NEF/NRW development |
+| Text and RAW | Editable text; no dedicated RAW development | Editable text; Nikon NEF/NRW development |
 | Image export | PNG and JPEG | PNG, JPEG, TIFF and WebP; direct 16-bit TIFF from RAW Develop |
 | HEIC import | libheif decoder bundled in the AppImage | Optional external `heif-convert` |
 | Distribution | One AppImage with background-removal runtime/models included | DEB, RPM and portable archive |
 
-Both projects provide layered editing, masks, transforms, selections, retouching, adjustments, and Wayland/X11 support. This fork emphasizes the original project format and processing behavior, color-managed imports, and offline neural background removal. Xuan covers workflows this fork does not, especially text and RAW. Neither this table nor a test count establishes an overall winner.
+Both projects provide layered editing, masks, transforms, selections, retouching, adjustments, and Wayland/X11 support. This fork emphasizes the original project format and processing behavior, color-managed imports, and offline neural background removal. Xuan covers workflows this fork does not, especially RAW development and TIFF/WebP export. Neither this table nor a test count establishes an overall winner.
+
+## Verification of the current source
+
+The ordinary suite passes 679 tests; 23 hardware or external-fixture tests are opt-in. Formatting, application Clippy and the optimized Linux build pass.
+
+The current local AppImage was built on Ubuntu 24.04. Checks against its extracted payload pass for both BiRefNet background removal and SAM 3.1 object selection on CPU and NVIDIA Vulkan. Packaging checks verify model hashes, native dependencies, launcher, icon and the HEIC decoder. The inference payload contains no Python runtime code or wheels. A clean Ubuntu model export reproduced every pinned output hash.
+
+Focused checks exercise real Vulkan compositing, all four effects, Gaussian feathering, BiRefNet background removal and native prompted object selection. Effects and grayscale blur match the CPU reference within one byte. Object-model comparisons use 13 labeled instances across five DAVIS photographs, with identical point or box prompts. See [model selection and measured results](object-selection-models.md) for quality, timing, export verification and reproduction details.
+
+Project tests cover text/effects/guides together, folder duplication and opacity, line geometry, folded distortion, and guide persistence through resizing and cropping. PSD checks cover malformed input, masks, clipping, conversion reports, editable primitives and adjustments, and native-project preservation. Three independently sourced Photoshop-created files verify import and subsequent project/PSD conversions; fetch them with `scripts/fetch-psd-fixtures.sh` and run `cargo test --locked --test psd_external -- --ignored --test-threads=4`. QuickGUI interaction tests exercise the new dialogs, clipboard opening, selection modifiers, shortcuts and guide gestures. Headless screenshots of the new text, effects, shortcuts and guide surfaces were inspected.
+
+Real macOS and Photoshop application round trips, physical AMD hardware, and pixel-identical output across platforms remain unverified. Text editing uses a dialog; paragraph dimensions reflow through its controls, while transform handles scale the text.

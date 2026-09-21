@@ -528,7 +528,7 @@ fn native_menu_order_and_mnemonics_match_the_source_commands() {
         (4, "Image", "alt-i", "Curves…"),
         (5, "Filter", "alt-t", "Gaussian Blur…"),
         (6, "Layer", "alt-l", "New Adjustment Layer"),
-        (7, "Help", "alt-h", "About Compositor"),
+        (7, "Help", "alt-h", "Keyboard Shortcuts…"),
     ] {
         assert_eq!(TITLES[index], title);
         let bounds = cx.element_bounds(window, bar.item_id(index)).unwrap();

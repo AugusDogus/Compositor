@@ -19,6 +19,7 @@ pub(super) fn overlay(
     if !mask_only {
         current.content = prepared.content.clone();
         current.shape = prepared.shape;
+        current.text = prepared.text.clone();
     }
     if prepared.transform != original.transform {
         current.transform = prepared.transform;

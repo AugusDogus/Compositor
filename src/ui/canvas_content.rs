@@ -22,6 +22,7 @@ struct LayerKey {
     parent: Option<Uuid>,
     transform: Transform,
     opacity: f64,
+    effects: Option<compositor::effects::LayerEffects>,
     blend: Blend,
     clip_source: Option<Uuid>,
     content: Pixels,
@@ -67,6 +68,7 @@ impl LayerKey {
             parent: layer.parent,
             transform: layer.transform,
             opacity: layer.opacity,
+            effects: layer.effects.clone(),
             blend: layer.blend,
             clip_source: layer.clip_source,
             content: match &layer.content {
@@ -88,6 +90,7 @@ impl LayerKey {
             && self.parent == layer.parent
             && self.transform == layer.transform
             && self.opacity == layer.opacity
+            && self.effects == layer.effects
             && self.blend == layer.blend
             && self.clip_source == layer.clip_source
             && match (&self.content, &layer.content) {

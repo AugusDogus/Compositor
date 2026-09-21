@@ -1,16 +1,17 @@
 //! Native BiRefNet inference. One session is shared by the existing background workers.
-use crate::{Result, invalid};
+use crate::{
+    Result,
+    inference::{Device, Runtime},
+    invalid,
+};
 use image::{GrayImage, RgbaImage};
 use ort::{
     session::Session,
     value::{Tensor, TensorElementType},
 };
-use std::{path::PathBuf, sync::Mutex};
+use std::sync::Mutex;
 
-mod device;
 mod model;
-
-use device::Device;
 
 static SESSION: Mutex<State> = Mutex::new(State::Empty);
 
@@ -33,53 +34,27 @@ struct Engine {
 }
 
 fn failed(operation: &str, error: impl std::fmt::Display) -> crate::Error {
-    invalid(format!(
-        "Background removal could not {operation}: {error}. The layer is unchanged."
-    ))
-}
-
-fn runtime_dir() -> Result<PathBuf> {
-    if let Some(path) = std::env::var_os("COMPOSITOR_INFERENCE_DIR") {
-        return Ok(path.into());
-    }
-    let data = std::env::var_os("XDG_DATA_HOME")
-        .filter(|path| !path.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))
-        .ok_or_else(|| failed("locate its runtime", "HOME and XDG_DATA_HOME are unset"))?;
-    Ok(data.join("compositor/inference"))
+    crate::inference::failed("Background removal", operation, error)
 }
 
 fn load(profile: Option<&std::path::Path>) -> Result<Engine> {
-    let root = runtime_dir()?;
-    let library = root.join("lib/libonnxruntime.so");
-    let device = Device::select()?;
+    let runtime = Runtime::load("Background removal")?;
+    let root = runtime.root();
+    let device = runtime.device();
     let model = root.join(match device {
         Device::Gpu => "birefnet-gpu.onnx",
         Device::Cpu => "birefnet-cpu.onnx",
     });
-    for path in [&library, &model] {
-        if !path.is_file() {
-            return Err(failed(
-                "load its runtime",
-                format!(
-                    "{} is missing; download a fresh AppImage, or run scripts/setup-background.sh for a source build",
-                    path.display()
-                ),
-            ));
-        }
+    if !model.is_file() {
+        return Err(failed(
+            "load its model",
+            format!(
+                "{} is missing; download a fresh AppImage, or run scripts/setup-background.sh for a source build",
+                model.display()
+            ),
+        ));
     }
-    ort::init_from(&library)
-        .map_err(|e| failed("load ONNX Runtime", e))?
-        .with_name("Compositor background removal")
-        .commit();
-    let mut builder = Session::builder()
-        .map_err(|e| failed("create an inference session", e))?
-        .with_intra_threads(4)
-        .map_err(|e| failed("configure inference threads", e))?;
-    if device == Device::Gpu {
-        builder = device::configure_gpu(builder, &root)?;
-    }
+    let mut builder = runtime.builder()?;
     if let Some(path) = profile {
         builder = builder
             .with_profiling(path)

@@ -153,6 +153,7 @@ impl Gradient {
                 }
             }
             layer.shape = None;
+            layer.text = None;
         }
         Ok(())
     }

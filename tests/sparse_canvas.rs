@@ -92,13 +92,9 @@ fn sparse_warp_strokes_match_small_canvas_results_and_keep_source_assets_bounded
                 .unwrap();
             let after = session.document.clone();
             assert!(after.layers[0].raster().unwrap().width() <= 30);
-            images.push(render::region(
-                &after,
-                40,
-                30,
-                [center - 10., center - 10.],
-                [1., 1.],
-            ));
+            images.push(
+                render::region(&after, 40, 30, [center - 10., center - 10.], [1., 1.]).unwrap(),
+            );
             session.undo();
             assert_eq!(session.document, original);
             session.redo();
@@ -181,10 +177,10 @@ fn sparse_canvas_paint_selection_history_and_project_round_trip_keep_small_asset
         pixels.dimensions()
     );
     assert_eq!(
-        render::sample(&painted, [15_025.5, 15_000.5]),
+        render::sample(&painted, [15_025.5, 15_000.5]).unwrap(),
         [200. / 255., 40. / 255., 80. / 255., 1.]
     );
-    assert_eq!(render::sample(&painted, [500., 500.]), [0.; 4]);
+    assert_eq!(render::sample(&painted, [500., 500.]).unwrap(), [0.; 4]);
     session.undo();
     assert_eq!(session.document, original);
     session.redo();
@@ -215,7 +211,10 @@ fn sparse_canvas_paint_selection_history_and_project_round_trip_keep_small_asset
     let reopened = project::load(&path).unwrap();
     assert_eq!((reopened.width, reopened.height), (30_000, 30_000));
     assert_eq!(reopened.layers, painted.layers);
-    assert_eq!(render::render(&reopened, 150, 150).dimensions(), (150, 150));
+    assert_eq!(
+        render::render(&reopened, 150, 150).unwrap().dimensions(),
+        (150, 150)
+    );
     for sample_all in [false, true] {
         let mut cloned = painted.clone();
         let stroke = Stroke::start(
@@ -232,8 +231,8 @@ fn sparse_canvas_paint_selection_history_and_project_round_trip_keep_small_asset
         .unwrap();
         drop(stroke);
         assert_eq!(
-            render::sample(&cloned, [15_100.5, 15_000.5]),
-            render::sample(&painted, [15_025.5, 15_000.5])
+            render::sample(&cloned, [15_100.5, 15_000.5]).unwrap(),
+            render::sample(&painted, [15_025.5, 15_000.5]).unwrap()
         );
         assert!(cloned.layers[0].raster().unwrap().width() < 130);
     }
@@ -243,11 +242,11 @@ fn sparse_canvas_paint_selection_history_and_project_round_trip_keep_small_asset
     copy.transform.origin[0] += 10.;
     copy.opacity = 0.5;
     merged.add(copy).unwrap();
-    let before = render::region(&merged, 100, 40, [14_990., 14_980.], [1., 1.]);
+    let before = render::region(&merged, 100, 40, [14_990., 14_980.], [1., 1.]).unwrap();
     compositor::layer_ops::merge(&mut merged, true).unwrap();
     assert_eq!(merged.layers.len(), 1);
     assert!(merged.layers[0].raster().unwrap().width() < 100);
-    let after = render::region(&merged, 100, 40, [14_990., 14_980.], [1., 1.]);
+    let after = render::region(&merged, 100, 40, [14_990., 14_980.], [1., 1.]).unwrap();
     for ((x, y, actual), expected) in after.enumerate_pixels().zip(before.pixels()) {
         assert_eq!(actual[3], expected[3], "Merged alpha ({x},{y})");
         if expected[3] > 0 {

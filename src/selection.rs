@@ -1,3 +1,5 @@
+mod feather;
+
 use crate::{
     Result,
     document::{validate_canvas_size, validate_size},
@@ -21,9 +23,16 @@ pub struct Selection {
     pub pixels: Arc<Coverage>,
     pub origin: Point,
     geometry: Option<Arc<SelectionGeometry>>,
+    feather: Option<feather::Feather>,
 }
 
 impl Selection {
+    pub(crate) fn visit_masks(&self, visit: &mut impl FnMut(&Arc<Coverage>)) {
+        visit(&self.pixels);
+        if let Some(feather) = &self.feather {
+            feather.source.visit_masks(visit);
+        }
+    }
     /// Pixel-local contours for selection outlines. Geometry-backed selections
     /// retain subpixel edges; imported raster masks use the source's 50% threshold.
     pub fn outline_contours(&self) -> Result<std::borrow::Cow<'_, [Vec<Point>]>> {
@@ -39,6 +48,9 @@ impl Selection {
     }
 
     pub fn mirror(&mut self, horizontal: bool, axis: f64) {
+        if let Some(feather) = &mut self.feather {
+            Arc::make_mut(&mut feather.source).mirror(horizontal, axis);
+        }
         let index = usize::from(!horizontal);
         let size = if horizontal {
             self.pixels.width()
@@ -86,6 +98,7 @@ impl Selection {
             pixels: Arc::new(Coverage::raster(pixels)),
             origin: [0.; 2],
             geometry: None,
+            feather: None,
         }
     }
 
@@ -134,6 +147,7 @@ impl Selection {
             ))),
             origin,
             geometry: None,
+            feather: None,
         })
     }
 
@@ -184,6 +198,7 @@ impl Selection {
                 pixels: Arc::new(Coverage::geometric(geometry.clone(), [width, height])),
                 origin: [0.; 2],
                 geometry: Some(geometry),
+                feather: None,
             };
         }
         let mut result = Self::from_mask(GrayImage::from_fn(width, height, |x, y| {
@@ -284,6 +299,7 @@ impl Selection {
             pixels: Arc::new(pixels),
             origin,
             geometry: Some(geometry),
+            feather: None,
         })
     }
 
@@ -293,6 +309,12 @@ impl Selection {
             return Err(invalid(
                 "Selection expansion or contraction must be 1 to 500 pixels.",
             ));
+        }
+        if let Some(feather) = &self.feather {
+            return feather
+                .source
+                .resized(amount, width, height)?
+                .with_feather_radius(feather.radius, [0., 0., width as f64, height as f64]);
         }
         let geometry = match &self.geometry {
             Some(geometry) => geometry.as_ref().clone(),
@@ -346,7 +368,10 @@ impl Selection {
         } else {
             a
         };
-        if let (Some(a), Some(b)) = (&self.geometry, &other.geometry) {
+        if self.feather.is_none()
+            && other.feather.is_none()
+            && let (Some(a), Some(b)) = (&self.geometry, &other.geometry)
+        {
             let geometry = a
                 .translated(self.origin)
                 .combine(&b.translated(other.origin), mode);
@@ -368,6 +393,11 @@ impl Selection {
         let result = Self {
             pixels: self.pixels.clone(),
             geometry: self.geometry.clone(),
+            feather: self
+                .feather
+                .as_ref()
+                .map(|f| f.translated(delta))
+                .transpose()?,
             origin: [
                 self.origin[0] + delta[0].round(),
                 self.origin[1] + delta[1].round(),
@@ -385,6 +415,12 @@ impl Selection {
         forward: impl Fn(Point) -> Point,
         inverse: impl Fn(Point) -> Point,
     ) -> Result<Self> {
+        if let Some(feather) = &self.feather {
+            return feather
+                .source
+                .mapped(bounds, forward, inverse)?
+                .with_feather_radius(feather.radius, bounds);
+        }
         if let Some(geometry) = &self.geometry {
             let mut geometry = geometry.translated(self.origin);
             for contour in &mut geometry.contours {
@@ -400,6 +436,12 @@ impl Selection {
     }
 
     pub fn invert(&self, width: u32, height: u32) -> Result<Self> {
+        if let Some(feather) = &self.feather {
+            return feather
+                .source
+                .invert(width, height)?
+                .with_feather_radius(feather.radius, [0., 0., width as f64, height as f64]);
+        }
         if let Some(geometry) = &self.geometry {
             let bounds = [0., 0., width as f64, height as f64];
             let canvas = SelectionGeometry::rectangle(bounds, geometry.antialiased);

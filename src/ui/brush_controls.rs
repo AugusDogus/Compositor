@@ -158,10 +158,13 @@ impl Editor {
                 )),
             );
         }
-        if matches!(self.tools.tool, Tool::Clone | Tool::Wand) {
+        if matches!(self.tools.tool, Tool::Clone | Tool::Wand | Tool::Object) {
             let clone = self.tools.tool == Tool::Clone;
+            let object = self.tools.tool == Tool::Object;
             let all = if clone {
                 self.tools.clone_sample_all
+            } else if object {
+                self.tools.object_sample_all
             } else {
                 self.tools.wand_sample_all
             };
@@ -177,6 +180,8 @@ impl Editor {
                     move |this, cx| {
                         if clone {
                             this.tools.clone_sample_all = value;
+                        } else if object {
+                            this.tools.object_sample_all = value;
                         } else {
                             this.tools.wand_sample_all = value;
                         }

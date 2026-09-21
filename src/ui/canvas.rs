@@ -14,6 +14,18 @@ pub(super) enum Gesture {
     HeaderTransform(Box<super::transform_header::HeaderDrag>),
     Crop(compositor::crop::Drag),
     Shape(super::shape_draft::ShapeDraft),
+    Object {
+        start: Point,
+        end: Point,
+        sample_all: bool,
+        antialiased: bool,
+        mode: SelectionMode,
+    },
+    Text {
+        start: Point,
+        end: Point,
+        force_new: bool,
+    },
     Paint {
         id: uuid::Uuid,
         stroke: Box<Stroke>,
@@ -204,7 +216,7 @@ impl Editor {
             }
         });
         let pointer = cx.pointer_listener("canvas", move |this, event, cx| {
-            if this.pending {
+            if this.pending || this.psd_conversion.is_some() || this.layout_drag.is_some() {
                 return;
             }
             if this.space_pan || matches!(this.gesture, Some(Gesture::Pan)) {
@@ -365,6 +377,7 @@ impl Editor {
         };
         surface
             .child(self.snap_guides_overlay(zoom, offset))
+            .child(self.layout_overlay(cx, [width, height], zoom, offset, backing_scale))
             .child(rendering_status)
             .child(brush_cursor)
             .child(self.sample_ring_overlay())

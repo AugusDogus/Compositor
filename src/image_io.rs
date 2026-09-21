@@ -219,7 +219,7 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
             "Choose a PNG, JPEG, TIFF, or WebP filename for export.",
         ));
     }
-    let pixels = render::render(document, document.width, document.height);
+    let pixels = render::render(document, document.width, document.height)?;
     let directory = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -275,7 +275,7 @@ mod tests {
                     ])
                 }
             }))));
-        let pixels = render::render(&doc, 32, 32);
+        let pixels = render::render(&doc, 32, 32).unwrap();
         let low = encode_jpeg(&pixels, 72., 10).unwrap();
         let high = encode_jpeg(&pixels, 72., 95).unwrap();
         assert!(high.len() > low.len());

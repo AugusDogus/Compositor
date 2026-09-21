@@ -45,6 +45,7 @@ impl Editor {
             match command {
                 Command::Edit(action) => this.action(action, cx),
                 Command::About => this.open_about(cx),
+                Command::Shortcuts => this.open_shortcuts(cx),
                 Command::Updates => this.open_updates(cx),
                 Command::Quit => this.request_close(CloseIntent::Window, cx),
                 Command::ResizeSelection { expand } => {

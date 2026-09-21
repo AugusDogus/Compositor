@@ -128,7 +128,10 @@ pub fn select(doc: &Document, point: Point, settings: Settings) -> Result<Select
     ];
     let size = [axes[0].size(), axes[1].size()];
     crate::document::validate_size(size[0], size[1])?;
-    let sampler = settings.sample_all.then(|| render::Sampler::new(doc));
+    let sampler = settings
+        .sample_all
+        .then(|| render::Sampler::new(doc))
+        .transpose()?;
     let image = RgbaImage::from_fn(size[0], size[1], |x, y| {
         let point = [
             x as f64 + (axes[0].start - axes[0].before) as f64 + 0.5,
@@ -199,7 +202,7 @@ mod tests {
             ))));
             for sample_all in [false, true] {
                 let full = if sample_all {
-                    render::render(&doc, 60, 50)
+                    render::render(&doc, 60, 50).unwrap()
                 } else {
                     let layer = &doc.layers[0];
                     RgbaImage::from_fn(60, 50, |x, y| {

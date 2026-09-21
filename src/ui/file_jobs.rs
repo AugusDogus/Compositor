@@ -15,6 +15,10 @@ pub(super) enum FileJob {
         document: Document,
         path: PathBuf,
     },
+    ExportPsd {
+        document: Document,
+        path: PathBuf,
+    },
     ExportJpeg {
         path: PathBuf,
         bytes: Vec<u8>,
@@ -27,7 +31,7 @@ pub(super) enum FileJob {
     },
 }
 
-enum Completed {
+pub(super) enum Completed {
     Opened {
         projects: Vec<OpenedProject>,
         failures: Vec<(PathBuf, compositor::Error)>,
@@ -37,6 +41,7 @@ enum Completed {
         layers: Vec<Layer>,
         center: Option<compositor::geometry::Point>,
         projects: Vec<OpenedProject>,
+        psds: Vec<(String, compositor::psd::Imported)>,
     },
     Saved {
         session: Uuid,
@@ -55,12 +60,21 @@ impl FileJob {
             Self::Import { .. } => alerts::Operation::Import,
             Self::Save { .. } => alerts::Operation::Save,
             Self::Export { .. } => alerts::Operation::ExportPng,
+            Self::ExportPsd { .. } => alerts::Operation::ExportPsd,
             Self::ExportJpeg { .. } => alerts::Operation::ExportJpeg,
         }
     }
 
     fn run(self, open: &[(Uuid, PathBuf)]) -> Result<Completed> {
         match self {
+            Self::ExportPsd { document, path } => {
+                let bytes = compositor::psd::encode(&document)?;
+                image_io::export_encoded(&path, &bytes)?;
+                Ok(Completed::Exported {
+                    path,
+                    jpeg_quality: None,
+                })
+            }
             Self::ExportJpeg {
                 path,
                 bytes,
@@ -89,10 +103,18 @@ impl FileJob {
                 center,
             } => {
                 let mut layers = Vec::new();
+                let mut psds = Vec::new();
                 let mut projects = Vec::new();
                 for path in paths {
                     if path.is_dir() || open.iter().any(|(_, saved)| *saved == path) {
                         projects.push(OpenedProject::load(path, open)?);
+                    } else if compositor::psd::is_psd(&path)? {
+                        let name = path
+                            .file_stem()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .into_owned();
+                        psds.push((name, compositor::psd::load(&path)?));
                     } else {
                         layers.push(image_io::import(&path)?);
                     }
@@ -102,6 +124,7 @@ impl FileJob {
                     layers,
                     center,
                     projects,
+                    psds,
                 })
             }
             Self::Save {
@@ -192,6 +215,21 @@ impl Editor {
     }
 
     fn finish_file_job(&mut self, completed: Completed, cx: &mut EventContext) -> Result<()> {
+        if let Some(report) = completed.psd_report() {
+            self.psd_conversion = Some(super::psd_conversion::Conversion::Files {
+                completed: Box::new(completed),
+                report,
+            });
+            return Ok(());
+        }
+        self.finish_approved_file_job(completed, cx)
+    }
+
+    pub(super) fn finish_approved_file_job(
+        &mut self,
+        completed: Completed,
+        cx: &mut EventContext,
+    ) -> Result<()> {
         match completed {
             Completed::Opened { projects, failures } => {
                 let opened = projects.len();
@@ -213,7 +251,9 @@ impl Editor {
                 layers,
                 center,
                 projects,
+                psds,
             } => {
+                self.apply_psd_imports(session, psds, center)?;
                 let destination =
                     self.tabs
                         .iter_mut()

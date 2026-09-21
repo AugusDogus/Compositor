@@ -10,6 +10,7 @@ pub(super) enum Icon {
     Lasso,
     LassoSelect,
     WandSparkles,
+    ScanSearch,
     Crop,
     Paintbrush,
     Eraser,
@@ -18,6 +19,7 @@ pub(super) enum Icon {
     Droplet,
     Gradient,
     Shapes,
+    Type,
     Pipette,
     Hand,
     ZoomIn,
@@ -54,7 +56,7 @@ pub(super) enum Icon {
 }
 impl Icon {
     fn svg(self) -> quickgui::Svg {
-        static ICONS: OnceLock<[quickgui::Svg; 47]> = OnceLock::new();
+        static ICONS: OnceLock<[quickgui::Svg; 49]> = OnceLock::new();
         ICONS.get_or_init(|| {
             [
                 include_bytes!("../../assets/icons/compositor-move.svg").as_slice(),
@@ -63,6 +65,7 @@ impl Icon {
                 include_bytes!("../../assets/icons/compositor-lasso.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-polygonal-lasso.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-wand.svg").as_slice(),
+                include_bytes!("../../assets/icons/object-selection.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-crop.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-pointed-brush.svg").as_slice(),
                 include_bytes!("../../assets/icons/eraser.svg").as_slice(),
@@ -71,6 +74,7 @@ impl Icon {
                 include_bytes!("../../assets/icons/compositor-drop.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-gradient.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-shapes.svg").as_slice(),
+                include_bytes!("../../assets/icons/type.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-eyedropper.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-hand.svg").as_slice(),
                 include_bytes!("../../assets/icons/zoom-in.svg").as_slice(),
