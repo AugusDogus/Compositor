@@ -28,9 +28,9 @@ Painting, canvas compositing and preview resizing use Vulkan where supported, wi
 
 ## Background removal
 
-The AppImage bundles ONNX Runtime, CUDA libraries and both full BiRefNet Dynamic models. Background removal works offline immediately, with no dependency installation, Python environment or image uploads.
+The AppImage bundles native ONNX Runtime, its Vulkan/WebGPU plugin and both full BiRefNet Dynamic models. Background removal works offline immediately, with no dependency installation, Python environment or image uploads.
 
-Inference uses NVIDIA CUDA when the NVIDIA driver is installed, and CPU otherwise. The model stays loaded between removals. GPU inference requires a compatible NVIDIA driver, which comes from your system. `COMPOSITOR_BACKGROUND_DEVICE=cpu` or `cuda` overrides automatic selection; `COMPOSITOR_INFERENCE_DIR` overrides the bundled model/runtime location.
+The same AppImage accelerates inference on compatible NVIDIA and AMD Vulkan GPUs with FP16 shader support, and selects CPU inference when no compatible hardware adapter is available. The model stays loaded between removals. Graphics drivers come from your system. `COMPOSITOR_BACKGROUND_DEVICE=cpu` or `gpu` overrides automatic selection; `COMPOSITOR_INFERENCE_DIR` overrides the bundled model/runtime location.
 
 ## Build from source
 
@@ -60,7 +60,7 @@ Hardware-specific and external-fixture tests are explicitly ignored in the ordin
 
 The [Linux AppImage workflow](.github/workflows/linux-release.yml) tests and packages changes to `main`, pull requests, and manual runs. Build artifacts are downloadable from the Actions run. A pushed `v<VERSION>` tag publishes a GitHub release after validation succeeds. The tag must match `Cargo.toml`.
 
-To package locally on the Ubuntu 24.04 baseline, also install `curl`, `jq`, `file` and `desktop-file-utils`, then run:
+To package locally on the Ubuntu 24.04 baseline, also install `curl`, `jq`, `file`, `unzip`, `python3-venv` and `desktop-file-utils`, then run:
 
 ```sh
 scripts/package-appimage.sh
@@ -68,7 +68,7 @@ scripts/prepare-release-assets.sh
 scripts/check-appimage.sh dist/*.AppImage
 ```
 
-The packaging tools and AppImage runtime are pinned and checksum-verified. [Release instructions](docs/linux-releases.md) cover versioning, artifacts and updates. Releases are unsigned, with SHA-256 checksums for download integrity.
+The packaging tools, AppImage runtime and inference downloads are pinned and checksum-verified. Python is used only during packaging to prepare the ONNX model; the AppImage contains no Python runtime. [Release instructions](docs/linux-releases.md) cover versioning, artifacts and updates. Releases are unsigned, with SHA-256 checksums for download integrity.
 
 ## License
 

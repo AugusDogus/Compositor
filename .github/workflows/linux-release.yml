@@ -38,7 +38,7 @@ jobs:
             build-essential pkg-config zlib1g-dev libwayland-dev libxkbcommon-dev \
             libx11-dev libxcb1-dev libx11-xcb-dev libxcursor-dev libxrandr-dev libxi-dev \
             libheif-dev libheif-plugin-libde265 liblcms2-dev libvulkan1 mesa-vulkan-drivers \
-            libxkbcommon-x11-0 libegl1 libgl1 fonts-dejavu-core curl jq file desktop-file-utils
+            libxkbcommon-x11-0 libegl1 libgl1 fonts-dejavu-core curl jq file unzip python3-venv desktop-file-utils
       - name: Install Rust
         run: |
           rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt,clippy
@@ -50,7 +50,8 @@ jobs:
             ~/.cargo/git
             target/release
             target/appimage-tools
-          key: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock', 'vendor/quickgui/**') }}
+            ~/.cache/compositor/inference-downloads
+          key: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock', 'vendor/quickgui/**', 'scripts/setup-background.sh', 'scripts/background_model.py', 'scripts/requirements-inference-build.txt') }}
           restore-keys: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-
       - name: Validate version
         id: version

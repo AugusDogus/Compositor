@@ -17,17 +17,17 @@ Do not move published tags or overwrite released artifacts. Publish a new versio
 
 ## Artifacts
 
-- `Compositor-<VERSION>-x86_64.AppImage`: the desktop application with its icon, launcher, client libraries, image codecs, ONNX Runtime, CUDA libraries, both BiRefNet models and license notices.
+- `Compositor-<VERSION>-x86_64.AppImage`: the desktop application with its icon, launcher, client libraries, image codecs, ONNX Runtime, the Vulkan/WebGPU plugin, both BiRefNet models and license notices.
 - `Compositor-<VERSION>-linux-x86_64.bin`: a raw executable for existing standalone installations, which still require compatible system libraries.
 - `.sha256` files: checksums for the two executable artifacts.
 - `linux-update.json`: the version feed for standalone executable installations.
 
-The AppImage requires glibc 2.39 or newer. It includes the libheif HEIC decoder plugin and dynamically loaded Wayland/X11 and graphics client libraries. It uses the host's graphics drivers and desktop portals. Native inference libraries and both full BiRefNet Dynamic models are bundled at build time. Background removal works offline without a setup command. NVIDIA drivers remain a host requirement for GPU inference; other machines select CPU inference automatically. Zstandard compression reduces the complete bundle's download size. Packaging enforces GitHub's 2 GiB per-asset limit.
+The AppImage requires glibc 2.39 or newer. It includes the libheif HEIC decoder plugin and dynamically loaded Wayland/X11 and graphics client libraries. It uses the host's graphics drivers and desktop portals. Native inference libraries and both full BiRefNet Dynamic models are bundled at build time. Background removal works offline without a setup command. The same artifact supports NVIDIA and AMD through Vulkan with FP16 shader support. Graphics drivers remain a host requirement; machines without a compatible hardware adapter select CPU inference automatically. Zstandard compression reduces the complete bundle's download size. Packaging enforces GitHub's 2 GiB per-asset limit.
 
 ## Local validation
 
 Run packaging on Ubuntu 24.04, or inside the corresponding build container, so dependencies are collected from the supported baseline rather than a newer host. `COMPOSITOR_LINUX_BINARY` selects an already compiled executable; `COMPOSITOR_APPIMAGE_TOOLS` selects the packaging-tool cache. Never bundle arbitrary libraries from the development host into a baseline release.
 
-`scripts/check-appimage.sh` extracts the real artifact without FUSE and validates the launcher, icon, HEIC plugin and executable dependencies. Also launch the AppImage in an isolated desktop session and exercise image import and the Updates dialog before a release. Test a real removal using the extracted inference directory when native inference dependencies change. `COMPOSITOR_INFERENCE_TEST_BINARY` selects the compiled `linux_integrations` test executable and `COMPOSITOR_TEST_PHOTO` supplies a subject photo to the artifact checker. Run it on CPU in CI and CUDA locally.
+`scripts/check-appimage.sh` extracts the real artifact without FUSE and validates the launcher, icon, HEIC plugin and executable dependencies. Also launch the AppImage in an isolated desktop session and exercise image import and the Updates dialog before a release. Test a real removal using the extracted inference directory when native inference dependencies change. `COMPOSITOR_INFERENCE_TEST_BINARY` selects the compiled `linux_integrations` test executable and `COMPOSITOR_TEST_PHOTO` supplies a subject photo to the artifact checker. Run it on CPU in CI and Vulkan locally.
 
-The workflow uses pinned GitHub Actions, linuxdeploy, appimagetool and an AppImage runtime. Packaging-tool downloads are verified against SHA-256 values from the publishers' release assets. Update these pins deliberately and revalidate the resulting AppImage.
+The workflow uses pinned GitHub Actions, linuxdeploy, appimagetool and an AppImage runtime. Packaging-tool downloads are verified against SHA-256 values from the publishers' release assets. ONNX model preparation uses a build-only Python environment, with operation equivalence tests and a pinned output checksum. No Python code or interpreter is shipped. Update these pins deliberately and revalidate the resulting AppImage.

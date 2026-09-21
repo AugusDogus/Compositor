@@ -5,7 +5,7 @@ use compositor::{
 };
 
 #[test]
-#[ignore = "Requires native inference files and COMPOSITOR_TEST_PHOTO pointing to a subject photo; supports CUDA and CPU"]
+#[ignore = "Requires native inference files and COMPOSITOR_TEST_PHOTO pointing to a subject photo; supports Vulkan and CPU"]
 fn local_background_removal_keeps_source_pixels_and_adds_a_nonuniform_mask() {
     let path = std::env::var_os("COMPOSITOR_TEST_PHOTO").expect("Set COMPOSITOR_TEST_PHOTO");
     let layer = image_io::import(std::path::Path::new(&path)).unwrap();
@@ -20,6 +20,7 @@ fn local_background_removal_keeps_source_pixels_and_adds_a_nonuniform_mask() {
     let mask = &layer.mask.as_ref().unwrap().pixels;
     assert!(mask.pixels().any(|p| p[0] < 16));
     assert!(mask.pixels().any(|p| p[0] > 240));
+    background::shutdown();
 }
 
 #[test]

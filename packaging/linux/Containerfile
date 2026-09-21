@@ -6,7 +6,7 @@ RUN apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y --no
     && rm -rf /var/lib/apt/lists/*
 RUN apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     fonts-dejavu-core libheif-plugin-libde265 libxkbcommon-x11-0 \
-    curl jq file desktop-file-utils libegl1 libgl1 && rm -rf /var/lib/apt/lists/*
+    curl jq file unzip python3-venv desktop-file-utils libegl1 libgl1 && rm -rf /var/lib/apt/lists/*
 ENV PATH="/opt/rust/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     CARGO_HOME="/cargo" CARGO_TARGET_DIR="/build" XDG_RUNTIME_DIR="/tmp/compositor-runtime"
 WORKDIR /source

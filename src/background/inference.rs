@@ -2,20 +2,29 @@
 use crate::{Result, invalid};
 use image::{GrayImage, RgbaImage};
 use ort::{
-    ep,
     session::Session,
     value::{Tensor, TensorElementType},
 };
 use std::{path::PathBuf, sync::Mutex};
 
+mod device;
 mod model;
 
-static SESSION: Mutex<Option<Engine>> = Mutex::new(None);
+use device::Device;
 
-#[derive(Clone, Copy, PartialEq)]
-enum Device {
-    Cuda,
-    Cpu,
+static SESSION: Mutex<State> = Mutex::new(State::Empty);
+
+enum State {
+    Empty,
+    Ready(Box<Engine>),
+    Stopped,
+}
+
+/// Finish any in-flight removal and destroy its native session before driver teardown.
+/// Pending workers cannot start another session after shutdown.
+pub fn shutdown() {
+    let mut state = SESSION.lock().unwrap_or_else(|error| error.into_inner());
+    *state = State::Stopped;
 }
 
 struct Engine {
@@ -44,27 +53,9 @@ fn runtime_dir() -> Result<PathBuf> {
 fn load(profile: Option<&std::path::Path>) -> Result<Engine> {
     let root = runtime_dir()?;
     let library = root.join("lib/libonnxruntime.so");
-    // Use CPU on machines without the NVIDIA driver. Once CUDA is selected, failures
-    // remain visible instead of silently becoming a slow CPU operation.
-    let device = match std::env::var("COMPOSITOR_BACKGROUND_DEVICE").as_deref() {
-        Ok("cpu") => Device::Cpu,
-        Ok("cuda") => Device::Cuda,
-        Err(std::env::VarError::NotPresent) => {
-            if std::path::Path::new("/proc/driver/nvidia/gpus").is_dir() {
-                Device::Cuda
-            } else {
-                Device::Cpu
-            }
-        }
-        _ => {
-            return Err(failed(
-                "select an inference device",
-                "COMPOSITOR_BACKGROUND_DEVICE must be cuda or cpu",
-            ));
-        }
-    };
+    let device = Device::select()?;
     let model = root.join(match device {
-        Device::Cuda => "birefnet-cuda.onnx",
+        Device::Gpu => "birefnet-gpu.onnx",
         Device::Cpu => "birefnet-cpu.onnx",
     });
     for path in [&library, &model] {
@@ -78,18 +69,6 @@ fn load(profile: Option<&std::path::Path>) -> Result<Engine> {
             ));
         }
     }
-    if device == Device::Cuda {
-        for name in [
-            "libcudart.so.12",
-            "libcublasLt.so.12",
-            "libcublas.so.12",
-            "libcurand.so.10",
-            "libcudnn.so.9",
-        ] {
-            ort::util::preload_dylib(root.join("lib").join(name))
-                .map_err(|e| failed("load CUDA libraries", e))?;
-        }
-    }
     ort::init_from(&library)
         .map_err(|e| failed("load ONNX Runtime", e))?
         .with_name("Compositor background removal")
@@ -98,15 +77,8 @@ fn load(profile: Option<&std::path::Path>) -> Result<Engine> {
         .map_err(|e| failed("create an inference session", e))?
         .with_intra_threads(4)
         .map_err(|e| failed("configure inference threads", e))?;
-    if device == Device::Cuda {
-        builder = builder
-            .with_execution_providers([ep::CUDA::default()
-                .with_conv_algorithm_search(ep::cuda::ConvAlgorithmSearch::Heuristic)
-                .with_conv_max_workspace(false)
-                .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
-                .build()
-                .error_on_failure()])
-            .map_err(|e| failed("start CUDA inference (check your NVIDIA driver)", e))?;
+    if device == Device::Gpu {
+        builder = device::configure_gpu(builder, &root)?;
     }
     if let Some(path) = profile {
         builder = builder
@@ -117,7 +89,7 @@ fn load(profile: Option<&std::path::Path>) -> Result<Engine> {
         .commit_from_file(&model)
         .map_err(|e| failed("load BiRefNet", e))?;
     let dtype = match device {
-        Device::Cuda => TensorElementType::Float16,
+        Device::Gpu => TensorElementType::Float16,
         Device::Cpu => TensorElementType::Float32,
     };
     if session.inputs().len() != 1
@@ -141,19 +113,22 @@ pub(super) fn detect(image: &RgbaImage) -> Result<GrayImage> {
             "inference worker failed; restart Compositor",
         )
     })?;
-    if guard.is_none() {
-        *guard = Some(load(None)?);
+    if matches!(*guard, State::Empty) {
+        *guard = State::Ready(Box::new(load(None)?));
     }
-    let engine = guard
-        .as_mut()
-        .ok_or_else(|| failed("access its session", "no model is loaded"))?;
+    let State::Ready(engine) = &mut *guard else {
+        return Err(failed(
+            "start inference",
+            "the application is shutting down",
+        ));
+    };
     predict(engine, image.dimensions(), input)
 }
 
 fn predict(engine: &mut Engine, size: (u32, u32), input: Vec<f32>) -> Result<GrayImage> {
     let shape = [1, 3, model::SIDE as usize, model::SIDE as usize];
     let tensor = match engine.device {
-        Device::Cuda => Tensor::from_array((
+        Device::Gpu => Tensor::from_array((
             shape,
             input
                 .into_iter()
@@ -171,8 +146,8 @@ fn predict(engine: &mut Engine, size: (u32, u32), input: Vec<f32>) -> Result<Gra
         ))
     })?;
     let (shape, probabilities) = match engine.device {
-        Device::Cuda => {
-            // This CUDA export includes sigmoid. Applying it twice would destroy the mask.
+        Device::Gpu => {
+            // The GPU export includes sigmoid. Applying it twice would destroy the mask.
             let (shape, alpha) = outputs[0]
                 .try_extract_tensor::<half::f16>()
                 .map_err(|e| failed("read the subject mask", e))?;
@@ -208,8 +183,8 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "Requires native CUDA setup and COMPOSITOR_TEST_PHOTO; records real GPU kernel execution"]
-    fn cuda_runs_birefnet_repeatedly_and_profiles_gpu_kernels() {
+    #[ignore = "Requires bundled Vulkan inference files and COMPOSITOR_TEST_PHOTO; records real GPU kernel execution"]
+    fn vulkan_runs_birefnet_repeatedly_and_profiles_gpu_kernels() {
         use ort::AsPointer;
         let photo = std::env::var_os("COMPOSITOR_TEST_PHOTO").expect("Set COMPOSITOR_TEST_PHOTO");
         let image = crate::image_io::read_image(std::path::Path::new(&photo)).unwrap();
@@ -217,8 +192,9 @@ mod tests {
         let start = std::time::Instant::now();
         let engine = load(Some(&directory.path().join("inference"))).unwrap();
         eprintln!("Native model load: {:?}", start.elapsed());
+        assert_eq!(engine.device, Device::Gpu);
         let identity = engine.session.ptr();
-        *SESSION.lock().unwrap() = Some(engine);
+        *SESSION.lock().unwrap() = State::Ready(Box::new(engine));
         let mut previous = None;
         for run in 0..2 {
             let start = std::time::Instant::now();
@@ -234,7 +210,11 @@ mod tests {
             }
             previous = Some(mask);
         }
-        let mut engine = SESSION.lock().unwrap().take().unwrap();
+        let State::Ready(mut engine) =
+            std::mem::replace(&mut *SESSION.lock().unwrap(), State::Empty)
+        else {
+            panic!("The cached session is missing");
+        };
         assert_eq!(
             engine.session.ptr(),
             identity,
@@ -244,17 +224,17 @@ mod tests {
         let events: serde_json::Value =
             serde_json::from_slice(&std::fs::read(profile).unwrap()).unwrap();
         let events = events.as_array().unwrap();
-        let cuda_nodes = events
+        let gpu_nodes = events
             .iter()
-            .filter(|event| event["args"]["provider"] == "CUDAExecutionProvider")
+            .filter(|event| event["args"]["provider"] == "WebGpuExecutionProvider")
             .count();
         let cpu_nodes = events
             .iter()
             .filter(|event| event["args"]["provider"] == "CPUExecutionProvider")
             .count();
-        eprintln!("Profile kernel events: CUDA={cuda_nodes}, CPU={cpu_nodes}");
-        assert!(cuda_nodes > 0, "Inference must execute on CUDA");
-        for operation in ["Conv", "DeformConv", "MatMul"] {
+        eprintln!("Profile kernel events: Vulkan={gpu_nodes}, CPU={cpu_nodes}");
+        assert!(gpu_nodes > 0, "Inference must execute on Vulkan");
+        for operation in ["Conv", "GridSample", "MatMul", "LayerNormalization"] {
             let kernels: Vec<_> = events
                 .iter()
                 .filter(|event| {
@@ -265,9 +245,17 @@ mod tests {
             assert!(
                 kernels
                     .iter()
-                    .all(|event| event["args"]["provider"] == "CUDAExecutionProvider"),
-                "{operation} must execute on CUDA"
+                    .all(|event| event["args"]["provider"] == "WebGpuExecutionProvider"),
+                "{operation} must execute on Vulkan"
             );
         }
+        *SESSION.lock().unwrap() = State::Ready(engine);
+        shutdown();
+        assert!(
+            detect(&image)
+                .unwrap_err()
+                .to_string()
+                .contains("shutting down")
+        );
     }
 }

@@ -3,6 +3,12 @@ use compositor::{background::SubjectMask, document::Document, image_io, invalid}
 use std::{path::Path, time::Instant};
 
 fn main() -> compositor::Result<()> {
+    let result = run();
+    compositor::background::shutdown();
+    result
+}
+
+fn run() -> compositor::Result<()> {
     let path = std::env::args_os()
         .nth(1)
         .ok_or_else(|| invalid("Pass a subject photo path."))?;

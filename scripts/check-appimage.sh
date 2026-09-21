@@ -15,12 +15,12 @@ sh -n "$app_dir/AppRun"
 desktop-file-validate "$app_dir/compositor.desktop"
 export COMPOSITOR_INFERENCE_DIR="$app_dir/usr/share/compositor/inference"
 export LD_LIBRARY_PATH="$app_dir/usr/lib:$COMPOSITOR_INFERENCE_DIR/lib"
-for file in birefnet-cpu.onnx birefnet-cuda.onnx licenses/birefnet.txt lib/libonnxruntime.so lib/libonnxruntime_providers_cuda.so lib/libonnxruntime_providers_shared.so lib/libcudart.so.12 lib/libcublasLt.so.12 lib/libcublas.so.12 lib/libcurand.so.10 lib/libcudnn.so.9; do
+for file in birefnet-cpu.onnx birefnet-gpu.onnx licenses/birefnet.txt lib/libonnxruntime.so lib/libonnxruntime_providers_webgpu.so; do
     [[ -s "$COMPOSITOR_INFERENCE_DIR/$file" ]] || { printf 'AppImage is missing inference dependency %s\n' "$file" >&2; exit 1; }
 done
 ldd "$app_dir/usr/bin/compositor" > dependencies.txt
 ldd "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime.so" >> dependencies.txt
-ldd "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime_providers_cuda.so" >> dependencies.txt
+ldd "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime_providers_webgpu.so" >> dependencies.txt
 if grep -q 'not found' dependencies.txt; then cat dependencies.txt >&2; exit 1; fi
 if [[ -n "${COMPOSITOR_INFERENCE_TEST_BINARY:-}" ]]; then
     "$COMPOSITOR_INFERENCE_TEST_BINARY" local_background_removal --ignored --nocapture --test-threads=4

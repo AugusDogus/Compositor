@@ -1079,7 +1079,9 @@ The application menus and minimize, maximize/restore, and close controls now sha
 
 Validation: 585 ordinary tests, application Clippy, formatting, and the portable release build pass. Three hardware Vulkan tests cover brush pixel/coverage parity and preview resizing. Native X11 and Wayland checks verify dragging, double-click maximize, restore, and edge resizing. X11 additionally verifies minimize/restore and cancelling the close prompt without losing paint. The packaged brush reproduction preserves the same final 52,793 black pixels and Undo clears them. The isolated X11 display has substantial presentation overhead, so its stroke-frame count is not a desktop FPS claim.
 
-### Native GPU background removal
+### Native GPU background removal (initial CUDA implementation)
+
+This section records the earlier CUDA implementation and its measurements. The universal Vulkan implementation below supersedes its runtime packaging and device selection.
 
 Background removal now uses the Rust `ort` crate with native ONNX Runtime 1.30.0 and CUDA 12. A process-wide session stays loaded between worker jobs. The editor passes RGB tensors and receives mask pixels in memory, with no Python subprocess, interpreter environment, or intermediate PNG files. Applying and refining masks retains the existing source-pixel, selection, history and cancellation handling.
 
@@ -1097,3 +1099,13 @@ On the 512 × 512 astronaut fixture, the old Python/CPU pipeline took 31.96 seco
 The hardware regression invokes the editor's cached inference path twice, checks session reuse and identical repeat masks, and verifies through ONNX profiling that Conv, DeformConv and MatMul execute on CUDA. CPU shape/bookkeeping nodes remain expected. Ordinary regressions cover RGB tensor layout, normalization, alpha preservation, dimensions and malformed output. `cargo run --release --example background_benchmark -- photo.png` measures cold and cached removals without modifying the source photo.
 
 Validation: all 588 ordinary tests pass in the portable build, along with application Clippy and formatting. The hardware CUDA trace/session-reuse regression and native document integration pass. The release benchmark also runs with Python environment variables removed and no virtual environment on PATH. The final native setup script has been rerun successfully against the pinned downloads.
+
+### Universal Vulkan background removal
+
+One AppImage now bundles the native ONNX Runtime 1.30.0 CPU core, Microsoft's WebGPU 0.3.0 plugin, and both full BiRefNet Dynamic models. The plugin uses Vulkan for NVIDIA and AMD GPUs, avoiding the CUDA/cuDNN distribution stack that made the previous bundle exceed GitHub's 2 GiB release-asset limit. Automatic selection requires a hardware Vulkan adapter with FP16 shader support; otherwise it selects the bundled CPU model. `COMPOSITOR_BACKGROUND_DEVICE=cpu` or `gpu` overrides selection. GPU initialization and inference failures remain visible errors, preserving the layer.
+
+The GPU model retains the pinned CUDA export's weights, FP16 precision, 1024 × 1024 input and probability output. At build time, `scripts/background_model.py` replaces its 20 deformable convolutions with equivalent bilinear GridSample, mask multiplication and convolution operations supported by Vulkan. Packing kernel positions into the sampling grid avoids large GatherND intermediates. Constant shape calculations are folded during packaging to reduce model-loading time. Build-only Python dependencies are pinned; neither Python nor conversion code ships in the AppImage. Source assets and the transformed model have pinned SHA-256 checksums.
+
+Reference tests compare the lowering with ONNX Runtime's native DeformConv for different kernel sizes, convolution and offset groups, strides, dilation and padding. Maximum error in those FP32 operation tests is 0.00000763. On the astronaut fixture, the optimized Vulkan mask and the original CUDA mask have 99.973% foreground intersection-over-union at alpha 128 and mean alpha difference 0.0494/255. This fixture does not establish identical results for every image.
+
+The hardware regression exercises two removals through the editor's cached session and verifies that Conv, GridSample, MatMul and LayerNormalization kernels execute on WebGPU. The native plugin reads Vulkan and buffer-cache settings from session configuration entries. Storage-buffer caching is disabled to avoid retaining oversized temporary allocations on 8 GB cards. Application shutdown waits for active inference, destroys the native session before graphics-driver teardown, and rejects queued inference. Leaving the static session alive caused an NVIDIA compiler-thread crash during process exit; the hardware regression now checks explicit shutdown too. Physical AMD hardware has not been available for validation.

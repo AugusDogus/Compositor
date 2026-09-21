@@ -7,6 +7,12 @@ use quickgui::{AppInfo, AppRunStatus, Application};
 const UI_FONT: &[u8] = include_bytes!("../assets/fonts/InterVariable.ttf");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let result = run();
+    compositor::background::shutdown();
+    result
+}
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let paths: Vec<_> = std::env::args_os()
         .skip(1)
         .map(std::path::PathBuf::from)

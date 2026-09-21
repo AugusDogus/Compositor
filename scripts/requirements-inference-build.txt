@@ -1,0 +1,5 @@
+# Build-time model transformation and reference checks only. Not shipped in the AppImage.
+numpy==2.5.3
+onnx==1.23.0
+onnxruntime==1.30.0
+onnxsim==0.7.3

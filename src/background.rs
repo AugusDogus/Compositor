@@ -7,6 +7,7 @@ use image::{GrayImage, Luma, RgbaImage};
 use std::sync::Arc;
 
 mod inference;
+pub use inference::shutdown;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Quality {
