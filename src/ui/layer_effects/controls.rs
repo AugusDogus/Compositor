@@ -67,6 +67,9 @@ impl Editor {
                         EffectKind::Glow => {
                             e.effects.outer_glow.get_or_insert_default().enabled = visible
                         }
+                        EffectKind::InnerGlow => {
+                            e.effects.inner_glow.get_or_insert_default().enabled = visible
+                        }
                         EffectKind::Inner => {
                             e.effects
                                 .inner_shadow
@@ -88,6 +91,7 @@ impl Editor {
                         EffectKind::Overlay => e.effects.color_overlay = None,
                         EffectKind::Inner => e.effects.inner_shadow = None,
                         EffectKind::Glow => e.effects.outer_glow = None,
+                        EffectKind::InnerGlow => e.effects.inner_glow = None,
                     });
                     this.changed(cx);
                 }),
@@ -134,7 +138,9 @@ impl Editor {
                     ),
             );
             let parameters = match kind {
-                EffectKind::Stroke | EffectKind::Glow => vec![Parameter::Size, Parameter::Opacity],
+                EffectKind::Stroke | EffectKind::Glow | EffectKind::InnerGlow => {
+                    vec![Parameter::Size, Parameter::Opacity]
+                }
                 EffectKind::Overlay => vec![Parameter::Opacity],
                 _ => vec![
                     Parameter::Opacity,

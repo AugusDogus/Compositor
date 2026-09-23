@@ -40,12 +40,22 @@ impl Engine {
                 contents: image.as_raw(),
                 usage: storage,
             });
-        let planes: Vec<_> = (0..8)
+        let planes: Vec<_> = (0..9)
             .map(|_| allocate("Effects coverage", bytes, storage))
             .collect();
-        let [shape, first, second, ring, shadow, inner, glow, scratch] = [
+        let [
+            shape,
+            first,
+            second,
+            ring,
+            shadow,
+            inner,
+            glow,
+            inner_glow,
+            scratch,
+        ] = [
             &planes[0], &planes[1], &planes[2], &planes[3], &planes[4], &planes[5], &planes[6],
-            &planes[7],
+            &planes[7], &planes[8],
         ];
         let dummy = allocate("Unused effect plane", 4, storage);
         let output = allocate(
@@ -67,7 +77,11 @@ impl Engine {
             .outer_glow
             .as_ref()
             .filter(|s| s.size > 0. && s.opacity > 0.);
-        let mut params = [0u32; 36];
+        let interior_glow = effects
+            .inner_glow
+            .as_ref()
+            .filter(|s| s.size > 0. && s.opacity > 0.);
+        let mut params = [0u32; 40];
         params[0] = image.width();
         params[1] = image.height();
         let colors = [
@@ -93,6 +107,14 @@ impl Engine {
             params[28 + c] = (v as f32).to_bits();
         }
         params[32] = u32::from(outer.is_some());
+        params[33] = u32::from(interior_glow.is_some());
+        for (c, v) in interior_glow
+            .map_or([0.; 4], |s| [s.red, s.green, s.blue, s.opacity])
+            .into_iter()
+            .enumerate()
+        {
+            params[36 + c] = (v as f32).to_bits();
+        }
         let pipeline = &self.effects_pipeline;
         let mut run = |phase: u32,
                        geometry: [f32; 2],
@@ -151,7 +173,16 @@ impl Engine {
                 run(6, [(s.size / 2.) as f32, 0.], first, glow);
             }
         }
-        run(7, [0.; 2], shape, scratch);
+        if let Some(s) = interior_glow {
+            if s.size <= 0.02 {
+                run(4, [0.; 2], shape, inner_glow);
+            } else {
+                run(5, [(s.size / 2.) as f32, 0.], shape, first);
+                run(6, [(s.size / 2.) as f32, 0.], first, inner_glow);
+            }
+        }
+        // The composition phase does not otherwise read its input plane.
+        run(7, [0.; 2], inner_glow, scratch);
         encoder.copy_buffer_to_buffer(&output, 0, &readback, 0, bytes);
         let submission = self.queue.submit([encoder.finish()]);
         let slice = readback.slice(..);
@@ -192,7 +223,9 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::effects::{ColorOverlayEffect, OuterGlowEffect, ShadowEffect, StrokeEffect};
+    use crate::effects::{
+        ColorOverlayEffect, InnerGlowEffect, OuterGlowEffect, ShadowEffect, StrokeEffect,
+    };
     use image::Rgba;
     #[test]
     #[ignore = "Requires a hardware Vulkan adapter"]
@@ -212,6 +245,12 @@ mod tests {
         });
         for inside in [false, true] {
             let effects = LayerEffects {
+                inner_glow: Some(InnerGlowEffect {
+                    size: 6.3,
+                    red: 0.4,
+                    opacity: 0.6,
+                    ..Default::default()
+                }),
                 outer_glow: Some(OuterGlowEffect {
                     size: 5.7,
                     green: 0.3,

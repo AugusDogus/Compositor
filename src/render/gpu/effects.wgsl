@@ -1,4 +1,4 @@
-struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32> }
+struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32>, insideGlow: vec4<f32> }
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var<storage,read> pixels: array<u32>;
 @group(0) @binding(2) var<storage,read> input: array<f32>;
@@ -46,8 +46,13 @@ fn effects(@builtin(global_invocation_id) gid:vec3<u32>) {
  if p.more.x==1u {color=over(color,p.glow.xyz,glow[i]*(1.-source.a)*p.glow.w);}
  if p.flags.x==1u && p.flags.y==0u {color=over(color,p.stroke.xyz,ring[i]*p.stroke.w);}
  source=vec4<f32>(mix(source.xyz,p.overlay.xyz,p.overlay.w),source.a);
+ if p.more.y==1u {
+  let a=clamp(source.a*(1.-input[i])*p.insideGlow.w,0.,1.);
+  let combined=a+source.a*(1.-a);
+  if combined>0. {source=vec4<f32>((p.insideGlow.xyz*a+source.xyz*source.a*(1.-a))/combined,combined);}
+ }
  if p.flags.w==1u {source=vec4<f32>(mix(source.xyz,p.inner.xyz,(1.-inner[i])*p.inner.w),source.a);}
- if p.flags.x==1u && p.flags.y==1u && source.a>0. {source=vec4<f32>(mix(source.xyz,p.stroke.xyz,ring[i]/source.a*p.stroke.w),source.a);}
+ if p.flags.x==1u && p.flags.y==1u && source.a>0. {source=vec4<f32>(mix(source.xyz,p.stroke.xyz,ring[i]/alpha(i)*p.stroke.w),source.a);}
  color=over(color,source.xyz,source.a);
  if color.a>0. {color=vec4<f32>(color.xyz/color.a,color.a);}
  let bytes=vec4<u32>(round(clamp(color,vec4<f32>(0.),vec4<f32>(1.))*255.));

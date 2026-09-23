@@ -153,6 +153,7 @@ fn effect_settings_and_disabled_flags_round_trip_with_undo() {
                     inside: true,
                     ..Default::default()
                 }),
+                inner_glow: Some(super::InnerGlowEffect::default()),
                 shadow: Some(ShadowEffect::default()),
                 inner_shadow: Some(ShadowEffect::inner_default()),
                 color_overlay: Some(ColorOverlayEffect::default()),
@@ -398,4 +399,35 @@ fn outer_glow_follows_mask_transform_opacity_and_keeps_source_editable() {
     assert!(Arc::ptr_eq(&original, doc.layers[0].raster().unwrap()));
     let full = render::render(&doc, 15, 15).unwrap();
     assert_eq!(full, rendered);
+}
+
+#[test]
+fn inner_glow_is_clipped_to_shape_and_preserves_editable_schema() {
+    let effects: LayerEffects = serde_json::from_str(r#"{"innerGlow":{}}"#).unwrap();
+    let glow = effects.inner_glow.as_ref().unwrap();
+    assert_eq!((glow.size, glow.opacity, glow.red), (10., 0.75, 1.));
+    assert!(effects.validate());
+    assert_eq!(effects.margin(), 2);
+    let image = RgbaImage::from_fn(41, 41, |x, y| {
+        if (8..33).contains(&x) && (8..33).contains(&y) {
+            image::Rgba([0, 0, 0, 255])
+        } else {
+            image::Rgba([0; 4])
+        }
+    });
+    let result = super::cpu::render(&image, &effects);
+    assert_eq!(result[(0, 0)][3], 0);
+    assert_eq!(result[(8, 20)][3], 255);
+    assert!(result[(8, 20)][0] > result[(20, 20)][0]);
+    assert_eq!(result[(8, 20)], result[(32, 20)]);
+    let mut doc = Document::new(41, 41).unwrap();
+    doc.layers[0].content = crate::document::LayerContent::Raster(Some(std::sync::Arc::new(image)));
+    doc.layers[0].effects = Some(effects.clone());
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("glow.comp");
+    crate::project::save(&doc, &path).unwrap();
+    assert_eq!(
+        crate::project::load(&path).unwrap().layers[0].effects,
+        Some(effects)
+    );
 }

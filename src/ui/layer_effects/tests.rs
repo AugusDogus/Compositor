@@ -235,3 +235,34 @@ fn outer_glow_controls_edit_copy_hide_remove_cancel_and_undo() {
         committed
     );
 }
+
+#[test]
+fn inner_glow_is_editable_and_cancel_restores_source() {
+    let original = editor();
+    let doc = original.session().document.clone();
+    let (mut cx, view) = quickgui::Application::new()
+        .into_test_context(
+            quickgui::WindowOptions::new("Inner glow").size(1200., 900.),
+            original,
+        )
+        .unwrap();
+    let window = view.window_handle();
+    cx.click(window, "layer-effects").unwrap();
+    cx.click(window, "effect-tab-Inner Glow").unwrap();
+    cx.click(window, "effect-toggle").unwrap();
+    assert!(cx.element_bounds(window, "effect-size").is_ok());
+    assert!(
+        cx.read(view, |e| e.session().document.layers[0]
+            .effects
+            .as_ref()
+            .unwrap()
+            .inner_glow
+            .is_some())
+            .unwrap()
+    );
+    cx.click(window, "effects-cancel").unwrap();
+    assert_eq!(
+        cx.read(view, |e| e.session().document.clone()).unwrap(),
+        doc
+    );
+}

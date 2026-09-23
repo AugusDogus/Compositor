@@ -172,6 +172,17 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
                 gaussian(&shape, width, height, (s.size / 2.) as f32)
             }
         });
+    let inside_glow = effects
+        .inner_glow
+        .as_ref()
+        .filter(|s| s.size > 0. && s.opacity > 0.)
+        .map(|s| {
+            if s.size <= 0.02 {
+                shape.clone()
+            } else {
+                gaussian(&shape, width, height, (s.size / 2.) as f32)
+            }
+        });
     RgbaImage::from_fn(image.width(), image.height(), |x, y| {
         let i = y as usize * width + x as usize;
         let mut out = [0.; 4];
@@ -192,22 +203,40 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
         }
         let mut source = image[(x, y)].0.map(|v| v as f32 / 255.);
         // Interior effects replace source color without creating additional coverage.
-        let mut tint = |color: [f64; 3], coverage: f32| {
+        let tint = |source: &mut [f32; 4], color: [f64; 3], coverage: f32| {
             for c in 0..3 {
                 source[c] = source[c] * (1. - coverage) + color[c] as f32 * coverage;
             }
         };
         if let Some(s) = &effects.color_overlay {
-            tint([s.red, s.green, s.blue], s.opacity as f32);
+            tint(&mut source, [s.red, s.green, s.blue], s.opacity as f32);
+        }
+        if let (Some(s), Some(plane)) = (&effects.inner_glow, &inside_glow) {
+            let coverage = (shape[i] * (1. - plane[i]) * s.opacity as f32).clamp(0., 1.);
+            let alpha = coverage + source[3] * (1. - coverage);
+            if alpha > 0. {
+                let color = [s.red, s.green, s.blue];
+                for c in 0..3 {
+                    source[c] = (color[c] as f32 * coverage
+                        + source[c] * source[3] * (1. - coverage))
+                        / alpha;
+                }
+                source[3] = alpha;
+            }
         }
         if let (Some(s), Some(plane)) = (&effects.inner_shadow, &inner) {
-            tint([s.red, s.green, s.blue], (1. - plane[i]) * s.opacity as f32);
+            tint(
+                &mut source,
+                [s.red, s.green, s.blue],
+                (1. - plane[i]) * s.opacity as f32,
+            );
         }
         if let (Some(s), Some(ring)) = (&effects.stroke, &ring)
             && s.inside
             && shape[i] > 0.
         {
             tint(
+                &mut source,
                 [s.red, s.green, s.blue],
                 ring[i] / shape[i] * s.opacity as f32,
             );
