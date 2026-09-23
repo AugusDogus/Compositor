@@ -156,24 +156,8 @@ impl Adjustment {
             }
             Kind::Grain => {
                 let s = self.grain_settings.unwrap_or_default();
-                let x = point[0] / s.size;
-                let y = point[1] / s.size;
-                let ix = x.floor() as i64;
-                let iy = y.floor() as i64;
-                let tx = x - x.floor();
-                let ty = y - y.floor();
-                let tx = tx * tx * (3. - 2. * tx);
-                let ty = ty * ty * (3. - 2. * ty);
-                let a = lattice(ix, iy, s.seed);
-                let b = lattice(ix + 1, iy, s.seed);
-                let c = lattice(ix, iy + 1, s.seed);
-                let d = lattice(ix + 1, iy + 1, s.seed);
-                let smooth = ((a + (b - a) * tx) * (1. - ty) + (c + (d - c) * tx) * ty) * 1.6;
-                let fine = lattice(
-                    point[0].floor() as i64,
-                    point[1].floor() as i64,
-                    mix32(s.seed ^ 0xA511E9B3),
-                );
+                let smooth = grain_field(point, s.size, s.seed);
+                let fine = grain_field(point, (s.size * 0.35).max(0.5), mix32(s.seed ^ 0xA511E9B3));
                 let noise = smooth + (fine - smooth) * s.roughness / 100.;
                 let level = luminance(rgb);
                 let delta = noise * s.amount / 100. * 0.35 * (0.4 + 2.4 * level * (1. - level));
@@ -199,6 +183,22 @@ pub fn mix32(mut x: u32) -> u32 {
     x = x.wrapping_mul(0x846ca68b);
     x ^ (x >> 16)
 }
+fn grain_field(point: [f64; 2], scale: f64, seed: u32) -> f64 {
+    let [x, y] = point.map(|v| v / scale);
+    let (ix, iy) = (x.floor() as i64, y.floor() as i64);
+    let [tx, ty] = [x, y].map(|v| {
+        let t = v - v.floor();
+        t * t * (3. - 2. * t)
+    });
+    let (a, b, c, d) = (
+        lattice(ix, iy, seed),
+        lattice(ix + 1, iy, seed),
+        lattice(ix, iy + 1, seed),
+        lattice(ix + 1, iy + 1, seed),
+    );
+    ((a + (b - a) * tx) * (1. - ty) + (c + (d - c) * tx) * ty) * 1.6
+}
+
 fn lattice(x: i64, y: i64, seed: u32) -> f64 {
     let h = mix32(
         (x as u32).wrapping_mul(0x9E3779B1) ^ mix32((y as u32).wrapping_mul(0x85EBCA77) ^ seed),
@@ -721,6 +721,22 @@ mod tests {
                 assert!((a - b).abs() < 1e-9, "{kind:?}: {a} != {b}");
             }
         }
+    }
+    #[test]
+    fn rough_grain_retains_size_control_and_document_coordinates() {
+        let mut adjustment = Adjustment::new(Kind::Grain);
+        adjustment.grain_settings = Some(Grain {
+            amount: 100.,
+            roughness: 100.,
+            size: 4.,
+            seed: 123,
+        });
+        let small = adjustment.apply([0.5, 0.5, 0.5, 0.25], [13.5, 21.5]);
+        adjustment.grain_settings.as_mut().unwrap().size = 16.;
+        let large = adjustment.apply([0.5, 0.5, 0.5, 0.25], [13.5, 21.5]);
+        assert!((small[0] - large[0]).abs() > 0.01);
+        assert_eq!(large[3], 0.25);
+        assert_eq!(large, adjustment.apply([0.5, 0.5, 0.5, 0.25], [13.5, 21.5]));
     }
     #[test]
     fn exposure_operates_in_linear_light() {

@@ -38,6 +38,11 @@ fn lattice(x:i32,y:i32,seed:u32) -> f32 {
     let h=mix32(bitcast<u32>(x)*0x9E3779B1u ^ mix32(bitcast<u32>(y)*0x85EBCA77u ^ seed));
     return f32(h&65535u)/65535.0+f32(h>>16u)/65535.0-1.0;
 }
+fn grain_field(point:vec2<f32>, scale:f32, seed:u32) -> f32 {
+    let p=point/scale; let ix=i32(floor(p.x)); let iy=i32(floor(p.y));
+    let f=fract(p); let t=f*f*(vec2(3.0)-2.0*f);
+    return mix(mix(lattice(ix,iy,seed),lattice(ix+1,iy,seed),t.x),mix(lattice(ix,iy+1,seed),lattice(ix+1,iy+1,seed),t.x),t.y)*1.6;
+}
 fn adjust_rgb(rgb:vec3<f32>, kind:u32, offset:u32, point:vec2<f32>) -> vec3<f32> {
     var result=rgb;
     switch kind {
@@ -75,10 +80,9 @@ fn adjust_rgb(rgb:vec3<f32>, kind:u32, offset:u32, point:vec2<f32>) -> vec3<f32>
             for(var i=0u;i<3u;i++){result[i]=settings[offset+i]+(settings[offset+i+3u]-settings[offset+i])*t;}
         }
         case 6u: {
-            let p=point/settings[offset+1u]; let ix=i32(floor(p.x)); let iy=i32(floor(p.y));
-            let f=fract(p); let t=f*f*(vec2(3.0)-2.0*f); let seed=bitcast<u32>(settings[offset+3u]);
-            let low_frequency=mix(mix(lattice(ix,iy,seed),lattice(ix+1,iy,seed),t.x),mix(lattice(ix,iy+1,seed),lattice(ix+1,iy+1,seed),t.x),t.y)*1.6;
-            let fine=lattice(i32(floor(point.x)),i32(floor(point.y)),mix32(seed^0xA511E9B3u));
+            let seed=bitcast<u32>(settings[offset+3u]);
+            let low_frequency=grain_field(point,settings[offset+1u],seed);
+            let fine=grain_field(point,max(0.5,settings[offset+1u]*0.35),mix32(seed^0xA511E9B3u));
             let noise=mix(low_frequency,fine,settings[offset+2u]/100.0);
             let l=dot(rgb,vec3(0.2126,0.7152,0.0722));
             result+=vec3(noise*settings[offset]/100.0*0.35*(0.4+2.4*l*(1.0-l)));
