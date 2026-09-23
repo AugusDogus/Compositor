@@ -29,6 +29,10 @@ pub enum Filter {
         distortion: f64,
     },
     Vignette(Vignette),
+    Bloom {
+        amount: f64,
+        radius: f64,
+    },
     ContentFill,
 }
 
@@ -175,6 +179,7 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
         } => native_pixels::noise(&source, amount, gaussian, monochromatic, seed)?,
         Filter::Lens { distortion } => native_pixels::lens(&source, distortion)?,
         Filter::Vignette(settings) => finishing::vignette(&source, settings, fills_clear)?,
+        Filter::Bloom { amount, radius } => finishing::bloom(&source, amount, radius)?,
         Filter::ContentFill => {
             let selection = selection
                 .as_ref()
@@ -369,3 +374,11 @@ mod tests {
     }
 }
 
+/// Gaussian blur in premultiplied color, accelerated by Vulkan when available.
+pub fn gaussian_rgba(image: &RgbaImage, radius: f32) -> Result<RgbaImage> {
+    finishing::range(f64::from(radius), 0.1, 250.)?;
+    Ok(native_pixels::unpremultiply(finishing::blur(
+        &native_pixels::premultiply(image),
+        radius,
+    )?))
+}

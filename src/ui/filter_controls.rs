@@ -45,6 +45,13 @@ impl Editor {
                     ("Blue", (s.color[2] * 255.).to_string()),
                 ],
             ),
+            Filter::Bloom { amount, radius } => (
+                "Bloom / Glow",
+                vec![
+                    ("Amount", amount.to_string()),
+                    ("Radius", radius.to_string()),
+                ],
+            ),
             Filter::ContentFill => ("Content-Aware Fill", Vec::new()),
         }
     }
@@ -85,6 +92,10 @@ impl Editor {
                 highlights: n(4)?,
                 color: [n(5)? / 255., n(6)? / 255., n(7)? / 255.],
             }),
+            Filter::Bloom { .. } => Filter::Bloom {
+                amount: n(0)?,
+                radius: n(1)?,
+            },
             Filter::ContentFill => Filter::ContentFill,
         })
     }

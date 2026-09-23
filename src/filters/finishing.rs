@@ -107,6 +107,48 @@ pub(super) fn vignette(image: &RgbaImage, s: Vignette, fills_clear: bool) -> Res
     Ok(native_pixels::unpremultiply(pixels))
 }
 
+pub(super) fn bloom(image: &RgbaImage, amount: f64, radius: f64) -> Result<RgbaImage> {
+    range(amount, 0., 100.)?;
+    range(radius, 1., 150.)?;
+    if amount == 0. {
+        return Ok(image.clone());
+    }
+    let base = native_pixels::premultiply(image);
+    let blurred = blur(&base, radius as f32)?;
+    let mut result = image.clone();
+    for ((dst, src), glow) in result.pixels_mut().zip(base.pixels()).zip(blurred.pixels()) {
+        let alpha = f64::from(src[3]) / 255.;
+        if alpha == 0. {
+            continue;
+        }
+        for c in 0..3 {
+            // Screen the blurred radiance over the source, as a bloom blend.
+            let color = f64::from(src[c]) / 255. / alpha;
+            let light = (f64::from(glow[c]) / 255. * amount / 50.).min(1.);
+            dst[c] = ((1. - (1. - color) * (1. - light)) * 255.).round() as u8;
+        }
+    }
+    Ok(result)
+}
+
+pub(super) fn blur(image: &RgbaImage, radius: f32) -> Result<RgbaImage> {
+    validate_size(image.width(), image.height())?;
+    let mut result = RgbaImage::new(image.width(), image.height());
+    for c in 0..4 {
+        let plane = image::GrayImage::from_fn(image.width(), image.height(), |x, y| {
+            image::Luma([image[(x, y)][c]])
+        });
+        let blurred = match crate::render::gpu_coverage_blur(&plane, radius)? {
+            Some(pixels) => pixels,
+            None => image::imageops::blur(&plane, radius),
+        };
+        for (pixel, value) in result.pixels_mut().zip(blurred.pixels()) {
+            pixel[c] = value[0];
+        }
+    }
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -128,5 +170,23 @@ mod tests {
         let graded = vignette(&original, settings, false).unwrap();
         assert!(graded.pixels().all(|p| p[3] == 128));
         assert!(graded[(0, 0)][0] > original[(0, 0)][0]);
+    }
+    #[test]
+    fn zero_strength_preserves_exact_pixels() {
+        let image = RgbaImage::from_pixel(9, 9, Rgba([71, 83, 111, 37]));
+        assert_eq!(
+            vignette(
+                &image,
+                Vignette {
+                    amount: 0.,
+                    ..Default::default()
+                },
+                false
+            )
+            .unwrap(),
+            image
+        );
+        assert_eq!(bloom(&image, 0., 24.).unwrap(), image);
+        assert!(bloom(&image, 40., f64::INFINITY).is_err());
     }
 }
