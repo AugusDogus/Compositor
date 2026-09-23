@@ -62,6 +62,17 @@ impl Parameter {
             (Action::Filter(Filter::Lens { .. }), _, 0) => {
                 ("Remove Distortion", (-100., 100.), "", Linear(0))
             }
+            (Action::Filter(Filter::Vignette(_)), _, 0) => {
+                ("Amount", (0., 100.), "%", Linear(0))
+            }
+            (Action::Filter(Filter::Vignette(_)), _, 1) => ("Midpoint", (0., 100.), "%", Linear(0)),
+            (Action::Filter(Filter::Vignette(_)), _, 2) => {
+                ("Roundness", (-100., 100.), "%", Linear(0))
+            }
+            (Action::Filter(Filter::Vignette(_)), _, 3) => ("Feather", (0., 100.), "%", Linear(0)),
+            (Action::Filter(Filter::Vignette(_)), _, 4) => {
+                ("Highlights", (0., 100.), "%", Linear(0))
+            }
             (Action::RemoveBackground, _, 0) => ("Refine", (0., 40.), "px", Linear(0)),
             (Action::RemoveBackground, _, 1) => ("Contrast", (0., 100.), "%", Linear(0)),
             (Action::RemoveBackground, _, 2) => ("Shift Edge", (-10., 10.), "px", Linear(0)),
@@ -97,7 +108,15 @@ impl Editor {
             _ => 60.,
         };
         let unit_width = if parameter.unit.is_empty() { 0. } else { 18. };
-        let id = ["parameter-0", "parameter-1", "parameter-2"][index];
+        let id = [
+            "parameter-0",
+            "parameter-1",
+            "parameter-2",
+            "parameter-3",
+            "parameter-4",
+        ]
+        .get(index)
+        .copied()?;
         let range = (
             parameter.scale.position(parameter.range.0),
             parameter.scale.position(parameter.range.1),

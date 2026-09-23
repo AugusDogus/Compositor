@@ -172,7 +172,13 @@ impl Editor {
                     "Select an existing mask for Gaussian Blur, or switch to layer pixels for other filters.",
                 ));
             }
-        } else if layer.raster().is_none() {
+        } else if layer.raster().is_none()
+            && !(matches!(settings, Settings::Pixels(Filter::Vignette(_)))
+                && matches!(
+                    layer.content,
+                    compositor::document::LayerContent::Raster(None)
+                ))
+        {
             return Err(invalid("Select a layer containing pixels to filter."));
         }
         self.session_mut().begin("Filter")?;
@@ -224,10 +230,11 @@ impl Editor {
                         Arc::ptr_eq(&current.pixels, &original.pixels)
                     })
             } else {
-                current
-                    .raster()
-                    .zip(original.raster())
-                    .is_some_and(|(current, original)| Arc::ptr_eq(current, original))
+                match (current.raster(), original.raster()) {
+                    (Some(current), Some(original)) => Arc::ptr_eq(current, original),
+                    (None, None) => true,
+                    _ => false,
+                }
             }
         })
     }

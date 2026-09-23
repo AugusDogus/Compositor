@@ -4,6 +4,7 @@ fn main() {
     let mut build = cc::Build::new();
     build.include(root).flag_if_supported("-std=gnu11");
     for name in [
+        "AdjustPixels",
         "HealPixels",
         "ContentFill",
         "LensPixels",

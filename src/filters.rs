@@ -1,3 +1,6 @@
+pub mod finishing;
+pub use finishing::Vignette;
+
 use crate::{
     Result,
     document::{Document, LayerContent, validate_size},
@@ -25,6 +28,7 @@ pub enum Filter {
     Lens {
         distortion: f64,
     },
+    Vignette(Vignette),
     ContentFill,
 }
 
@@ -55,6 +59,7 @@ pub fn heal(
 
 pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()> {
     let selection = doc.selection.clone();
+    let canvas = (doc.width, doc.height);
     let layer = doc
         .active_layer_mut()
         .ok_or_else(|| invalid("Select a layer to filter."))?;
@@ -93,6 +98,12 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
             .and_then(|s| s.bounds())
             .ok_or_else(|| invalid("Make a nonempty selection around the area to fill first."))?;
         crate::raster_extent::expand(&mut expanded, bounds)?;
+    }
+    let fills_clear = matches!(filter, Filter::Vignette(_))
+        && matches!(expanded.content, LayerContent::Raster(None));
+    if fills_clear {
+        expanded.content = LayerContent::Raster(Some(Arc::new(RgbaImage::new(canvas.0, canvas.1))));
+        expanded.transform = Transform::new(canvas.0, canvas.1);
     }
     let original = expanded
         .raster()
@@ -163,6 +174,7 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
             seed,
         } => native_pixels::noise(&source, amount, gaussian, monochromatic, seed)?,
         Filter::Lens { distortion } => native_pixels::lens(&source, distortion)?,
+        Filter::Vignette(settings) => finishing::vignette(&source, settings, fills_clear)?,
         Filter::ContentFill => {
             let selection = selection
                 .as_ref()
@@ -356,3 +368,4 @@ mod tests {
         assert!(p[3] > 0 && p[3] < 128);
     }
 }
+

@@ -107,6 +107,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 "",
                 Action::Filter(compositor::filters::Filter::Lens { distortion: 0. }),
             ),
+            command("Vignette…", "", Action::Filter(compositor::filters::Filter::Vignette(Default::default()))),
             command("Remove Background…", "", Action::RemoveBackground),
         ],
         6 => vec![

@@ -32,6 +32,19 @@ impl Editor {
                 "Lens Correction",
                 vec![("Remove distortion (-100 to 100)", distortion.to_string())],
             ),
+            Filter::Vignette(s) => (
+                "Vignette",
+                vec![
+                    ("Amount", s.amount.to_string()),
+                    ("Midpoint", s.midpoint.to_string()),
+                    ("Roundness", s.roundness.to_string()),
+                    ("Feather", s.feather.to_string()),
+                    ("Highlights", s.highlights.to_string()),
+                    ("Red", (s.color[0] * 255.).to_string()),
+                    ("Green", (s.color[1] * 255.).to_string()),
+                    ("Blue", (s.color[2] * 255.).to_string()),
+                ],
+            ),
             Filter::ContentFill => ("Content-Aware Fill", Vec::new()),
         }
     }
@@ -64,6 +77,14 @@ impl Editor {
                 seed,
             },
             Filter::Lens { .. } => Filter::Lens { distortion: n(0)? },
+            Filter::Vignette(_) => Filter::Vignette(compositor::filters::Vignette {
+                amount: n(0)?,
+                midpoint: n(1)?,
+                roundness: n(2)?,
+                feather: n(3)?,
+                highlights: n(4)?,
+                color: [n(5)? / 255., n(6)? / 255., n(7)? / 255.],
+            }),
             Filter::ContentFill => Filter::ContentFill,
         })
     }

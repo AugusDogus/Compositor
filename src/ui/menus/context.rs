@@ -189,6 +189,9 @@ impl Editor {
             Command::Edit(Action::Transform | Action::FlipX | Action::FlipY) => {
                 compositor::transform::selection_bounds(doc, self.tools.mask_target).is_some()
             }
+            Command::Edit(Action::Filter(compositor::filters::Filter::Vignette(_))) => {
+                !self.tools.mask_target && layer.is_some_and(|l| l.raw.is_none() && matches!(l.content, LayerContent::Raster(_)))
+            }
             Command::Edit(Action::Filter(compositor::filters::Filter::ContentFill)) => {
                 self.can_content_aware_fill()
             }
