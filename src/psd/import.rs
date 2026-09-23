@@ -100,7 +100,16 @@ fn layers(
         } else {
             None
         };
-        if info.text.is_some()
+        let text = if adjustment.is_none() && source.children.is_none() {
+            info.text
+                .as_ref()
+                .map(|text| super::text::import(text, budget, report, &name))
+                .transpose()?
+                .flatten()
+        } else {
+            None
+        };
+        if (info.text.is_some() && text.is_none())
             || info.placed_layer.is_some()
             || (vector.is_none() && (info.vector_mask.is_some() || info.vector_fill.is_some()))
         {
@@ -134,6 +143,10 @@ fn layers(
         } else if let Some(adjustment) = adjustment {
             layer.content = LayerContent::Adjustment(Box::new(adjustment));
             layer.transform = Transform::new(doc.width, doc.height);
+        } else if let Some(text) = text {
+            layer.text = Some(text.style);
+            layer.transform = text.transform;
+            layer.content = LayerContent::Raster(Some(Arc::new(text.pixels)));
         } else if let Some(vector) = vector {
             layer.shape = vector.shape;
             layer.transform = vector.transform;
@@ -149,7 +162,14 @@ fn layers(
             ));
         }
         if let Some(mask) = &info.mask {
-            layer.mask = import_mask(mask, report, &layer.name, layer.transform.origin)?;
+            // Relative Photoshop masks use the original layer bounds, not the
+            // newly rasterized text's padded baseline placement.
+            let origin = if layer.text.is_some() {
+                [source.left.unwrap_or(0.), source.top.unwrap_or(0.)]
+            } else {
+                layer.transform.origin
+            };
+            layer.mask = import_mask(mask, report, &layer.name, origin)?;
         }
         if source.clipping.unwrap_or(false) {
             layer.clip_source = base;

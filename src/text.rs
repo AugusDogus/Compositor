@@ -132,6 +132,9 @@ impl TextRenderer {
         &self.families
     }
     pub fn render(&mut self, style: &Text) -> Result<RgbaImage> {
+        self.render_with_baseline(style).map(|(pixels, _)| pixels)
+    }
+    pub(crate) fn render_with_baseline(&mut self, style: &Text) -> Result<(RgbaImage, f64)> {
         style.validate()?;
         // Limit layout before shaping a huge unbroken string into an oversized asset.
         let mut buffer = Buffer::new(
@@ -207,6 +210,12 @@ impl TextRenderer {
             Some((f64::from(width) - PADDING * 2.).max(1.) as f32),
             Some((f64::from(height) - PADDING * 2.).max(1.) as f32),
         );
+        let baseline = buffer
+            .layout_runs()
+            .next()
+            .map_or(PADDING + style.font_size * 0.8, |run| {
+                PADDING + f64::from(run.line_y)
+            });
         let mut pixels = RgbaImage::new(width, height);
         let mut cache = SwashCache::new();
         let color = Color::rgb(
@@ -224,7 +233,7 @@ impl TextRenderer {
                 }
             }
         });
-        Ok(pixels)
+        Ok((pixels, baseline))
     }
 }
 

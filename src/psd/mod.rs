@@ -4,6 +4,7 @@ mod export;
 mod import;
 mod preflight;
 mod resources;
+mod text;
 mod vector;
 mod vector_metadata;
 
