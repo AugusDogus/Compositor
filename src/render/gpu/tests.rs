@@ -61,9 +61,23 @@ fn compositing_matches_masks_groups_clipping_blends_and_adjustments() {
         Kind::Exposure,
         Kind::GradientMap,
         Kind::Grain,
+        Kind::BlackWhite,
+        Kind::ColorBalance,
+        Kind::Invert,
     ] {
         let mut adjustment = Layer::blank("Adjustment", 80, 70);
         let mut a = Adjustment::new(kind);
+        a.black_white_settings = Some(crate::adjustment::BlackWhite {
+            tint: true,
+            reds: 85.,
+            ..Default::default()
+        });
+        a.color_balance_settings = Some(crate::adjustment::ColorBalance {
+            shadow_cyan_red: 40.,
+            mid_yellow_blue: -25.,
+            highlight_magenta_green: 30.,
+            ..Default::default()
+        });
         a.hue = 35.;
         a.saturation = 40.;
         a.lightness = -15.;

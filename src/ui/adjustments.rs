@@ -139,6 +139,9 @@ impl Editor {
             Some(LayerContent::Adjustment(settings)) => settings.as_ref().clone(),
             _ => return Err(invalid("Select an adjustment layer to edit its settings.")),
         };
+        if settings.kind == Kind::Invert {
+            return Ok(());
+        }
         if settings.kind == Kind::HueSaturation && settings.hsv_settings.is_none() {
             settings.hsv_settings = Some(HueSaturation {
                 adjustments: vec![(

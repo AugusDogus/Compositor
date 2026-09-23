@@ -21,6 +21,39 @@ pub(super) fn fields(a: &Adjustment) -> Vec<(&'static str, String)> {
         )
     };
     match a.kind {
+        Kind::Invert => vec![],
+        Kind::BlackWhite => {
+            let s = a.black_white_settings.unwrap_or_default();
+            vec![
+                n("Reds", s.reds),
+                n("Yellows", s.yellows),
+                n("Greens", s.greens),
+                n("Cyans", s.cyans),
+                n("Blues", s.blues),
+                n("Magentas", s.magentas),
+                ("Tint (0 or 1)", u8::from(s.tint).to_string()),
+                n("Tint hue", s.tint_hue),
+                n("Tint saturation", s.tint_saturation),
+            ]
+        }
+        Kind::ColorBalance => {
+            let s = a.color_balance_settings.unwrap_or_default();
+            vec![
+                n("Shadow Cyan / Red", s.shadow_cyan_red),
+                n("Shadow Magenta / Green", s.shadow_magenta_green),
+                n("Shadow Yellow / Blue", s.shadow_yellow_blue),
+                n("Midtone Cyan / Red", s.mid_cyan_red),
+                n("Midtone Magenta / Green", s.mid_magenta_green),
+                n("Midtone Yellow / Blue", s.mid_yellow_blue),
+                n("Highlight Cyan / Red", s.highlight_cyan_red),
+                n("Highlight Magenta / Green", s.highlight_magenta_green),
+                n("Highlight Yellow / Blue", s.highlight_yellow_blue),
+                (
+                    "Preserve luminosity (0 or 1)",
+                    u8::from(s.preserve_luminosity).to_string(),
+                ),
+            ]
+        }
         Kind::HueSaturation => {
             let hsv = a.hsv_settings.clone().unwrap_or_default();
             let adjustment = hsv
@@ -119,6 +152,35 @@ pub(super) fn parse(base: &Adjustment, values: &[String]) -> Result<Adjustment> 
     };
     let mut a = base.clone();
     match a.kind {
+        Kind::Invert => {}
+        Kind::BlackWhite => {
+            a.black_white_settings = Some(BlackWhite {
+                reds: number(0)?,
+                yellows: number(1)?,
+                greens: number(2)?,
+                cyans: number(3)?,
+                blues: number(4)?,
+                magentas: number(5)?,
+                tint: boolean(6)?,
+                tint_hue: number(7)?,
+                tint_saturation: number(8)?,
+            });
+        }
+        Kind::ColorBalance => {
+            a.color_balance_settings = Some(ColorBalance {
+                shadow_cyan_red: number(0)?,
+                shadow_magenta_green: number(1)?,
+                shadow_yellow_blue: number(2)?,
+                mid_cyan_red: number(3)?,
+                mid_magenta_green: number(4)?,
+                mid_yellow_blue: number(5)?,
+                highlight_cyan_red: number(6)?,
+                highlight_magenta_green: number(7)?,
+                highlight_yellow_blue: number(8)?,
+                preserve_luminosity: boolean(9)?,
+            });
+        }
+
         Kind::HueSaturation => {
             let hsv = a.hsv_settings.get_or_insert_with(HueSaturation::default);
             let adjustment = RangeAdjustment {

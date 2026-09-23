@@ -70,6 +70,8 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command("Exposure…", "", Action::AdjustPixels(Kind::Exposure)),
             command("Gradient Map…", "", Action::AdjustPixels(Kind::GradientMap)),
             command("Grain…", "", Action::AdjustPixels(Kind::Grain)),
+            command("Color Balance…", "", Action::AdjustPixels(Kind::ColorBalance)),
+            command("Black & White…", "", Action::AdjustPixels(Kind::BlackWhite)),
             command("Invert", "Ctrl+I", Action::InvertPixels),
             Sep,
             command("Canvas Size…", "Ctrl+Alt+C", Action::CanvasSize),
@@ -185,6 +187,9 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command("Exposure…", "", Action::Adjustment(Kind::Exposure)),
             command("Gradient Map…", "", Action::Adjustment(Kind::GradientMap)),
             command("Grain…", "", Action::Adjustment(Kind::Grain)),
+            command("Invert", "", Action::Adjustment(Kind::Invert)),
+            command("Color Balance…", "", Action::Adjustment(Kind::ColorBalance)),
+            command("Black & White…", "", Action::Adjustment(Kind::BlackWhite)),
         ],
         11 => vec![
             command("Grid", "", Action::SnapGrid),

@@ -86,6 +86,30 @@ impl Parameter {
             (_, Some(Kind::Exposure), 0) => ("Exposure", (-20., 20.), "", Linear(2)),
             (_, Some(Kind::Exposure), 1) => ("Offset", (-0.5, 0.5), "", Linear(4)),
             (_, Some(Kind::Exposure), 2) => ("Gamma", (0.01, 9.99), "", Logarithmic(2)),
+            (_, Some(Kind::BlackWhite), i @ 0..=5) => (
+                ["Reds", "Yellows", "Greens", "Cyans", "Blues", "Magentas"][i],
+                (-200., 300.),
+                "%",
+                Linear(0),
+            ),
+            (_, Some(Kind::BlackWhite), 7) => ("Tint hue", (0., 360.), "°", Linear(0)),
+            (_, Some(Kind::BlackWhite), 8) => ("Tint saturation", (0., 100.), "%", Linear(0)),
+            (_, Some(Kind::ColorBalance), i @ 0..=8) => (
+                [
+                    "Shadow Cyan / Red",
+                    "Shadow Magenta / Green",
+                    "Shadow Yellow / Blue",
+                    "Midtone Cyan / Red",
+                    "Midtone Magenta / Green",
+                    "Midtone Yellow / Blue",
+                    "Highlight Cyan / Red",
+                    "Highlight Magenta / Green",
+                    "Highlight Yellow / Blue",
+                ][i],
+                (-100., 100.),
+                "",
+                Linear(0),
+            ),
             (_, Some(Kind::Grain), 0) => ("Amount", (0., 100.), "", Linear(0)),
             (_, Some(Kind::Grain), 1) => ("Size", (0.5, 20.), "px", Logarithmic(1)),
             (_, Some(Kind::Grain), 2) => ("Roughness", (0., 100.), "", Linear(0)),
@@ -112,6 +136,8 @@ impl Editor {
         let label_width = match (action, kind, index) {
             (Action::Filter(Filter::Lens { .. }), _, _) => 116.,
             (_, Some(Kind::Grain), 2) => 72.,
+            (_, Some(Kind::ColorBalance), _) => 172.,
+            (_, Some(Kind::BlackWhite), _) => 100.,
             _ => 60.,
         };
         let unit_width = if parameter.unit.is_empty() { 0. } else { 18. };
@@ -121,6 +147,11 @@ impl Editor {
             "parameter-2",
             "parameter-3",
             "parameter-4",
+            "parameter-5",
+            "parameter-6",
+            "parameter-7",
+            "parameter-8",
+            "parameter-9",
         ]
         .get(index)
         .copied()?;

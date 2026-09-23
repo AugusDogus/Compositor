@@ -11,6 +11,9 @@ pub(super) fn title(kind: Kind) -> &'static str {
         Kind::Exposure => "Exposure",
         Kind::GradientMap => "Gradient Map",
         Kind::Grain => "Grain",
+        Kind::Invert => "Invert",
+        Kind::BlackWhite => "Black & White",
+        Kind::ColorBalance => "Color Balance",
     }
 }
 
@@ -73,6 +76,28 @@ impl Editor {
 mod tests {
     use super::*;
 
+    #[test]
+    fn new_color_adjustments_are_editable_and_invert_has_no_empty_dialog() {
+        let mut e = Editor::with_test_document();
+        e.open_adjustment(Some(Kind::Invert)).unwrap();
+        assert!(e.adjustment_edit.is_none());
+        assert!(
+            matches!(&e.session().document.active_layer().unwrap().content,LayerContent::Adjustment(a) if a.kind==Kind::Invert)
+        );
+        for kind in [Kind::BlackWhite, Kind::ColorBalance] {
+            e.open_adjustment(Some(kind)).unwrap();
+            let fields = super::super::adjustment_fields::fields(
+                &e.adjustment_edit.as_ref().unwrap().settings,
+            );
+            let parsed = super::super::adjustment_fields::parse(
+                &e.adjustment_edit.as_ref().unwrap().settings,
+                &fields.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>(),
+            )
+            .unwrap();
+            assert_eq!(parsed.kind, kind);
+            e.cancel_adjustment();
+        }
+    }
     #[test]
     fn new_adjustments_use_source_names_parent_palette_and_independent_creation_history() {
         let mut e = Editor::with_test_document();

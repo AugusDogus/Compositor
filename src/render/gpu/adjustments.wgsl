@@ -87,6 +87,25 @@ fn adjust_rgb(rgb:vec3<f32>, kind:u32, offset:u32, point:vec2<f32>) -> vec3<f32>
             let l=dot(rgb,vec3(0.2126,0.7152,0.0722));
             result+=vec3(noise*settings[offset]/100.0*0.35*(0.4+2.4*l*(1.0-l)));
         }
+        case 7u: { result=vec3(1.0)-rgb; }
+        case 8u: {
+            let high=max(max(rgb.r,rgb.g),rgb.b); let low=min(min(rgb.r,rgb.g),rgb.b); let mid=rgb.r+rgb.g+rgb.b-high-low;
+            var primary=4u; var secondary=select(5u,3u,rgb.g>=rgb.r);
+            if high==rgb.r {primary=0u;secondary=select(5u,1u,rgb.g>=rgb.b);} else if high==rgb.g {primary=2u;secondary=select(3u,1u,rgb.r>=rgb.b);}
+            let gray=clamp(low+(mid-low)*settings[offset+secondary]+(high-mid)*settings[offset+primary],0.0,1.0);
+            result=vec3(gray);
+            if settings[offset+6u]!=0.0 {result=hsl_rgb(vec3(wrap(settings[offset+7u],360.0),settings[offset+8u],gray));}
+        }
+        case 9u: {
+            for(var i=0u;i<3u;i++) {
+                let v=rgb[i];let shadow=clamp((v-0.333)/-0.25+0.5,0.0,1.0)*0.7;
+                let highlight=clamp((v+0.333-1.0)/0.25+0.5,0.0,1.0)*0.7;
+                let mid=clamp((v-0.333)/0.25+0.5,0.0,1.0)*clamp((v+0.333-1.0)/-0.25+0.5,0.0,1.0)*0.7;
+                result[i]=clamp(v+settings[offset+i]*shadow+settings[offset+3u+i]*mid+settings[offset+6u+i]*highlight,0.0,1.0);
+            }
+            let after=dot(result,vec3(0.299,0.587,0.114));
+            if settings[offset+9u]!=0.0 && after>0.0001 {result*=dot(rgb,vec3(0.299,0.587,0.114))/after;}
+        }
         default: {}
     }
     return clamp(result,vec3(0.0),vec3(1.0));

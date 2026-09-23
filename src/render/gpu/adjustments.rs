@@ -4,6 +4,23 @@ use crate::adjustment::{Adjustment, ColorRange, HueSaturation, Kind, RangeAdjust
 
 pub(super) fn encode(a: &Adjustment, values: &mut Vec<f32>) -> u32 {
     match a.kind {
+        Kind::Invert => 7,
+        Kind::BlackWhite => {
+            let s = a.black_white_settings.unwrap_or_default();
+            values.extend(s.weights().map(|v| v as f32 / 100.));
+            values.extend([
+                f32::from(s.tint),
+                s.tint_hue as f32,
+                s.tint_saturation as f32 / 100.,
+            ]);
+            8
+        }
+        Kind::ColorBalance => {
+            let s = a.color_balance_settings.unwrap_or_default();
+            values.extend(s.ranges().into_iter().flatten().map(|v| v as f32 / 100.));
+            values.push(f32::from(s.preserve_luminosity));
+            9
+        }
         Kind::HueSaturation => {
             let fallback = HueSaturation {
                 adjustments: vec![(

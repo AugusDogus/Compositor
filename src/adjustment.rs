@@ -1,4 +1,6 @@
+mod color;
 use crate::{Result, invalid};
+pub use color::{BlackWhite, ColorBalance};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -11,6 +13,11 @@ pub enum Kind {
     #[serde(rename = "Gradient Map")]
     GradientMap,
     Grain,
+    Invert,
+    #[serde(rename = "Black & White")]
+    BlackWhite,
+    #[serde(rename = "Color Balance")]
+    ColorBalance,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -37,6 +44,10 @@ pub struct Adjustment {
     pub gradient_map_settings: Option<GradientMap>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grain_settings: Option<Grain>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub black_white_settings: Option<BlackWhite>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color_balance_settings: Option<ColorBalance>,
 }
 
 impl Adjustment {
@@ -53,12 +64,16 @@ impl Adjustment {
             exposure_settings: None,
             gradient_map_settings: None,
             grain_settings: None,
+            black_white_settings: None,
+            color_balance_settings: None,
         }
     }
     pub fn validate(&self) -> Result<()> {
         let exposure = self.exposure_settings.unwrap_or_default();
         let grain = self.grain_settings.unwrap_or_default();
-        if !self.hue.is_finite()
+        if !self.black_white_settings.unwrap_or_default().valid()
+            || !self.color_balance_settings.unwrap_or_default().valid()
+            || !self.hue.is_finite()
             || self.hue.abs() > 360.
             || !self.saturation.is_finite()
             || self.saturation.abs() > 100.
@@ -103,6 +118,9 @@ impl Adjustment {
     pub fn apply(&self, rgba: [f64; 4], point: [f64; 2]) -> [f64; 4] {
         let rgb = [rgba[0], rgba[1], rgba[2]];
         let out = match self.kind {
+            Kind::Invert => rgb.map(|v| 1. - v),
+            Kind::BlackWhite => self.black_white_settings.unwrap_or_default().apply(rgb),
+            Kind::ColorBalance => self.color_balance_settings.unwrap_or_default().apply(rgb),
             Kind::HueSaturation => {
                 let fallback = HueSaturation {
                     adjustments: vec![(
