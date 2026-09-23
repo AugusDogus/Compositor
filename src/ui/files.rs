@@ -15,12 +15,12 @@ impl Editor {
                 } else if matches!(action, Action::OpenRaw) {
                     PathPromptOptions::new()
                         .multiple(true)
-                        .title("Open Nikon RAW")
-                        .filters([file_filter("Nikon RAW", &["nef", "nrw"])])
+                        .title("Open Camera RAW")
+                        .filters([file_filter("Camera RAW", compositor::raw::extensions())])
                 } else if matches!(action, Action::OpenPsd) {
                     PathPromptOptions::new()
                         .title("Open Photoshop Document")
-                        .filters([file_filter("Photoshop document", &["psd"])])
+                        .filters([file_filter("Photoshop document", &["psd", "psb"])])
                 } else {
                     PathPromptOptions::new()
                         .multiple(true)
@@ -28,10 +28,10 @@ impl Editor {
                         .filters([file_filter(
                             "Images",
                             &[
-                                "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp", "psd",
+                                "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp", "psd", "psb",
                                 "nef", "nrw",
                             ],
-                        )])
+                        ), file_filter("Camera RAW", compositor::raw::extensions())])
                 };
                 match cx.prompt_for_paths(options) {
                     Ok(response) => self.await_response(cx, operation, response, move |this, result, cx| {

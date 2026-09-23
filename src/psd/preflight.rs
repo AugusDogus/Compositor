@@ -36,9 +36,18 @@ impl<'a> Cursor<'a> {
         let v = self.take(4)?;
         Ok(u32::from_be_bytes([v[0], v[1], v[2], v[3]]))
     }
-    fn section(&mut self) -> Result<Cursor<'a>> {
-        let size = self.u32()? as usize;
+    fn length(&mut self, large: bool) -> Result<usize> {
+        let high = if large { self.u32()? } else { 0 };
+        let low = self.u32()?;
+        usize::try_from((u64::from(high) << 32) | u64::from(low))
+            .map_err(|_| invalid("Photoshop section length exceeds this platform's address space."))
+    }
+    fn sized_section(&mut self, large: bool) -> Result<Cursor<'a>> {
+        let size = self.length(large)?;
         Ok(Self::new(self.take(size)?))
+    }
+    fn section(&mut self) -> Result<Cursor<'a>> {
+        self.sized_section(false)
     }
     fn remaining(&self) -> usize {
         self.bytes.len() - self.offset
@@ -72,11 +81,15 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
     if c.take(4)? != b"8BPS" {
         return Err(invalid("This file is not a Photoshop PSD."));
     }
-    if c.u16()? != 1 {
-        return Err(invalid(
-            "PSB is not supported. Save an 8-bit RGB PSD in Photoshop first.",
-        ));
-    }
+    let large = match c.u16()? {
+        1 => false,
+        2 => true,
+        _ => {
+            return Err(invalid(
+                "Unsupported Photoshop document version. Use PSD or PSB.",
+            ));
+        }
+    };
     c.take(6)?;
     let channels = c.u16()?;
     if !(1..=56).contains(&channels) {
@@ -139,7 +152,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
         c.offset,
         &retained_resources,
     );
-    let mut section = c.section()?;
+    let mut section = c.sized_section(large)?;
     if section.remaining() == 0 {
         return Ok(Prepared {
             report,
@@ -147,7 +160,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             bytes: decoder_bytes,
         });
     }
-    let mut layers = section.section()?;
+    let mut layers = section.sized_section(large)?;
     if layers.remaining() == 0 {
         return Ok(Prepared {
             report,
@@ -173,7 +186,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
         }
         for _ in 0..channels {
             layers.take(2)?;
-            let len = layers.u32()? as usize;
+            let len = layers.length(large)?;
             channel_bytes = channel_bytes
                 .checked_add(len)
                 .ok_or_else(|| invalid("PSD channel sizes overflow."))?;
@@ -184,7 +197,8 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
         let blend = layers.take(4)?;
         if ![
             b"norm", b"mul ", b"scrn", b"over", b"sLit", b"dark", b"lite", b"diff", b"div ",
-            b"idiv", b"hue ", b"sat ", b"colr", b"lum ", b"pass",
+            b"idiv", b"lbrn", b"lddg", b"hLit", b"vLit", b"lLit", b"pLit", b"hMix", b"smud",
+            b"fsub", b"fdiv", b"hue ", b"sat ", b"colr", b"lum ", b"pass",
         ]
         .iter()
         .any(|known| known.as_slice() == blend)
@@ -219,9 +233,14 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
         let pad = (4 - (name + 1) % 4) % 4;
         extra.take(pad)?;
         while extra.remaining() >= 12 {
-            extra.take(4)?;
+            let signature = extra.take(4)?;
+            if !matches!(signature, b"8BIM" | b"8B64") {
+                return Err(invalid("Photoshop layer metadata signature is invalid."));
+            }
             let key = extra.take(4)?;
-            let len = extra.u32()? as usize;
+            let large_key =
+                std::str::from_utf8(key).is_ok_and(ag_psd::additional_info::is_large_key);
+            let len = extra.length(signature == b"8B64" || (large && large_key))?;
             let payload = extra.take(len)?;
             super::adjustments::validate_record(key, payload)?;
             entry.read(key, payload)?;
