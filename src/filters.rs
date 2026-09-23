@@ -33,6 +33,11 @@ pub enum Filter {
         amount: f64,
         radius: f64,
     },
+    TonalContrast {
+        amount: f64,
+        radius: f64,
+        tones: [f64; 3],
+    },
     ContentFill,
 }
 
@@ -180,6 +185,11 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
         Filter::Lens { distortion } => native_pixels::lens(&source, distortion)?,
         Filter::Vignette(settings) => finishing::vignette(&source, settings, fills_clear)?,
         Filter::Bloom { amount, radius } => finishing::bloom(&source, amount, radius)?,
+        Filter::TonalContrast {
+            amount,
+            radius,
+            tones,
+        } => finishing::tonal(&source, amount, radius, tones)?,
         Filter::ContentFill => {
             let selection = selection
                 .as_ref()

@@ -52,6 +52,20 @@ impl Editor {
                     ("Radius", radius.to_string()),
                 ],
             ),
+            Filter::TonalContrast {
+                amount,
+                radius,
+                tones,
+            } => (
+                "Tonal Contrast",
+                vec![
+                    ("Amount", amount.to_string()),
+                    ("Radius", radius.to_string()),
+                    ("Shadows", tones[0].to_string()),
+                    ("Midtones", tones[1].to_string()),
+                    ("Highlights", tones[2].to_string()),
+                ],
+            ),
             Filter::ContentFill => ("Content-Aware Fill", Vec::new()),
         }
     }
@@ -95,6 +109,11 @@ impl Editor {
             Filter::Bloom { .. } => Filter::Bloom {
                 amount: n(0)?,
                 radius: n(1)?,
+            },
+            Filter::TonalContrast { .. } => Filter::TonalContrast {
+                amount: n(0)?,
+                radius: n(1)?,
+                tones: [n(2)?, n(3)?, n(4)?],
             },
             Filter::ContentFill => Filter::ContentFill,
         })

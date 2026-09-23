@@ -109,6 +109,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             ),
             command("Vignette…", "", Action::Filter(compositor::filters::Filter::Vignette(Default::default()))),
             command("Bloom / Glow…", "", Action::Filter(compositor::filters::Filter::Bloom { amount: 40., radius: 24. })),
+            command("Tonal Contrast…", "", Action::Filter(compositor::filters::Filter::TonalContrast { amount: 50., radius: 16., tones: [40., 60., 30.] })),
             command("Remove Background…", "", Action::RemoveBackground),
         ],
         6 => vec![

@@ -107,6 +107,41 @@ pub(super) fn vignette(image: &RgbaImage, s: Vignette, fills_clear: bool) -> Res
     Ok(native_pixels::unpremultiply(pixels))
 }
 
+pub(super) fn tonal(
+    image: &RgbaImage,
+    amount: f64,
+    radius: f64,
+    tones: [f64; 3],
+) -> Result<RgbaImage> {
+    range(amount, 0., 100.)?;
+    range(radius, 1., 100.)?;
+    for tone in tones {
+        range(tone, -100., 100.)?;
+    }
+    if amount == 0. || tones == [0.; 3] {
+        return Ok(image.clone());
+    }
+    let mut pixels = native_pixels::premultiply(image);
+    let base = blur(&pixels, radius as f32)?;
+    let (w, h) = pixels.dimensions();
+    // SAFETY: both validated buffers share dimensions and packed premultiplied RGBA layout.
+    unsafe {
+        adjust_tonal_contrast(
+            pixels.as_mut_ptr(),
+            base.as_ptr(),
+            w as usize,
+            h as usize,
+            w as usize * 4,
+            w as usize * 4,
+            amount,
+            tones[0],
+            tones[1],
+            tones[2],
+        );
+    }
+    Ok(native_pixels::unpremultiply(pixels))
+}
+
 pub(super) fn bloom(image: &RgbaImage, amount: f64, radius: f64) -> Result<RgbaImage> {
     range(amount, 0., 100.)?;
     range(radius, 1., 150.)?;
@@ -187,6 +222,23 @@ mod tests {
             image
         );
         assert_eq!(bloom(&image, 0., 24.).unwrap(), image);
+        assert_eq!(tonal(&image, 0., 16., [40., 60., 30.]).unwrap(), image);
+    }
+    #[test]
+    fn finishing_filters_validate_before_mutating() {
+        let image = RgbaImage::from_pixel(9, 9, Rgba([80, 100, 130, 255]));
+        assert!(
+            vignette(
+                &image,
+                Vignette {
+                    color: [f64::NAN, 0., 0.],
+                    ..Default::default()
+                },
+                false
+            )
+            .is_err()
+        );
         assert!(bloom(&image, 40., f64::INFINITY).is_err());
+        assert!(tonal(&image, 50., 16., [101., 0., 0.]).is_err());
     }
 }
