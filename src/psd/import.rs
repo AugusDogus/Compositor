@@ -230,6 +230,16 @@ fn import_mask(
 fn from_blend(mode: BlendMode, report: &mut ConversionReport) -> Blend {
     match mode {
         BlendMode::Normal => Blend::Normal,
+        BlendMode::LinearBurn => Blend::LinearBurn,
+        BlendMode::LinearDodge => Blend::LinearDodge,
+        BlendMode::HardLight => Blend::HardLight,
+        BlendMode::VividLight => Blend::VividLight,
+        BlendMode::LinearLight => Blend::LinearLight,
+        BlendMode::PinLight => Blend::PinLight,
+        BlendMode::HardMix => Blend::HardMix,
+        BlendMode::Exclusion => Blend::Exclusion,
+        BlendMode::Subtract => Blend::Subtract,
+        BlendMode::Divide => Blend::Divide,
         BlendMode::Multiply => Blend::Multiply,
         BlendMode::Screen => Blend::Screen,
         BlendMode::Overlay => Blend::Overlay,

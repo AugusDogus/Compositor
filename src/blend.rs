@@ -20,10 +20,30 @@ pub enum Blend {
     Saturation,
     Color,
     Luminosity,
+    #[serde(rename = "Linear Burn")]
+    LinearBurn,
+    #[serde(rename = "Linear Dodge (Add)")]
+    LinearDodge,
+    #[serde(rename = "Hard Light")]
+    HardLight,
+    #[serde(rename = "Vivid Light")]
+    VividLight,
+    #[serde(rename = "Linear Light")]
+    LinearLight,
+    #[serde(rename = "Pin Light")]
+    PinLight,
+    #[serde(rename = "Hard Mix")]
+    HardMix,
+    #[serde(rename = "Exclusion")]
+    Exclusion,
+    #[serde(rename = "Subtract")]
+    Subtract,
+    #[serde(rename = "Divide")]
+    Divide,
 }
 
 impl Blend {
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 24] = [
         Self::Normal,
         Self::Multiply,
         Self::Screen,
@@ -38,6 +58,16 @@ impl Blend {
         Self::Saturation,
         Self::Color,
         Self::Luminosity,
+        Self::LinearBurn,
+        Self::LinearDodge,
+        Self::HardLight,
+        Self::VividLight,
+        Self::LinearLight,
+        Self::PinLight,
+        Self::HardMix,
+        Self::Exclusion,
+        Self::Subtract,
+        Self::Divide,
     ];
 
     pub fn label(self) -> &'static str {
@@ -56,6 +86,16 @@ impl Blend {
             Self::Saturation => "Saturation",
             Self::Color => "Color",
             Self::Luminosity => "Luminosity",
+            Self::LinearBurn => "Linear Burn",
+            Self::LinearDodge => "Linear Dodge (Add)",
+            Self::HardLight => "Hard Light",
+            Self::VividLight => "Vivid Light",
+            Self::LinearLight => "Linear Light",
+            Self::PinLight => "Pin Light",
+            Self::HardMix => "Hard Mix",
+            Self::Exclusion => "Exclusion",
+            Self::Subtract => "Subtract",
+            Self::Divide => "Divide",
         }
     }
 
@@ -94,6 +134,40 @@ impl Blend {
                         b[i] + (2. * s[i] - 1.) * (d - b[i])
                     }
                 }
+                Self::LinearBurn => (b[i] + s[i] - 1.).max(0.),
+                Self::LinearDodge => (b[i] + s[i]).min(1.),
+                Self::HardLight => {
+                    if s[i] <= 0.5 {
+                        2. * b[i] * s[i]
+                    } else {
+                        1. - 2. * (1. - b[i]) * (1. - s[i])
+                    }
+                }
+                Self::VividLight => vivid_light(b[i], s[i]),
+                Self::LinearLight => (b[i] + 2. * s[i] - 1.).clamp(0., 1.),
+                Self::PinLight => {
+                    if s[i] <= 0.5 {
+                        b[i].min(2. * s[i])
+                    } else {
+                        b[i].max(2. * s[i] - 1.)
+                    }
+                }
+                Self::HardMix => {
+                    if vivid_light(b[i], s[i]) < 0.5 {
+                        0.
+                    } else {
+                        1.
+                    }
+                }
+                Self::Exclusion => b[i] + s[i] - 2. * b[i] * s[i],
+                Self::Subtract => (b[i] - s[i]).max(0.),
+                Self::Divide => {
+                    if s[i] == 0. {
+                        1.
+                    } else {
+                        (b[i] / s[i]).min(1.)
+                    }
+                }
                 Self::Darken => b[i].min(s[i]),
                 Self::Lighten => b[i].max(s[i]),
                 Self::Difference => (b[i] - s[i]).abs(),
@@ -125,6 +199,24 @@ impl Blend {
                 / alpha;
         }
         out
+    }
+}
+
+fn vivid_light(bottom: f64, source: f64) -> f64 {
+    if source <= 0.5 {
+        if bottom == 1. {
+            1.
+        } else if source == 0. {
+            0.
+        } else {
+            1. - ((1. - bottom) / (2. * source)).min(1.)
+        }
+    } else if bottom == 0. {
+        0.
+    } else if source == 1. {
+        1.
+    } else {
+        (bottom / (2. * (1. - source))).min(1.)
     }
 }
 
@@ -167,6 +259,30 @@ fn set_sat(mut c: [f64; 3], value: f64) -> [f64; 3] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn added_modes_match_srgb_reference_values_and_serialize() {
+        for (mode, expected) in [
+            (Blend::LinearBurn, 0.2),
+            (Blend::LinearDodge, 1.),
+            (Blend::HardLight, 0.76),
+            (Blend::VividLight, 1.),
+            (Blend::LinearLight, 1.),
+            (Blend::PinLight, 0.6),
+            (Blend::HardMix, 1.),
+            (Blend::Exclusion, 0.56),
+            (Blend::Subtract, 0.),
+            (Blend::Divide, 0.5),
+        ] {
+            let actual = mode.composite([0.4, 0.4, 0.4, 1.], [0.8, 0.8, 0.8, 1.]);
+            assert!((actual[0] - expected).abs() < 1e-10, "{mode:?}: {actual:?}");
+            assert_eq!(
+                serde_json::from_str::<Blend>(&serde_json::to_string(&mode).unwrap()).unwrap(),
+                mode
+            );
+            let partial = mode.composite([0.4, 0.4, 0.4, 0.5], [0.8, 0.8, 0.8, 0.5]);
+            assert!((partial[0] - (1.2 + expected) / 3.).abs() < 1e-10);
+        }
+    }
     #[test]
     fn soft_light_uses_pdf_curve_and_straight_alpha() {
         for (bottom, top, expected) in [

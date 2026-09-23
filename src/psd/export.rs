@@ -224,6 +224,16 @@ fn bake_layer(
 fn to_blend(mode: Blend) -> BlendMode {
     match mode {
         Blend::Normal => BlendMode::Normal,
+        Blend::LinearBurn => BlendMode::LinearBurn,
+        Blend::LinearDodge => BlendMode::LinearDodge,
+        Blend::HardLight => BlendMode::HardLight,
+        Blend::VividLight => BlendMode::VividLight,
+        Blend::LinearLight => BlendMode::LinearLight,
+        Blend::PinLight => BlendMode::PinLight,
+        Blend::HardMix => BlendMode::HardMix,
+        Blend::Exclusion => BlendMode::Exclusion,
+        Blend::Subtract => BlendMode::Subtract,
+        Blend::Divide => BlendMode::Divide,
         Blend::Multiply => BlendMode::Multiply,
         Blend::Screen => BlendMode::Screen,
         Blend::Overlay => BlendMode::Overlay,
