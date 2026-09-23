@@ -155,10 +155,16 @@ impl DecodedRaw {
     }
 }
 
+/// File extensions recognized by the native decoder. Individual camera encodings
+/// and sensor layouts are checked during decoding.
+pub fn extensions() -> &'static [&'static str] {
+    rawler::decoders::supported_extensions()
+}
+
 pub fn is_raw(path: &Path) -> bool {
     path.extension()
         .and_then(|s| s.to_str())
-        .is_some_and(|s| s.eq_ignore_ascii_case("nef") || s.eq_ignore_ascii_case("nrw"))
+        .is_some_and(|s| extensions().iter().any(|ext| s.eq_ignore_ascii_case(ext)))
 }
 
 pub fn open(path: &Path) -> Result<(RawAsset, DecodedRaw)> {
@@ -206,8 +212,9 @@ fn decode_inner(bytes: &[u8]) -> Result<DecodedRaw> {
     validate_size(dimension(header.width)?, dimension(header.height)?)?;
     ensure(
         matches!(&header.photometric, RawPhotometricInterpretation::Cfa(c)
-        if c.cfa.is_rgb() && c.cfa.width == 2 && c.cfa.height == 2),
-        "This RAW sensor layout is not supported; an RGB Bayer NEF is required",
+        if c.cfa.is_rgb() && c.cfa.width == 2 && c.cfa.height == 2)
+            || (header.photometric == RawPhotometricInterpretation::LinearRaw && header.cpp == 3),
+        "This RAW sensor layout is not supported; an RGB Bayer or linear RGB camera file is required. Export a TIFF from your camera software to import this image.",
     )?;
     let decoder = rawler::get_decoder(&source).map_err(decode_error)?;
     let params = RawDecodeParams::default();

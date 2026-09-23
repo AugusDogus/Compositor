@@ -331,3 +331,24 @@ fn transforming_and_duplicating_raw_keeps_shared_source_and_independent_settings
     ));
     doc.validate().unwrap();
 }
+
+#[test]
+fn recognizes_camera_families_case_insensitively() {
+    for filename in [
+        "canon.CR3",
+        "canon.cr2",
+        "canon.crw",
+        "sony.ArW",
+        "olympus.orf",
+        "pentax.pef",
+        "panasonic.rw2",
+        "digital.dng",
+        "nikon.nef",
+        "nikon.NRW",
+    ] {
+        assert!(is_raw(Path::new(filename)), "{filename}");
+    }
+    for filename in ["image.png", "image.tiff", "document.comp", "no_extension"] {
+        assert!(!is_raw(Path::new(filename)), "{filename}");
+    }
+}
