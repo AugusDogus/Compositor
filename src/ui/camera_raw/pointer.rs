@@ -59,7 +59,9 @@ impl Editor {
             .raster()
             .ok_or_else(|| compositor::invalid("The Camera Raw layer has no pixels."))?;
         let unit = layer.transform.unit(point);
-        self.camera_raw.readout = sampling::sample(source, unit);
+        self.camera_raw.readout = self
+            .camera_scope_pixels()
+            .and_then(|pixels| sampling::sample(pixels, unit));
         if event.phase == PointerPhase::Down && event.button == MouseButton::Left {
             let rgb = match sampling::sample(source, unit) {
                 Some(rgb) => rgb,

@@ -651,6 +651,7 @@ impl View for Editor {
             }
             Event::ModifiersChanged(modifiers) => {
                 self.selection_scroll_modifiers(*modifiers);
+                self.camera_preview_modifiers(*modifiers);
                 if self.keyboard_modifiers != *modifiers {
                     self.keyboard_modifiers = *modifiers;
                     cx.invalidate();

@@ -2,6 +2,16 @@ use super::*;
 use compositor::camera_raw::Clipping;
 use quickgui::{PointerEvent, PointerPhase};
 impl Editor {
+    pub(in crate::ui) fn camera_preview_modifiers(&mut self, modifiers: Modifiers) {
+        if !modifiers.contains(Modifiers::ALT)
+            && (self.camera_raw.preview.clipping.is_some() || self.camera_raw.preview.sharpen_mask)
+        {
+            self.camera_raw.preview.clipping = None;
+            self.camera_raw.preview.sharpen_mask = false;
+            self.refresh_filter();
+        }
+    }
+
     pub(in crate::ui) fn camera_slider_preview(
         &mut self,
         scalar: super::super::scalar_controls::Scalar,

@@ -56,6 +56,21 @@ impl Edit {
     }
 }
 impl Editor {
+    pub(super) fn reset_camera_parameter(&mut self, index: usize) {
+        if self.filter_applying() {
+            return;
+        }
+        let mut defaults = Edit {
+            group: self.camera_raw.group,
+            mixer_page: self.camera_raw.mixer_page,
+            ..Default::default()
+        };
+        defaults.settings.mixer.points.push(Default::default());
+        if let Some((_, value)) = defaults.fields().get(index) {
+            self.update_form_field(index, value);
+        }
+    }
+
     pub(in crate::ui) fn camera_parameter_control(
         &self,
         cx: &mut ViewContext<'_, Self>,
@@ -89,6 +104,16 @@ impl Editor {
             "camera-param-21",
             "camera-param-22",
         ];
+        let reset =
+            move |this: &mut Self, event: &quickgui::MouseDownEvent, cx: &mut EventContext| {
+                if event.click_count == 2 {
+                    this.reset_camera_parameter(index);
+                    cx.prevent_default();
+                    this.changed(cx);
+                }
+            };
+        let label_reset = cx.mouse_down_listener(format!("camera-reset-{index}"), reset);
+        let slider_reset = cx.mouse_down_listener(*ids.get(index)?, reset);
         Some(
             div()
                 .flex_row()
@@ -100,16 +125,20 @@ impl Editor {
                         .line_height(15.)
                         .w(128.)
                         .flex_shrink_0()
-                        .wrap(),
+                        .wrap()
+                        .on_mouse_down(quickgui::MouseButton::Left, label_reset),
                 )
-                .child(self.scalar_slider(
-                    cx,
-                    ids.get(index)?,
-                    label,
-                    Scalar::Parameter(index, Scale::Linear(decimals)),
-                    (min, max),
-                    120.,
-                ))
+                .child(
+                    self.scalar_slider(
+                        cx,
+                        ids.get(index)?,
+                        label,
+                        Scalar::Parameter(index, Scale::Linear(decimals)),
+                        (min, max),
+                        120.,
+                    )
+                    .on_mouse_down(quickgui::MouseButton::Left, slider_reset),
+                )
                 .child(
                     self.form_number_input(cx, index, value, usize::from(decimals))
                         .w(56.),

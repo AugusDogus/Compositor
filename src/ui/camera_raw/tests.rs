@@ -1,5 +1,38 @@
 use super::*;
 #[test]
+fn scalar_reset_uses_the_parameter_default_and_preserves_other_groups() {
+    let mut editor = Editor::with_test_document();
+    compositor::edits::fill(
+        &mut editor.session_mut().document,
+        [80, 100, 120, 255],
+        false,
+        false,
+    )
+    .unwrap();
+    editor.open_camera_raw().unwrap();
+    editor.update_form_field(0, "2");
+    editor.camera_change(|edit| edit.group = Group::Detail);
+    editor.update_form_field(1, "2.5");
+    editor.reset_camera_parameter(1);
+    assert_eq!(editor.camera_raw.settings.detail.sharpen_radius, 10.);
+    assert_eq!(editor.camera_raw.settings.light.exposure, 2.);
+}
+
+#[test]
+fn releasing_alt_clears_temporary_diagnostics_without_pointer_motion() {
+    let mut editor = Editor::with_test_document();
+    editor.camera_raw.preview.clipping = Some(compositor::camera_raw::Clipping::Highlights);
+    editor.camera_raw.preview.sharpen_mask = true;
+    editor.camera_raw.preview.shadow_overlay = true;
+    editor.camera_preview_modifiers(Modifiers::ALT);
+    assert!(editor.camera_raw.preview.clipping.is_some());
+    editor.camera_preview_modifiers(Modifiers::empty());
+    assert!(editor.camera_raw.preview.clipping.is_none());
+    assert!(!editor.camera_raw.preview.sharpen_mask);
+    assert!(editor.camera_raw.preview.shadow_overlay);
+}
+
+#[test]
 fn switching_camera_groups_preserves_drafts_and_cancel_preserves_document() {
     let mut editor = Editor::with_test_document();
     compositor::edits::fill(
