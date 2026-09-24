@@ -34,21 +34,6 @@ fn splits(edit: &Edit) -> [f64; 3] {
     let c = &edit.settings.curve;
     [c.shadow_split, c.dark_split, c.light_split]
 }
-fn parametric(edit: &Edit, tone: f64) -> f64 {
-    let [s, d, l] = splits(edit).map(|v| v / 100.);
-    let c = &edit.settings.curve;
-    let (amount, lo, hi) = if tone < s {
-        (c.shadows, 0., s)
-    } else if tone < d {
-        (c.darks, s, d)
-    } else if tone < l {
-        (c.lights, d, l)
-    } else {
-        (c.highlights, l, 1.)
-    };
-    let weight = (1. - (tone - (lo + hi) / 2.).abs() / ((hi - lo).max(0.02) / 2.)).max(0.);
-    (tone + amount / 100. * weight * 0.22).clamp(0., 1.)
-}
 impl Editor {
     pub(in crate::ui) fn camera_graph_field_visible(&self, index: usize) -> bool {
         match self.camera_raw.bindings().get(index) {
@@ -77,7 +62,12 @@ impl Editor {
         let curves = self.camera_raw.settings.curves.clone();
         let channel = self.camera_raw.channel;
         let samples: Vec<_> = (0..=255)
-            .map(|i| parametric(&self.camera_raw, f64::from(i) / 255.))
+            .map(|i| {
+                self.camera_raw
+                    .settings
+                    .curve
+                    .sample_parametric(f64::from(i) / 255.)
+            })
             .collect();
         let dividers = splits(&self.camera_raw);
         let graph = quickgui::canvas(move |bounds, painter| {

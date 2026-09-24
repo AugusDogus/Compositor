@@ -29,26 +29,33 @@ pub fn sample(source: &RgbaImage, unit: [f64; 2]) -> Option<[f64; 3]> {
     (weight > 0.).then(|| sum.map(|v| v / weight))
 }
 pub fn white_balance(rgb: [f64; 3]) -> Result<[f64; 2]> {
-    let [r, g, b] = rgb.map(|v| {
+    let linear = rgb.map(|v| {
         if v <= 0.04045 {
             v / 12.92
         } else {
             ((v + 0.055) / 1.055).powf(2.4)
         }
     });
+    white_balance_linear(linear).ok_or_else(|| {
+        invalid(
+            "This pixel has too little color information for white balance. Pick a lighter neutral area.",
+        )
+    })
+}
+/// Solve the grade's temperature and tint gains from a linear RGB neutral.
+pub(super) fn white_balance_linear([r, g, b]: [f64; 3]) -> Option<[f64; 2]> {
     let (a1, b1, c1) = (0.35 * r, 0.15 * r + 0.30 * g, g - r);
     let (a2, b2, c2) = (-0.35 * b, 0.15 * b + 0.30 * g, g - b);
     let determinant = a1 * b2 - a2 * b1;
     if r < 1e-4 || g < 1e-4 || b < 1e-4 || determinant.abs() < 1e-8 {
-        return Err(invalid(
-            "This pixel has too little color information for white balance. Pick a lighter neutral area.",
-        ));
+        return None;
     }
-    Ok([
+    Some([
         ((c1 * b2 - c2 * b1) / determinant * 100.).clamp(-100., 100.),
         ((a1 * c2 - a2 * c1) / determinant * 100.).clamp(-100., 100.),
     ])
 }
+
 pub fn hsl([r, g, b]: [f64; 3]) -> [f64; 3] {
     let max = r.max(g).max(b);
     let min = r.min(g).min(b);

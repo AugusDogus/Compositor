@@ -415,17 +415,9 @@ pub fn auto_balance(source: &RgbaImage) -> Result<[f64; 2]> {
             "White balance needs visible pixels. The current settings are preserved.",
         ));
     }
-    let [r, g, b] = sum.map(|x| x / weight);
-    let (a1, b1, c1) = (0.35 * r, 0.15 * r + 0.30 * g, g - r);
-    let (a2, b2, c2) = (-0.35 * b, 0.15 * b + 0.30 * g, g - b);
-    let determinant = a1 * b2 - a2 * b1;
-    if r < 1e-4 || g < 1e-4 || b < 1e-4 || determinant.abs() < 1e-8 {
-        return Err(invalid(
+    sampling::white_balance_linear(sum.map(|x| x / weight)).ok_or_else(|| {
+        invalid(
             "This image has too little color information for automatic white balance. Adjust Temperature and Tint manually.",
-        ));
-    }
-    Ok([
-        ((c1 * b2 - c2 * b1) / determinant * 100.).clamp(-100., 100.),
-        ((a1 * c2 - a2 * c1) / determinant * 100.).clamp(-100., 100.),
-    ])
+        )
+    })
 }

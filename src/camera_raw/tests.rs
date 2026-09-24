@@ -236,3 +236,68 @@ fn guided_geometry_ignores_short_lines_before_computing_corrections() {
     );
     assert_eq!(render(&source, &settings).unwrap(), expected);
 }
+
+#[test]
+fn parametric_curve_maps_regions_and_preserves_split_points() {
+    let curve = scalars::Curve {
+        shadows: 50.,
+        darks: -50.,
+        lights: 25.,
+        highlights: -25.,
+        ..Default::default()
+    };
+    for (input, expected) in [(0.125, 0.235), (0.375, 0.265), (0.625, 0.68), (0.875, 0.82)] {
+        assert!((curve.sample_parametric(input) - expected).abs() < 1e-12);
+    }
+    for input in [0., 0.25, 0.5, 0.75, 1.] {
+        assert_eq!(curve.sample_parametric(input), input);
+    }
+    let settings = Settings {
+        curve,
+        ..Default::default()
+    };
+    let tables = color::tables(&settings);
+    for i in 0..256 {
+        let tone = i as f64 / 255.;
+        assert!((f64::from(tables[0][i]) - settings.curve.sample_parametric(tone)).abs() < 1e-6);
+        for channel in &tables[1..] {
+            assert!((f64::from(channel[i]) - tone).abs() < 1e-6);
+        }
+    }
+}
+
+#[test]
+fn white_balance_solves_linear_gains_and_keeps_caller_errors() {
+    let result = sampling::white_balance_linear([0.4 / 1.055, 0.4 / 1.03, 0.4 / 0.915]).unwrap();
+    for (actual, expected) in result.into_iter().zip([20., -10.]) {
+        assert!((actual - expected).abs() < 1e-10);
+    }
+    assert_eq!(sampling::white_balance_linear([0.5; 3]), Some([0.; 2]));
+    assert_eq!(sampling::white_balance_linear([0.; 3]), None);
+    assert_eq!(
+        sampling::white_balance_linear([0.001, 0.5, 0.9]).unwrap()[0],
+        100.
+    );
+    let pixel = Rgba([150, 130, 110, 255]);
+    let automatic = auto_balance(&RgbaImage::from_pixel(2, 2, pixel)).unwrap();
+    let picked = sampling::white_balance([150., 130., 110.].map(|v| v / 255.)).unwrap();
+    assert_eq!(automatic, picked);
+    assert!(
+        sampling::white_balance([0.; 3])
+            .unwrap_err()
+            .to_string()
+            .contains("This pixel")
+    );
+    assert!(
+        auto_balance(&RgbaImage::from_pixel(1, 1, Rgba([0, 0, 0, 255])))
+            .unwrap_err()
+            .to_string()
+            .contains("This image")
+    );
+    assert!(
+        auto_balance(&RgbaImage::new(1, 1))
+            .unwrap_err()
+            .to_string()
+            .contains("visible pixels")
+    );
+}

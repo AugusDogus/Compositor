@@ -132,28 +132,33 @@ impl ColorGrading {
             .collect()
     }
 }
+impl super::scalars::Curve {
+    /// Map a normalized input tone through the four parametric regions.
+    pub fn sample_parametric(&self, tone: f64) -> f64 {
+        let shadow = self.shadow_split / 100.;
+        let dark = self.dark_split / 100.;
+        let light = self.light_split / 100.;
+        let (amount, lo, hi) = if tone < shadow {
+            (self.shadows, 0., shadow)
+        } else if tone < dark {
+            (self.darks, shadow, dark)
+        } else if tone < light {
+            (self.lights, dark, light)
+        } else {
+            (self.highlights, light, 1.)
+        };
+        let span = (hi - lo).max(0.02);
+        let weight = (1. - (tone - (lo + hi) / 2.).abs() / (span / 2.)).max(0.);
+        (tone + amount / 100. * weight * 0.22).clamp(0., 1.)
+    }
+}
 pub(super) fn tables(s: &super::Settings) -> [[f32; 256]; 4] {
     use crate::adjustment::Channel;
     std::array::from_fn(|channel| {
         std::array::from_fn(|i| {
             let mut tone = i as f64 / 255.;
             if channel == 0 {
-                let c = &s.curve;
-                let shadow = c.shadow_split / 100.;
-                let dark = c.dark_split / 100.;
-                let light = c.light_split / 100.;
-                let (amount, lo, hi) = if tone < shadow {
-                    (c.shadows, 0., shadow)
-                } else if tone < dark {
-                    (c.darks, shadow, dark)
-                } else if tone < light {
-                    (c.lights, dark, light)
-                } else {
-                    (c.highlights, light, 1.)
-                };
-                let span = (hi - lo).max(0.02);
-                let weight = (1. - (tone - (lo + hi) / 2.).abs() / (span / 2.)).max(0.);
-                tone = (tone + amount / 100. * weight * 0.22).clamp(0., 1.);
+                tone = s.curve.sample_parametric(tone);
             }
             let channel = [Channel::RGB, Channel::Red, Channel::Green, Channel::Blue][channel];
             (s.curves.sample(tone * 255., channel) / 255.) as f32
