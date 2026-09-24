@@ -137,7 +137,10 @@ pub(super) fn import(source: &ps::AdjustmentLayer) -> Result<Option<Adjustment>>
             out.hsv_settings = Some(settings);
             out
         }
-        _ => return Ok(None),
+        _ => match super::color_adjustments::import(source) {
+            Some(value) => value,
+            None => return Ok(None),
+        },
     };
     out.validate()?;
     // Retain legacy master fields for other project consumers as well.
@@ -261,7 +264,7 @@ pub(super) fn export(source: &Adjustment) -> Option<ps::AdjustmentLayer> {
                 ..Default::default()
             })
         }
-        _ => return None,
+        _ => return super::color_adjustments::export(source),
     })
 }
 
@@ -272,6 +275,9 @@ pub(super) fn validate_record(key: &[u8], payload: &[u8]) -> Result<()> {
         b"levl" => "levl",
         b"curv" => "curv",
         b"hue2" => "hue2",
+        b"blnc" => "blnc",
+        b"blwh" => "blwh",
+        b"nvrt" => "nvrt",
         _ => return Ok(()),
     };
     let mut reader = ag_psd::reader::PsdReader::new(payload, None, None);

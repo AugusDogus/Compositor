@@ -769,3 +769,57 @@ fn malformed_supported_adjustment_is_not_silently_lost() {
     let error = psd::decode(&bytes).err().unwrap().to_string();
     assert!(error.contains("hue2 adjustment data is invalid"), "{error}");
 }
+
+#[test]
+fn photoshop_color_adjustments_remain_editable() {
+    use compositor::adjustment::{Adjustment, BlackWhite, ColorBalance, Kind};
+    let mut doc = Document::new(3, 2).unwrap();
+    doc.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(
+        3,
+        2,
+        Rgba([80, 120, 150, 255]),
+    ))));
+    for kind in [Kind::Invert, Kind::BlackWhite, Kind::ColorBalance] {
+        let mut adjustment = Adjustment::new(kind);
+        if kind == Kind::BlackWhite {
+            adjustment.black_white_settings = Some(BlackWhite {
+                reds: 75.,
+                blues: 42.,
+                ..Default::default()
+            });
+        }
+        if kind == Kind::ColorBalance {
+            adjustment.color_balance_settings = Some(ColorBalance {
+                shadow_cyan_red: 25.,
+                mid_yellow_blue: -30.,
+                preserve_luminosity: false,
+                ..Default::default()
+            });
+        }
+        let mut layer = Layer::blank(format!("{kind:?}"), 3, 2);
+        layer.content = LayerContent::Adjustment(Box::new(adjustment));
+        doc.add(layer).unwrap();
+    }
+    assert!(psd::export_report(&doc).changes.is_empty());
+    let imported = psd::decode(&psd::encode(&doc).unwrap()).unwrap().document;
+    for (original, restored) in doc
+        .layers
+        .iter()
+        .skip(1)
+        .zip(imported.layers.iter().skip(1))
+    {
+        let (LayerContent::Adjustment(a), LayerContent::Adjustment(b)) =
+            (&original.content, &restored.content)
+        else {
+            panic!("adjustment rasterized")
+        };
+        assert_eq!(a.kind, b.kind);
+        let left = a.apply([0.3, 0.4, 0.5, 1.], [0., 0.]);
+        let right = b.apply([0.3, 0.4, 0.5, 1.], [0., 0.]);
+        assert!(
+            left.into_iter()
+                .zip(right)
+                .all(|(a, b)| (a - b).abs() < 0.001)
+        );
+    }
+}
