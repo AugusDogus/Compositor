@@ -15,7 +15,7 @@ pub(super) fn path() -> Option<PathBuf> {
 pub(super) fn read(path: &Path) -> Result<bool> {
     let file = match std::fs::File::open(path) {
         Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
         Err(error) => return Err(error.into()),
     };
     let mut value = String::new();
@@ -45,10 +45,10 @@ pub(super) fn save(path: &Path, enabled: bool) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
-    fn checks_require_explicit_persisted_opt_in_and_reject_invalid_preferences() {
+    fn checks_default_on_respect_opt_out_and_reject_invalid_preferences() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("updates");
-        assert!(!read(&path).unwrap());
+        assert!(read(&path).unwrap());
         save(&path, true).unwrap();
         assert!(read(&path).unwrap());
         save(&path, false).unwrap();
