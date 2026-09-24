@@ -1,4 +1,61 @@
 use super::*;
+
+#[test]
+fn point_range_preview_tracks_selection_add_remove_pick_and_reset() {
+    use quickgui::{Application, PointerPhase, WindowOptions};
+    let mut editor = Editor::with_test_document();
+    compositor::edits::fill(
+        &mut editor.session_mut().document,
+        [180, 110, 60, 255],
+        false,
+        false,
+    )
+    .unwrap();
+    editor.open_camera_raw().unwrap();
+    editor.camera_change(|edit| {
+        edit.group = Group::Mixer;
+        edit.mixer_page = MixerPage::Points;
+        edit.settings.mixer.points = vec![Default::default(); 2];
+    });
+    let (mut cx, view) = Application::new()
+        .font(crate::UI_FONT)
+        .into_test_context(
+            WindowOptions::new("Point Color preview").size(1280., 1400.),
+            editor,
+        )
+        .unwrap();
+    let window = view.window_handle();
+    for (control, expected) in [
+        ("camera-point-visualize", Some(0)),
+        ("camera-point-1", Some(1)),
+        ("camera-point-add", Some(2)),
+        ("camera-point-remove", Some(1)),
+        ("camera-point-remove", Some(0)),
+        ("camera-point-remove", None),
+        ("camera-point-add", None),
+        ("camera-point-visualize", Some(0)),
+    ] {
+        cx.click(window, control).unwrap();
+        cx.read(view, |editor| {
+            assert_eq!(editor.camera_raw.preview.point_color, expected, "{control}");
+        })
+        .unwrap();
+    }
+    cx.update(view, |editor, _| {
+        editor.camera_raw.tool = super::pointer::Tool::PointColor;
+        canvas_pointer(editor, PointerPhase::Down, [0.5, 0.5]);
+        assert_eq!(editor.camera_raw.preview.point_color, Some(1));
+    })
+    .unwrap();
+    cx.click(window, "camera-group-reset").unwrap();
+    cx.read(view, |editor| {
+        assert!(editor.camera_raw.settings.mixer.points.is_empty());
+        assert_eq!(editor.camera_raw.point, 0);
+        assert_eq!(editor.camera_raw.preview.point_color, None);
+    })
+    .unwrap();
+}
+
 #[test]
 fn scalar_reset_uses_the_parameter_default_and_preserves_other_groups() {
     let mut editor = Editor::with_test_document();

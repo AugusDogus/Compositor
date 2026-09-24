@@ -92,6 +92,15 @@ impl Editor {
             .child(self.camera_preview_controls(cx))
     }
     fn sync_camera_fields(&mut self) {
+        let edit = &mut self.camera_raw;
+        edit.point = edit
+            .point
+            .min(edit.settings.mixer.points.len().saturating_sub(1));
+        // Range visualization follows the selected color, including after list edits.
+        if edit.preview.point_color.is_some() {
+            edit.preview.point_color =
+                (!edit.settings.mixer.points.is_empty()).then_some(edit.point);
+        }
         self.camera_raw
             .groups
             .select_id(self.camera_raw.group.name());
