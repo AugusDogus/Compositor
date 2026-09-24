@@ -52,7 +52,8 @@ impl Plane {
     pub fn set(&mut self, x: usize, y: usize, pixel: [f32; 4]) -> Result<()> {
         let key = (x / SIDE, y / SIDE);
         if !self.tiles.contains_key(&key)
-            && (self.tiles.len() as u64 + 1) * (SIDE * SIDE) as u64 > crate::document::MAX_SURFACE_PIXELS
+            && (self.tiles.len() as u64 + 1) * (SIDE * SIDE) as u64
+                > crate::document::MAX_SURFACE_PIXELS
         {
             return Err(invalid(
                 "This warp stroke exceeds 200 million working pixels. Use a shorter stroke or smaller brush. Cancel the stroke to preserve the original layer.",

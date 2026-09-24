@@ -723,4 +723,3 @@ mod tests {
         assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([255, 0, 0, 128]));
     }
 }
-

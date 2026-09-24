@@ -279,8 +279,11 @@ impl Editor {
             if this.camera_sampling() {
                 cx.focus(focus);
                 let result = this.camera_sample_pointer(event);
-                if this.camera_tool_active() || result.is_err() { this.result(result, cx); }
-                else { cx.invalidate(); }
+                if this.camera_tool_active() || result.is_err() {
+                    this.result(result, cx);
+                } else {
+                    cx.invalidate();
+                }
                 return;
             }
             if this.adjustment_sampling() {

@@ -272,9 +272,7 @@ mod tests {
         );
         cx.simulate_context_menu(window, id.clone(), point, Modifiers::empty())
             .unwrap();
-        let hide = cx
-            .read(view, |e| e.menus.command_id("Hide Layer"))
-            .unwrap();
+        let hide = cx.read(view, |e| e.menus.command_id("Hide Layer")).unwrap();
         cx.click(window, hide).unwrap();
         cx.read(view, |e| {
             let doc = &e.session().document;
