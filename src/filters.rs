@@ -111,6 +111,7 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
     let fills_clear = matches!(filter, Filter::Vignette(_))
         && matches!(expanded.content, LayerContent::Raster(None));
     if fills_clear {
+        validate_size(canvas.0, canvas.1)?;
         expanded.content = LayerContent::Raster(Some(Arc::new(RgbaImage::new(canvas.0, canvas.1))));
         expanded.transform = Transform::new(canvas.0, canvas.1);
     }
@@ -273,6 +274,15 @@ pub fn gaussian_rgba(image: &RgbaImage, radius: f32) -> Result<RgbaImage> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn vignette_rejects_oversized_sparse_canvas_before_allocating_pixels() {
+        let mut doc = Document::new(30_000, 30_000).unwrap();
+        let original = doc.clone();
+        let error = apply(&mut doc, Filter::Vignette(Vignette::default()), false).unwrap_err();
+        assert!(error.to_string().contains("200 million pixels"));
+        assert_eq!(doc, original);
+    }
+
     fn document() -> Document {
         let mut doc = Document::new(15, 15).unwrap();
         doc.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(
