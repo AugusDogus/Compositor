@@ -90,6 +90,22 @@ impl Editor {
 mod tests {
     use super::*;
     #[test]
+    fn keyboard_transform_toggle_is_saved_without_another_edit() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("tool-defaults.json");
+        let mut editor = Editor::with_test_document();
+        editor.tool_defaults.path = Some(path.clone());
+        let (mut cx, view) = quickgui::Application::new()
+            .into_test_context(
+                quickgui::WindowOptions::new("Tool toggles").size(1280., 900.),
+                editor,
+            )
+            .unwrap();
+        cx.simulate_keystrokes(view.window_handle(), "ctrl-h")
+            .unwrap();
+        assert!(!Toggles::read(&path).unwrap().transform_controls);
+    }
+    #[test]
     fn toggles_persist_and_follow_tabs_without_moving_brush_settings() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("toggles.json");

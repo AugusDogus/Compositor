@@ -695,7 +695,7 @@ impl Editor {
                 "h" if !alt && self.tools.tool == Tool::Move => {
                     cx.prevent_default();
                     self.tools.show_transform_controls = !self.tools.show_transform_controls;
-                    cx.invalidate();
+                    self.changed(cx);
                     None
                 }
                 "r" if !alt && !shift => Some(Action::Rulers),
