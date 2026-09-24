@@ -30,7 +30,7 @@ The packaging scripts bundle native inference dependencies and prepare the model
 
 ## Workflow
 
-`.github/workflows/linux-release.yml` runs on pull requests, pushes to `main`, version tags, and manual dispatch. It installs Rust 1.94.0 on Ubuntu 24.04, checks formatting and Clippy, runs the ordinary tests with four test threads, builds the AppImage, and verifies the extracted payload. GPU and external-fixture tests remain explicit local checks.
+`.github/workflows/linux-release.yml` runs on pull requests, pushes to `main`, version tags, and manual dispatch. It installs Rust 1.94.0 on Ubuntu 24.04, checks formatting and Clippy, runs the ordinary tests with four test threads, builds the AppImage, and verifies the extracted payload. Payload checks also run bundled CPU inference and a real Fujifilm X-Trans fixture. Hardware GPU and other external-fixture tests remain explicit local checks.
 
 Branch, pull-request and manual runs upload a `compositor-linux-x86_64` Actions artifact without publishing a release. Pushing `v<VERSION>` runs the same validation and then publishes a release. The tag must exactly match the package version in `Cargo.toml`. Prerelease versions produce prereleases. The release job alone receives `contents: write`; it does not use a personal access token or signing key.
 
@@ -46,9 +46,11 @@ Do not move published tags or overwrite released artifacts. Publish a new versio
 - `Compositor-<VERSION>-x86_64.AppImage`: the desktop application with its icon, launcher, client libraries, image codecs, ONNX Runtime, the Vulkan/WebGPU plugin, BiRefNet and SAM 3.1 models and license notices.
 - `Compositor-<VERSION>-linux-x86_64.bin`: a raw executable for existing standalone installations, which still require compatible system libraries.
 - `.sha256` files: checksums for the two executable artifacts.
-- `linux-update.json`: the version feed for standalone executable installations.
+- `linux-update.json`: the version feed used by standalone installations and AppImage update checks.
 
-The AppImage requires glibc 2.39 or newer. It includes the libheif HEIC decoder plugin and dynamically loaded Wayland/X11 and graphics client libraries. It uses the host's graphics drivers and desktop portals. Native inference libraries, full BiRefNet Dynamic models and SAM 3.1 are bundled at build time. Background removal and object selection work offline without a setup command. The same artifact supports NVIDIA and AMD through Vulkan with FP16 shader support. Graphics drivers remain a host requirement; machines without a compatible hardware adapter select CPU inference automatically. Zstandard compression reduces the complete bundle's download size. Packaging enforces GitHub's 2 GiB per-asset limit.
+The AppImage requires glibc 2.39 or newer. It includes the LibRaw camera decoder, libheif HEIC decoder plugin and dynamically loaded Wayland/X11 and graphics client libraries. It uses the host's graphics drivers and desktop portals. Native inference libraries, full BiRefNet Dynamic models and SAM 3.1 are bundled at build time. Background removal and object selection work offline without a setup command. The same artifact supports NVIDIA and AMD through Vulkan with FP16 shader support. Graphics drivers remain a host requirement; machines without a compatible hardware adapter select CPU inference automatically. Zstandard compression reduces the complete bundle's download size. Packaging enforces GitHub's 2 GiB per-asset limit.
+
+Automatic update checks run on launch by default, including in AppImages. Help > Check for Updates can disable them. AppImage updates open GitHub Releases; close the editor before replacing the downloaded package.
 
 ## Local validation
 
