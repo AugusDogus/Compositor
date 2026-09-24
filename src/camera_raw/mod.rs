@@ -182,6 +182,78 @@ impl Settings {
     pub fn enabled(&self, group: Group) -> bool {
         self.enabled[group as usize]
     }
+    /// Whether the group contributes pixels. Support controls stay idle until
+    /// their effect amount is enabled, matching upstream's identity checks.
+    fn adjusts(&self, group: Group) -> bool {
+        match group {
+            Group::Light => self.light != Default::default(),
+            Group::Color => self.color != Default::default(),
+            Group::Effects => {
+                let e = &self.effects;
+                [
+                    e.texture,
+                    e.clarity,
+                    e.dehaze,
+                    e.glow,
+                    e.vignette_amount,
+                    e.grain_amount,
+                ]
+                .iter()
+                .any(|v| *v != 0.)
+            }
+            Group::Curve => {
+                let c = &self.curve;
+                [
+                    c.shadows,
+                    c.darks,
+                    c.lights,
+                    c.highlights,
+                    c.refine_saturation,
+                ]
+                .iter()
+                .any(|v| *v != 0.)
+                    || self.curves != Default::default()
+            }
+            Group::Mixer => {
+                let m = &self.mixer;
+                m.hue
+                    .iter()
+                    .chain(&m.saturation)
+                    .chain(&m.luminance)
+                    .any(|v| *v != 0.)
+                    || m.points.iter().any(|p| {
+                        p.hue_shift != 0. || p.saturation_shift != 0. || p.luminance_shift != 0.
+                    })
+            }
+            Group::Grading => self
+                .grading
+                .wheels
+                .iter()
+                .any(|w| w.saturation != 0. || w.luminance != 0.),
+            Group::Detail => {
+                let d = &self.detail;
+                d.sharpen_amount != 0. || d.noise_luminance != 0. || d.noise_color != 0.
+            }
+            Group::Optics => {
+                let o = &self.optics;
+                self.remove_chromatic
+                    || self.lens_profile
+                    || o.distortion != 0.
+                    || o.purple_amount != 0.
+                    || o.green_amount != 0.
+                    || o.vignette_amount != 0.
+            }
+            Group::Geometry => {
+                self.geometry != Default::default()
+                    || self.guided
+                        && self
+                            .guides
+                            .iter()
+                            .any(|g| (g.end[0] - g.start[0]).hypot(g.end[1] - g.start[1]) > 0.01)
+            }
+            Group::Calibration => self.calibration != Default::default(),
+        }
+    }
     pub fn rendered(&self) -> Self {
         let mut s = self.clone();
         for group in Group::ALL {
@@ -310,7 +382,7 @@ fn render_scaled(
     settings.validate()?;
     crate::document::validate_size(source.width(), source.height())?;
     let s = settings.rendered();
-    if s == Settings::default() && options == Preview::default() {
+    if !Group::ALL.into_iter().any(|g| s.adjusts(g)) && options == Preview::default() {
         return Ok(source.clone());
     }
     let warped =

@@ -122,7 +122,7 @@ fn inverse_quad(q: [[f64; 2]; 4]) -> Result<[f32; 9]> {
     Ok(adj.map(|x| (x / det) as f32))
 }
 pub(super) fn render(image: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
-    if s.geometry == Default::default() && !s.guided {
+    if !s.adjusts(super::Group::Geometry) {
         return Ok(image.clone());
     }
     let matrix = inverse_quad(corners(

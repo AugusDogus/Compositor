@@ -147,7 +147,6 @@ pub(super) fn render(
     scale: f64,
     options: Preview,
 ) -> Result<RgbaImage> {
-    let defaults = Settings::default();
     let mut pixels = native_pixels::premultiply(image);
     let (w, h) = (image.width() as usize, image.height() as usize);
     let p = pixels.as_mut_ptr();
@@ -156,10 +155,7 @@ pub(super) fn render(
     // remains alive and uniquely borrowed throughout. LUT/mixer buffers below have
     // exactly the lengths specified in AdjustPixels.h. No kernel retains a pointer.
     unsafe {
-        if options.clipping.is_none()
-            && !options.sharpen_mask
-            && s.calibration != defaults.calibration
-        {
+        if options.clipping.is_none() && !options.sharpen_mask && s.adjusts(Group::Calibration) {
             let c = &s.calibration;
             adjust_camera_raw_calibration(
                 p,
@@ -183,7 +179,7 @@ pub(super) fn render(
                 },
             );
         }
-        if s.light != defaults.light || s.color != defaults.color || options.clipping.is_some() {
+        if s.adjusts(Group::Light) || s.adjusts(Group::Color) || options.clipping.is_some() {
             let l = &s.light;
             let c = &s.color;
             let warm = c.temperature / 100.;
@@ -228,10 +224,9 @@ pub(super) fn render(
             );
             return Ok(native_pixels::unpremultiply(pixels));
         }
-        if s.curve != defaults.curve
-            || s.curves != defaults.curves
-            || s.mixer != defaults.mixer
-            || s.grading != defaults.grading
+        if s.adjusts(Group::Curve)
+            || s.adjusts(Group::Mixer)
+            || s.adjusts(Group::Grading)
             || options.point_color.is_some()
         {
             let tables = super::color::tables(s);
@@ -260,7 +255,7 @@ pub(super) fn render(
                     .map_or(-1, |i| i as i32),
             );
         }
-        if s.effects != defaults.effects {
+        if s.adjusts(Group::Effects) {
             let e = &s.effects;
             adjust_camera_raw_effects(
                 p,
@@ -307,7 +302,7 @@ pub(super) fn render(
                 );
             }
         }
-        if s.optics != defaults.optics || s.remove_chromatic || s.lens_profile {
+        if s.adjusts(Group::Optics) {
             let o = &s.optics;
             let k = (o.distortion
                 + if s.lens_profile {
@@ -338,7 +333,7 @@ pub(super) fn render(
                 scale,
             );
         }
-        if s.detail != defaults.detail {
+        if s.adjusts(Group::Detail) {
             let d = &s.detail;
             adjust_camera_raw_detail(
                 p,

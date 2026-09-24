@@ -114,3 +114,28 @@ fn geometry_warps_through_premultiplied_color_without_creating_hidden_rgb_edges(
         assert!(pixel[0] > 245);
     }
 }
+
+#[test]
+fn inactive_camera_controls_preserve_low_alpha_pixels_exactly() {
+    let source = RgbaImage::from_fn(8, 4, |x, y| {
+        Rgba([17 + x as u8, 81 + y as u8, 173, (x + y) as u8])
+    });
+    type Change = fn(&mut Settings);
+    let cases: [Change; 10] = [
+        |s| s.effects.grain_size = 70.,
+        |s| s.effects.glow_spread = 80.,
+        |s| s.curve.shadow_split = 30.,
+        |s| s.mixer.points.push(PointColor::default()),
+        |s| s.grading.blending = 90.,
+        |s| s.grading.wheels[0].hue = 180.,
+        |s| s.detail.sharpen_radius = 80.,
+        |s| s.optics.profile_distortion = 30.,
+        |s| s.process = Process::One,
+        |s| s.guided = true,
+    ];
+    for (index, change) in cases.into_iter().enumerate() {
+        let mut settings = Settings::default();
+        change(&mut settings);
+        assert_eq!(render(&source, &settings).unwrap(), source, "case {index}");
+    }
+}
