@@ -62,7 +62,8 @@ impl Parameter {
             (Action::Filter(Filter::Lens { .. }), _, 0) => {
                 ("Remove Distortion", (-100., 100.), "", Linear(0))
             }
-            (Action::Filter(Filter::Vignette(_)), _, 0) => {
+            (Action::Filter(Filter::Vignette(_)), _, 0)
+            | (Action::Filter(Filter::Bloom { .. } | Filter::TonalContrast { .. }), _, 0) => {
                 ("Amount", (0., 100.), "%", Linear(0))
             }
             (Action::Filter(Filter::Vignette(_)), _, 1) => ("Midpoint", (0., 100.), "%", Linear(0)),
@@ -73,13 +74,21 @@ impl Parameter {
             (Action::Filter(Filter::Vignette(_)), _, 4) => {
                 ("Highlights", (0., 100.), "%", Linear(0))
             }
-            (Action::Filter(Filter::Bloom { .. }), _, 0) => ("Amount", (0., 100.), "%", Linear(0)),
-            (Action::Filter(Filter::Bloom { .. }), _, 1) => ("Radius", (1., 150.), "px", Logarithmic(0)),
-            (Action::Filter(Filter::TonalContrast { .. }), _, 0) => ("Amount", (0., 100.), "%", Linear(0)),
-            (Action::Filter(Filter::TonalContrast { .. }), _, 1) => ("Radius", (1., 100.), "px", Logarithmic(0)),
-            (Action::Filter(Filter::TonalContrast { .. }), _, 2) => ("Shadows", (-100., 100.), "%", Linear(0)),
-            (Action::Filter(Filter::TonalContrast { .. }), _, 3) => ("Midtones", (-100., 100.), "%", Linear(0)),
-            (Action::Filter(Filter::TonalContrast { .. }), _, 4) => ("Highlights", (-100., 100.), "%", Linear(0)),
+            (Action::Filter(Filter::Bloom { .. }), _, 1) => {
+                ("Radius", (1., 150.), "px", Logarithmic(0))
+            }
+            (Action::Filter(Filter::TonalContrast { .. }), _, 1) => {
+                ("Radius", (1., 100.), "px", Logarithmic(0))
+            }
+            (Action::Filter(Filter::TonalContrast { .. }), _, 2) => {
+                ("Shadows", (-100., 100.), "%", Linear(0))
+            }
+            (Action::Filter(Filter::TonalContrast { .. }), _, 3) => {
+                ("Midtones", (-100., 100.), "%", Linear(0))
+            }
+            (Action::Filter(Filter::TonalContrast { .. }), _, 4) => {
+                ("Highlights", (-100., 100.), "%", Linear(0))
+            }
             (Action::RemoveBackground, _, 0) => ("Refine", (0., 40.), "px", Linear(0)),
             (Action::RemoveBackground, _, 1) => ("Contrast", (0., 100.), "%", Linear(0)),
             (Action::RemoveBackground, _, 2) => ("Shift Edge", (-10., 10.), "px", Linear(0)),
