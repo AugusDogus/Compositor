@@ -19,6 +19,7 @@ impl Editor {
         let title = match picker.purpose {
             Purpose::LayerEffect { .. } => "Layer effect color",
             Purpose::LayerText { .. } => "Text color",
+            Purpose::ForegroundText { .. } => "Color Picker (Foreground Color)",
             Purpose::CanvasExtension { .. } => "Canvas extension color",
             Purpose::JpegBackground { .. } => "JPEG background color",
             Purpose::Palette if matches!(picker.target, Target::Background) => {

@@ -28,7 +28,10 @@ impl BlendPicker {
 impl Editor {
     pub(super) fn preview_document(&self) -> Document {
         let session = self.session();
-        let mut doc = session.document.clone();
+        let mut doc = self
+            .color_text_preview()
+            .unwrap_or(&session.document)
+            .clone();
         if matches!(self.modal, Some(Form::Blend))
             && let Some((project, layer)) = self.blend_picker.target
             && project == session.id

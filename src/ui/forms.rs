@@ -44,6 +44,10 @@ impl Editor {
             return;
         }
         if matches!(action, Action::Color) {
+            if matches!(self.modal, Some(Form::Text(_))) {
+                self.open_foreground_text_picker();
+                return;
+            }
             self.modal = Some(if self.tools.mask_target {
                 Form::MaskColor(palette::MaskSwatch::Foreground)
             } else {

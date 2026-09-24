@@ -218,6 +218,31 @@ impl Editor {
         Ok(())
     }
 
+    pub(super) fn text_document_preview(&mut self, draft: &Draft) -> Result<Document> {
+        if draft.session != self.session().id {
+            return Err(invalid(
+                "The text's project changed. Cancel and reopen the text editor.",
+            ));
+        }
+        let style = draft.parsed()?;
+        let pixels = self
+            .text_renderer
+            .get_or_insert_with(TextRenderer::default)
+            .render(&style)?;
+        let mut document = self.session().document.clone();
+        if let Some(id) = draft.layer {
+            let layer = document
+                .layers
+                .iter_mut()
+                .find(|layer| layer.id == id)
+                .ok_or_else(|| invalid("The text layer was removed."))?;
+            compositor::text::update_layer(layer, style, pixels)?;
+        } else if !style.content.trim().is_empty() {
+            document.add(compositor::text::new_layer(style, pixels, draft.origin)?)?;
+        }
+        Ok(document)
+    }
+
     fn apply_text(&mut self) -> Result<()> {
         let Some(Form::Text(draft)) = &self.modal else {
             return Ok(());

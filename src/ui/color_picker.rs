@@ -51,6 +51,7 @@ enum Purpose {
     Palette,
     LayerEffect { form: Box<Form> },
     LayerText { form: Box<Form> },
+    ForegroundText { form: Box<Form> },
     GradientMap { original: GradientMap },
     CanvasExtension { form: Box<Form> },
     JpegBackground { form: Box<Form> },
@@ -61,6 +62,7 @@ pub(super) struct Picker {
     purpose: Purpose,
     colors: [Draft; 2],
     target: Target,
+    text_preview: Option<(uuid::Uuid, Document)>,
 }
 impl Picker {
     pub(super) fn new(foreground: [u8; 4], background: [u8; 4]) -> Self {
@@ -68,6 +70,7 @@ impl Picker {
             purpose: Purpose::Palette,
             colors: [Draft::new(foreground), Draft::new(background)],
             target: Target::Foreground,
+            text_preview: None,
         }
     }
     pub(super) fn select_background(&mut self) {
@@ -102,6 +105,28 @@ impl Editor {
         };
         self.modal = Some(Form::Color(Box::new(picker)));
     }
+    pub(super) fn open_foreground_text_picker(&mut self) {
+        self.open_text_color_picker();
+        let foreground = self.tools.brush.color;
+        if let Some(picker) = self.picker_mut()
+            && let Purpose::LayerText { form } = &picker.purpose
+        {
+            picker.purpose = Purpose::ForegroundText { form: form.clone() };
+            picker.colors[0] = Draft::new(foreground);
+        }
+    }
+
+    pub(super) fn color_text_preview(&self) -> Option<&Document> {
+        let Some(Form::Color(picker)) = &self.modal else {
+            return None;
+        };
+        picker
+            .text_preview
+            .as_ref()
+            .filter(|(session, _)| *session == self.session().id)
+            .map(|(_, document)| document)
+    }
+
     pub(super) fn open_effect_color_picker(&mut self) {
         let Some(form @ Form::Effects(_)) = self.modal.clone() else {
             return;
@@ -196,6 +221,20 @@ impl Editor {
         let Some(Form::Color(picker)) = &self.modal else {
             return Ok(());
         };
+        if let Purpose::LayerText { form } | Purpose::ForegroundText { form } = &picker.purpose {
+            let Form::Text(draft) = form.as_ref() else {
+                return Ok(());
+            };
+            let mut draft = draft.clone();
+            let [r, g, b, _] = picker.colors[0].hsb.rgb();
+            draft.color = format!("#{r:02X}{g:02X}{b:02X}");
+            let document = self.text_document_preview(&draft)?;
+            let session = self.session().id;
+            if let Some(picker) = self.picker_mut() {
+                picker.text_preview = Some((session, document));
+            }
+            return Ok(());
+        }
         if let Purpose::LayerEffect { form } = &picker.purpose {
             let original_form = form.clone();
             let color = picker.colors[0].hsb.rgb();
@@ -236,11 +275,16 @@ impl Editor {
         let Some(Form::Color(picker)) = &self.modal else {
             return Ok(());
         };
+        let foreground_text = matches!(picker.purpose, Purpose::ForegroundText { .. });
+        let chosen = picker.colors[0].hsb.rgb();
         match picker.purpose.clone() {
-            Purpose::LayerText { mut form } => {
+            Purpose::LayerText { mut form } | Purpose::ForegroundText { mut form } => {
                 if apply && let Form::Text(draft) = form.as_mut() {
                     let [r, g, b, _] = picker.colors[0].hsb.rgb();
                     draft.color = format!("#{r:02X}{g:02X}{b:02X}");
+                }
+                if apply && foreground_text {
+                    self.tools.brush.color = chosen;
                 }
                 self.modal = Some(*form);
             }
@@ -373,3 +417,6 @@ impl Editor {
 mod inputs;
 pub(super) mod spectrum;
 mod view;
+
+#[cfg(test)]
+mod text_tests;
