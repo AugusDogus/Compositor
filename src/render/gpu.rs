@@ -6,6 +6,7 @@ pub(super) mod effects;
 pub(super) mod gaussian;
 pub(super) mod motion;
 pub(crate) mod raw;
+mod readback;
 pub(super) mod resize;
 pub(super) mod scene;
 #[cfg(test)]

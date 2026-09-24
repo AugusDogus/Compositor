@@ -128,35 +128,13 @@ impl Engine {
             pass.dispatch_workgroups(width.div_ceil(16), to[1].div_ceil(16), 1);
         }
         encoder.copy_buffer_to_buffer(&output, 0, &readback, 0, bytes);
-        let submission = self.queue.submit([encoder.finish()]);
-        let slice = readback.slice(..);
-        let (send, receive) = std::sync::mpsc::sync_channel(1);
-        slice.map_async(wgpu::MapMode::Read, move |r| {
-            let _ = send.send(r);
-        });
-        let result = self
-            .device
-            .poll(wgpu::PollType::Wait {
-                submission_index: Some(submission),
-                timeout: Some(std::time::Duration::from_secs(5)),
-            })
-            .map_err(|e| invalid(format!("GPU preview resizing did not finish: {e}")))
-            .and_then(|_| {
-                receive
-                    .recv_timeout(std::time::Duration::from_secs(1))
-                    .map_err(|e| invalid(format!("GPU preview resize readback stopped: {e}")))
-            })
-            .and_then(|r| {
-                r.map_err(|e| invalid(format!("GPU preview resize readback failed: {e}")))
-            })
-            .and_then(|_| {
-                slice
-                    .get_mapped_range()
-                    .map(|v| v.to_vec())
-                    .map_err(|e| invalid(format!("Could not read the resized preview: {e}")))
-            });
-        readback.unmap();
-        Self::check(errors)?;
+        let result = self.readback(
+            encoder,
+            &readback,
+            errors,
+            super::readback::Operation::Resize,
+            <[u8]>::to_vec,
+        );
         result.map(Some)
     }
 }

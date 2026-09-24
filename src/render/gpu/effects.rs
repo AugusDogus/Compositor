@@ -184,33 +184,13 @@ impl Engine {
         // The composition phase does not otherwise read its input plane.
         run(7, [0.; 2], inner_glow, scratch);
         encoder.copy_buffer_to_buffer(&output, 0, &readback, 0, bytes);
-        let submission = self.queue.submit([encoder.finish()]);
-        let slice = readback.slice(..);
-        let (send, receive) = std::sync::mpsc::sync_channel(1);
-        slice.map_async(wgpu::MapMode::Read, move |r| {
-            let _ = send.send(r);
-        });
-        let result = self
-            .device
-            .poll(wgpu::PollType::Wait {
-                submission_index: Some(submission),
-                timeout: Some(std::time::Duration::from_secs(30)),
-            })
-            .map_err(|e| invalid(format!("GPU layer effects did not finish: {e}")))
-            .and_then(|_| {
-                receive
-                    .recv_timeout(std::time::Duration::from_secs(1))
-                    .map_err(|e| invalid(format!("GPU effects readback stopped: {e}")))
-            })
-            .and_then(|r| r.map_err(|e| invalid(format!("GPU effects readback failed: {e}"))))
-            .and_then(|_| {
-                slice
-                    .get_mapped_range()
-                    .map(|v| v.to_vec())
-                    .map_err(|e| invalid(format!("Could not read GPU effects: {e}")))
-            });
-        readback.unmap();
-        Self::check(errors)?;
+        let result = self.readback(
+            encoder,
+            &readback,
+            errors,
+            super::readback::Operation::Effects,
+            <[u8]>::to_vec,
+        );
         result
             .and_then(|pixels| {
                 RgbaImage::from_raw(image.width(), image.height(), pixels)

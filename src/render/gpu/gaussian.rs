@@ -96,41 +96,21 @@ impl Engine {
             pass.dispatch_workgroups(image.width().div_ceil(16), image.height().div_ceil(16), 1);
         }
         encoder.copy_buffer_to_buffer(&columns, 0, &readback, 0, bytes);
-        let submission = self.queue.submit([encoder.finish()]);
-        let slice = readback.slice(..);
-        let (send, receive) = std::sync::mpsc::sync_channel(1);
-        slice.map_async(wgpu::MapMode::Read, move |result| {
-            let _ = send.send(result);
-        });
-        let result = self
-            .device
-            .poll(wgpu::PollType::Wait {
-                submission_index: Some(submission),
-                timeout: Some(std::time::Duration::from_secs(30)),
-            })
-            .map_err(|e| invalid(format!("GPU coverage blur did not finish: {e}")))
-            .and_then(|_| {
-                receive
-                    .recv_timeout(std::time::Duration::from_secs(1))
-                    .map_err(|e| invalid(format!("GPU coverage readback stopped: {e}")))
-            })
-            .and_then(|r| r.map_err(|e| invalid(format!("GPU coverage readback failed: {e}"))))
-            .and_then(|_| {
-                slice
-                    .get_mapped_range()
-                    .map(|bytes| {
-                        bytes
-                            .chunks_exact(4)
-                            .map(|b| {
-                                (f32::from_le_bytes([b[0], b[1], b[2], b[3]]).clamp(0., 1.) * 255.)
-                                    .round() as u8
-                            })
-                            .collect()
+        let result = self.readback(
+            encoder,
+            &readback,
+            errors,
+            super::readback::Operation::CoverageBlur,
+            |bytes| {
+                bytes
+                    .chunks_exact(4)
+                    .map(|b| {
+                        (f32::from_le_bytes([b[0], b[1], b[2], b[3]]).clamp(0., 1.) * 255.).round()
+                            as u8
                     })
-                    .map_err(|e| invalid(format!("Could not read blurred coverage: {e}")))
-            });
-        readback.unmap();
-        Self::check(errors)?;
+                    .collect()
+            },
+        );
         result
             .and_then(|pixels| {
                 GrayImage::from_raw(image.width(), image.height(), pixels)

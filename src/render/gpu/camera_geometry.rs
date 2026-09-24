@@ -67,32 +67,13 @@ pub(in crate::render) fn warp(image: &RgbaImage, matrix: [f32; 9]) -> Result<Opt
         pass.dispatch_workgroups(image.width().div_ceil(16), image.height().div_ceil(16), 1);
     }
     encoder.copy_buffer_to_buffer(&output, 0, &readback, 0, bytes);
-    let submission = engine.queue.submit([encoder.finish()]);
-    let (send, receive) = std::sync::mpsc::sync_channel(1);
-    readback
-        .slice(..)
-        .map_async(wgpu::MapMode::Read, move |result| {
-            let _ = send.send(result);
-        });
-    device
-        .poll(wgpu::PollType::Wait {
-            submission_index: Some(submission),
-            timeout: Some(std::time::Duration::from_secs(30)),
-        })
-        .map_err(|e| invalid(format!("Camera Raw geometry GPU wait failed: {e}")))?;
-    receive
-        .recv()
-        .map_err(|e| invalid(format!("Camera Raw geometry readback stopped: {e}")))?
-        .map_err(|e| invalid(format!("Camera Raw geometry readback failed: {e}")))?;
-    let pixels = readback
-        .slice(..)
-        .get_mapped_range()
-        .map_err(|error| invalid(format!("Could not map Camera Raw geometry output: {error}")))?
-        .to_vec();
-    readback.unmap();
-    if let Some(error) = errors.finish() {
-        return Err(invalid(format!("Camera Raw geometry failed: {error}")));
-    }
+    let pixels = engine.readback(
+        encoder,
+        &readback,
+        errors,
+        super::readback::Operation::Geometry,
+        <[u8]>::to_vec,
+    )?;
     RgbaImage::from_raw(image.width(), image.height(), pixels)
         .map(Some)
         .ok_or_else(|| invalid("Camera Raw geometry returned invalid dimensions."))
