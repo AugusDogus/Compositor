@@ -108,7 +108,7 @@ fn folder_duplicate_shortcut_copies_children_and_undo_restores_the_document() {
 }
 
 #[test]
-fn duplicate_copies_only_the_active_layer_with_its_properties_and_one_undo_step() {
+fn duplicate_single_selection_keeps_properties_and_one_undo_step() {
     for content in ["pixels", "blank", "adjustment"] {
         let mut editor = Editor::with_test_document();
         let mut doc = Document::new(16, 16).unwrap();
@@ -123,7 +123,7 @@ fn duplicate_copies_only_the_active_layer_with_its_properties_and_one_undo_step(
         layer_ops::group(&mut doc).unwrap();
         doc.add(Layer::blank("Other selected layer", 16, 16))
             .unwrap();
-        doc.select(source_id, true);
+        doc.select(source_id, false);
         let source = doc.active_layer_mut().unwrap();
         source.opacity = 0.35;
         source.visible = false;
@@ -228,4 +228,48 @@ fn layer_via_copy_keeps_source_pixels_and_copies_the_selected_pixel_or_mask_regi
             original
         );
     }
+}
+
+#[test]
+fn duplicate_all_selected_layers_stack_above_topmost_and_undo_together() {
+    let mut editor = Editor::with_test_document();
+    let mut doc = Document::new(16, 16).unwrap();
+    let first = doc.active.unwrap();
+    doc.layers[0].name = "First".into();
+    doc.add(Layer::blank("Unselected", 16, 16)).unwrap();
+    doc.add(Layer::blank("Last", 16, 16)).unwrap();
+    let last = doc.active.unwrap();
+    doc.select(first, true);
+    let original = doc.clone();
+    editor.tabs = vec![Session::new(doc, None).into()];
+    let (mut cx, view) = Application::new()
+        .into_test_context(
+            WindowOptions::new("Duplicate selected").size(1280., 900.),
+            editor,
+        )
+        .unwrap();
+    let window = view.window_handle();
+    cx.focus(window, "workspace").unwrap();
+    cx.simulate_keystrokes(window, "ctrl-j").unwrap();
+    cx.read(view, |e| {
+        let doc = &e.session().document;
+        assert_eq!(
+            doc.layers
+                .iter()
+                .map(|l| l.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["First", "Unselected", "Last", "First copy", "Last copy"]
+        );
+        assert_eq!(doc.selected.len(), 2);
+        assert!(!doc.selected.contains(&first));
+        assert!(!doc.selected.contains(&last));
+        assert_eq!(doc.active_layer().unwrap().name, "First copy");
+        doc.validate().unwrap();
+    })
+    .unwrap();
+    cx.simulate_keystrokes(window, "ctrl-z").unwrap();
+    assert_eq!(
+        cx.read(view, |e| e.session().document.clone()).unwrap(),
+        original
+    );
 }

@@ -219,37 +219,38 @@ pub fn merge(doc: &mut Document, all: bool) -> Result<()> {
             layer.clip_source = None;
         }
     }
-    let region = if u64::from(doc.width) * u64::from(doc.height) > crate::document::MAX_SURFACE_PIXELS {
-        // Adjustments and masks only modify existing alpha. The union of pixel
-        // layer bounds therefore contains the complete merged result.
-        let mut b = [doc.width as f64, doc.height as f64, 0., 0.];
-        for layer in source
-            .layers
-            .iter()
-            .filter(|layer| layer.raster().is_some())
-        {
-            let bounds = layer.transform.bounds();
+    let region =
+        if u64::from(doc.width) * u64::from(doc.height) > crate::document::MAX_SURFACE_PIXELS {
+            // Adjustments and masks only modify existing alpha. The union of pixel
+            // layer bounds therefore contains the complete merged result.
+            let mut b = [doc.width as f64, doc.height as f64, 0., 0.];
+            for layer in source
+                .layers
+                .iter()
+                .filter(|layer| layer.raster().is_some())
+            {
+                let bounds = layer.transform.bounds();
+                b = [
+                    b[0].min(bounds[0]),
+                    b[1].min(bounds[1]),
+                    b[2].max(bounds[2]),
+                    b[3].max(bounds[3]),
+                ];
+            }
             b = [
-                b[0].min(bounds[0]),
-                b[1].min(bounds[1]),
-                b[2].max(bounds[2]),
-                b[3].max(bounds[3]),
+                b[0].floor().max(0.),
+                b[1].floor().max(0.),
+                b[2].ceil().min(doc.width as f64),
+                b[3].ceil().min(doc.height as f64),
             ];
-        }
-        b = [
-            b[0].floor().max(0.),
-            b[1].floor().max(0.),
-            b[2].ceil().min(doc.width as f64),
-            b[3].ceil().min(doc.height as f64),
-        ];
-        if b[0] >= b[2] || b[1] >= b[3] {
-            [0., 0., 1., 1.]
+            if b[0] >= b[2] || b[1] >= b[3] {
+                [0., 0., 1., 1.]
+            } else {
+                b
+            }
         } else {
-            b
-        }
-    } else {
-        [0., 0., doc.width as f64, doc.height as f64]
-    };
+            [0., 0., doc.width as f64, doc.height as f64]
+        };
     let (width, height) = (
         (region[2] - region[0]) as u32,
         (region[3] - region[1]) as u32,
@@ -334,6 +335,34 @@ pub fn duplicate_active(doc: &mut Document) -> Result<()> {
     doc.layers.insert(index + 1, copy);
     doc.select(id, false);
     Ok(())
+}
+
+/// Duplicate selected roots together above the topmost selected root. Descendants
+/// travel with their folder and internal mask links are remapped by copy_layers.
+pub fn duplicate_selected(doc: &mut Document) -> Result<()> {
+    let id = doc
+        .active
+        .ok_or_else(|| invalid("Select layers before duplicating them."))?;
+    let roots = drag_roots(doc, id)?;
+    if roots.len() <= 1 {
+        return duplicate_active(doc);
+    }
+    let top = *roots
+        .last()
+        .ok_or_else(|| invalid("Select layers before duplicating them."))?;
+    let parent = doc.layer(top).and_then(|l| l.parent);
+    let source = doc.clone();
+    copy_layers(&source, doc, id, true)?;
+    let active = doc
+        .active
+        .ok_or_else(|| invalid("The duplicated layers are missing."))?;
+    let copied = doc.selected.clone();
+    for layer in &mut doc.layers {
+        if copied.contains(&layer.id) {
+            layer.name.push_str(" copy");
+        }
+    }
+    place(doc, active, parent, Position::Above(top))
 }
 
 /// The ordered roots a drag carries, excluding descendants of selected folders.

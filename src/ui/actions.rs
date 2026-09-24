@@ -201,7 +201,7 @@ impl Editor {
                     })
                 } else {
                     self.session_mut()
-                        .edit("Duplicate Layer", compositor::layer_ops::duplicate_active)
+                        .edit("Duplicate Layer", compositor::layer_ops::duplicate_selected)
                 };
                 if result.is_ok() {
                     self.tools.mask_target = false;
