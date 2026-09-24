@@ -96,7 +96,7 @@ impl Editor {
                 }
                 Tool::Guide => {
                     if self.camera_raw.settings.guides.len() < 4 {
-                        let start = [unit[0], 1. - unit[1]];
+                        let start = [unit[0].clamp(0., 1.), (1. - unit[1]).clamp(0., 1.)];
                         self.camera_raw.drag = Some(Drag::Guide { start, end: start });
                     }
                 }

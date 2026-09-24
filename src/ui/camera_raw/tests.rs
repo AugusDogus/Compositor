@@ -182,6 +182,45 @@ fn canvas_pointer(editor: &mut Editor, phase: quickgui::PointerPhase, unit: [f64
         .unwrap();
 }
 #[test]
+fn camera_guides_clamp_both_ends_to_the_image() {
+    use quickgui::PointerPhase;
+    let mut editor = Editor::with_test_document();
+    compositor::edits::fill(
+        &mut editor.session_mut().document,
+        [180, 110, 60, 255],
+        false,
+        false,
+    )
+    .unwrap();
+    editor.open_camera_raw().unwrap();
+    editor.camera_change(|edit| {
+        edit.group = Group::Geometry;
+        edit.tool = super::pointer::Tool::Guide;
+    });
+    for (start, end, expected_start, expected_end) in [
+        ([-0.1, 0.5], [1.1, 0.5], [0., 0.5], [1., 0.5]),
+        ([1.1, 0.5], [-0.1, 0.5], [1., 0.5], [0., 0.5]),
+        ([0.5, -0.1], [0.5, 1.1], [0.5, 1.], [0.5, 0.]),
+        ([0.5, 1.1], [0.5, -0.1], [0.5, 0.], [0.5, 1.]),
+    ] {
+        editor.camera_change(|edit| edit.settings.guides.clear());
+        canvas_pointer(&mut editor, PointerPhase::Down, start);
+        canvas_pointer(&mut editor, PointerPhase::Up, end);
+        let guide = &editor.camera_raw.settings.guides[0];
+        assert!(guide.valid(), "{guide:?}");
+        for (actual, expected) in guide
+            .start
+            .into_iter()
+            .zip(expected_start)
+            .chain(guide.end.into_iter().zip(expected_end))
+        {
+            assert!((actual - expected).abs() < 0.001);
+        }
+        editor.camera_raw.settings.validate().unwrap();
+    }
+}
+
+#[test]
 fn camera_canvas_pick_guide_and_cancel_target_drag_preserve_source() {
     use quickgui::PointerPhase;
     let mut editor = Editor::with_test_document();
