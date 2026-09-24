@@ -3,8 +3,8 @@ struct Params { size:vec4<u32>, a:vec4<f32>, b:vec4<f32>, c:vec4<f32> }
 @group(0) @binding(1) var<storage,read> input:array<u32>;
 @group(0) @binding(2) var<storage,read_write> output:array<u32>;
 fn sample_pixel(p:vec2<i32>)->vec4<f32> {
- if any(p<vec2<i32>(0)) || any(p>=vec2<i32>(params.size.xy)) {return vec4<f32>(0.);}
- let rgba=unpack4x8unorm(input[u32(p.y)*params.size.x+u32(p.x)]);
+ let bounded=clamp(p,vec2<i32>(0),vec2<i32>(params.size.xy)-vec2<i32>(1));
+ let rgba=unpack4x8unorm(input[u32(bounded.y)*params.size.x+u32(bounded.x)]);
  return vec4<f32>(rgba.rgb*rgba.a,rgba.a);
 }
 @compute @workgroup_size(16,16) fn main(@builtin(global_invocation_id) id:vec3<u32>) {

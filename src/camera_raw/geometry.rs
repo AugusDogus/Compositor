@@ -124,6 +124,20 @@ fn inverse_quad(q: [[f64; 2]; 4]) -> Result<[f32; 9]> {
     }
     Ok(adj.map(|x| (x / det) as f32))
 }
+fn render_cpu(image: &RgbaImage, matrix: [f32; 9]) -> RgbaImage {
+    RgbaImage::from_fn(image.width(), image.height(), |x, y| {
+        let (x, y) = (x as f32 + 0.5, y as f32 + 0.5);
+        let z = matrix[6] * x + matrix[7] * y + matrix[8];
+        let uv = [
+            f64::from((matrix[0] * x + matrix[1] * y + matrix[2]) / z),
+            f64::from((matrix[3] * x + matrix[4] * y + matrix[5]) / z),
+        ];
+        image::Rgba(
+            crate::render::pixel(image, uv, crate::geometry::Sampling::Smooth)
+                .map(|v| (v.clamp(0., 1.) * 255.).round() as u8),
+        )
+    })
+}
 pub(super) fn render(image: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
     if !s.adjusts(super::Group::Geometry) {
         return Ok(image.clone());
@@ -135,18 +149,7 @@ pub(super) fn render(image: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
     ))?;
     let mut result = match crate::render::gpu_camera_geometry(image, matrix)? {
         Some(pixels) => pixels,
-        None => RgbaImage::from_fn(image.width(), image.height(), |x, y| {
-            let (x, y) = (x as f32 + 0.5, y as f32 + 0.5);
-            let z = matrix[6] * x + matrix[7] * y + matrix[8];
-            let uv = [
-                f64::from((matrix[0] * x + matrix[1] * y + matrix[2]) / z),
-                f64::from((matrix[3] * x + matrix[4] * y + matrix[5]) / z),
-            ];
-            image::Rgba(
-                crate::render::pixel(image, uv, crate::geometry::Sampling::Smooth)
-                    .map(|v| (v.clamp(0., 1.) * 255.).round() as u8),
-            )
-        }),
+        None => render_cpu(image, matrix),
     };
     if s.constrain_crop {
         let mut bounds = [image.width(), image.height(), 0, 0];
@@ -189,4 +192,61 @@ pub(super) fn render(image: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
         }
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    #[ignore = "Requires hardware Vulkan; compares the executed geometry shader with the CPU fallback"]
+    fn gpu_geometry_matches_cpu_for_perspective_guides_and_alpha_edges() {
+        let image = RgbaImage::from_fn(73, 51, |x, y| {
+            image::Rgba([
+                (x * 3) as u8,
+                (y * 4) as u8,
+                177,
+                if x < 9 {
+                    0
+                } else {
+                    ((x + y) * 2).min(255) as u8
+                },
+            ])
+        });
+        let mut settings = Settings::default();
+        settings.geometry.rotate = 17.;
+        settings.geometry.vertical = 34.;
+        settings.geometry.horizontal = -21.;
+        settings.geometry.offset_x = 12.;
+        settings.geometry.aspect = 8.;
+        settings.guides = vec![Guide {
+            start: [0.1, 0.1],
+            end: [0.9, 0.3],
+        }];
+        for (projection, guided) in [
+            (Projection::Perspective, false),
+            (Projection::Rectilinear, false),
+            (Projection::Perspective, true),
+        ] {
+            settings.projection = projection;
+            settings.guided = guided;
+            let matrix = inverse_quad(corners(
+                &settings,
+                image.width() as f64,
+                image.height() as f64,
+            ))
+            .unwrap();
+            let expected = render_cpu(&image, matrix);
+            let actual = crate::render::gpu_camera_geometry(&image, matrix)
+                .unwrap()
+                .expect("hardware GPU geometry must execute");
+            assert!(actual.pixels().any(|p| p[3] == 0));
+            assert!(actual.pixels().any(|p| p[3] > 0));
+            for (index, (a, b)) in actual.as_raw().iter().zip(expected.as_raw()).enumerate() {
+                assert!(
+                    a.abs_diff(*b) <= 1,
+                    "{projection:?} guided={guided}, byte {index}: GPU {a}, CPU {b}"
+                );
+            }
+        }
+    }
 }
