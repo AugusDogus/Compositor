@@ -217,6 +217,19 @@ impl Editor {
                     (event.position.x as f64 - bounds.x as f64 - offset[0]) / zoom,
                     (event.position.y as f64 - bounds.y as f64 - offset[1]) / zoom,
                 ];
+                match this.edit_text_at(point) {
+                    Ok(true) => {
+                        this.changed(cx);
+                        cx.prevent_default();
+                        return;
+                    }
+                    Err(error) => {
+                        this.result(Err(error), cx);
+                        cx.prevent_default();
+                        return;
+                    }
+                    Ok(false) => {}
+                }
                 if let Some(id) = compositor::transform::pick(&this.session().document, point, true)
                     && this
                         .session()

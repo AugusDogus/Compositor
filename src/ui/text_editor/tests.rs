@@ -136,3 +136,30 @@ fn clicked_point_text_starts_at_its_baseline_and_dragged_text_keeps_its_frame() 
     assert_eq!(draft.origin, [20., 30.]);
     assert_eq!(draft.style.box_size, Some([200., 150.]));
 }
+
+#[test]
+fn move_tool_text_open_uses_topmost_visible_transformed_text_and_preserves_document() {
+    let mut editor = Editor::with_test_document();
+    editor.begin_text([120., 100.], [120., 100.], true).unwrap();
+    if let Some(Form::Text(draft)) = &mut editor.modal {
+        draft.style.content = "Clickable text".into();
+    }
+    editor.apply_text().unwrap();
+    let layer = editor.session_mut().document.active_layer_mut().unwrap();
+    layer.transform.rotation = 25.;
+    let point = layer.transform.point([0.5, 0.5]);
+    let id = layer.id;
+    editor.tools.tool = Tool::Move;
+    let original = editor.session().document.clone();
+    assert!(editor.edit_text_at(point).unwrap());
+    assert!(matches!(&editor.modal,Some(Form::Text(draft)) if draft.layer==Some(id)));
+    assert_eq!(editor.session().document, original);
+    editor.modal = None;
+    editor
+        .session_mut()
+        .document
+        .active_layer_mut()
+        .unwrap()
+        .visible = false;
+    assert!(!editor.edit_text_at(point).unwrap());
+}

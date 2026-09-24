@@ -152,6 +152,34 @@ impl Editor {
         Ok(())
     }
 
+    pub(super) fn edit_text_at(&mut self, point: Point) -> Result<bool> {
+        if !self.can_edit_layers() {
+            return Ok(false);
+        }
+        let doc = &self.session().document;
+        let target = doc
+            .layers
+            .iter()
+            .rev()
+            .find(|layer| {
+                layer.text.is_some()
+                    && doc.layer_is_visible(layer.id)
+                    && layer
+                        .transform
+                        .unit(point)
+                        .iter()
+                        .all(|v| (0. ..=1.).contains(v))
+            })
+            .map(|layer| layer.id);
+        let Some(id) = target else {
+            return Ok(false);
+        };
+        self.finish_pending_edits()?;
+        self.session_mut().select_layer(id, false);
+        self.edit_active_text()?;
+        Ok(true)
+    }
+
     pub(super) fn edit_active_text(&mut self) -> Result<()> {
         let layer = self
             .session()
