@@ -99,17 +99,12 @@ pub fn target_ids(doc: &Document) -> HashSet<uuid::Uuid> {
 }
 
 /// The Move tool picks by visible layer geometry, including transparent pixels.
-/// Automatic picking preserves the current target when its box contains the press.
+/// Automatic picking preserves grouped selections while picking the topmost single layer.
 pub fn pick(doc: &Document, point: Point, force: bool) -> Option<uuid::Uuid> {
     let contains = |t: Transform| t.unit(point).iter().all(|v| (0. ..=1.).contains(v));
     if !force {
         let grouped = doc.selected.len() > 1 || doc.active_layer().is_some_and(|l| l.is_group());
         if grouped && selection_bounds(doc, false).is_some_and(contains) {
-            return None;
-        }
-        if doc.active_layer().is_some_and(|l| {
-            l.raster().is_some() && doc.layer_is_visible(l.id) && contains(l.transform)
-        }) {
             return None;
         }
     }
@@ -441,7 +436,7 @@ mod tests {
         assert!(Arc::ptr_eq(&pixels, doc.layers[index].raster().unwrap()));
     }
     #[test]
-    fn picking_preserves_active_bounds_and_ignores_hidden_ancestors() {
+    fn picking_prefers_foreground_and_ignores_hidden_ancestors() {
         let mut doc = Document::new(100, 100).unwrap();
         crate::edits::fill(&mut doc, [100, 50, 25, 255], false, false).unwrap();
         let bottom = doc.layers[0].id;
@@ -451,7 +446,7 @@ mod tests {
         let top_id = top.id;
         doc.add(top).unwrap();
         doc.select(bottom, false);
-        assert_eq!(pick(&doc, [10., 10.], false), None);
+        assert_eq!(pick(&doc, [10., 10.], false), Some(top_id));
         assert_eq!(pick(&doc, [10., 10.], true), Some(top_id));
         doc.select(top_id, false);
         assert_eq!(pick(&doc, [50., 50.], false), Some(bottom));
