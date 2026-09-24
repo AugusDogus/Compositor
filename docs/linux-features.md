@@ -1,6 +1,6 @@
 # Linux feature status
 
-The current source targets [Compositor for macOS 1.2.9 (`01e8e52`)](https://github.com/robbietilton/Compositor/tree/01e8e5228af84229923b3a0dc66b40498a3e2dc1), checked September 23, 2026. The published AppImage remains v0.4.0 until these changes are released.
+Linux v0.5.0 targets [Compositor for macOS 1.2.9 (`01e8e52`)](https://github.com/robbietilton/Compositor/tree/01e8e5228af84229923b3a0dc66b40498a3e2dc1), checked September 23, 2026.
 
 ## Added from macOS 1.2.1–1.2.9
 
@@ -65,6 +65,6 @@ Sources: [README](https://github.com/silverling/xuan/blob/7fd0ee19344c83b5863463
 
 ## Verification
 
-The integrated ordinary suite passes 797 tests, with 30 hardware or external-fixture tests opt-in. Strict Clippy and the optimized Ubuntu 24.04 build pass. The AppImage payload check verifies bundled dependencies and successfully develops a real Fujifilm X-Pro1 file using its bundled LibRaw. NVIDIA Vulkan checks cover all 24 blend modes, new adjustment layers, chained blurs, Inner Glow and Camera Raw geometry against CPU references. Native X11 checks cover Camera Raw preview, curves, grading, Apply and Undo. Real macOS/Photoshop application round trips and physical AMD GPU testing remain unverified.
+The integrated ordinary suite passes 825 tests, with 33 hardware or external-fixture tests opt-in. Strict Clippy and the optimized Ubuntu 24.04 build pass. The AppImage payload check verifies bundled dependencies and successfully develops a real Fujifilm X-Pro1 file using its bundled LibRaw. NVIDIA Vulkan checks cover all 24 blend modes, new adjustment layers, chained blurs, Inner Glow and Camera Raw geometry against CPU references. Native X11 checks cover Camera Raw preview, curves, grading, Apply and Undo. Real macOS/Photoshop application round trips and physical AMD GPU testing remain unverified.
 
-The published v0.4.0 AppImage was separately verified before these changes. Its inference models are unchanged. See [model selection and measured results](object-selection-models.md) for inference quality, timing and reproducible checks.
+The inference models are unchanged from v0.4.0. See [model selection and measured results](object-selection-models.md) for inference quality, timing and reproducible checks.
