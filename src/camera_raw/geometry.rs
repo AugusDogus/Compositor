@@ -7,6 +7,9 @@ pub struct Guide {
     pub end: [f64; 2],
 }
 impl Guide {
+    pub(super) fn usable(&self) -> bool {
+        (self.end[0] - self.start[0]).hypot(self.end[1] - self.start[1]) > 0.01
+    }
     pub fn valid(&self) -> bool {
         self.start
             .iter()
@@ -19,7 +22,7 @@ fn corners(s: &Settings, w: f64, h: f64) -> [[f64; 2]; 4] {
     let g = &s.geometry;
     let (mut vertical, mut horizontal, mut rotation) = (g.vertical, g.horizontal, g.rotate);
     if s.guided
-        && let Some(first) = s.guides.first()
+        && let Some(first) = s.guides.iter().find(|g| g.usable())
     {
         let dx = first.end[0] - first.start[0];
         let dy = first.end[1] - first.start[1];
@@ -31,7 +34,7 @@ fn corners(s: &Settings, w: f64, h: f64) -> [[f64; 2]; 4] {
                 rotate += 90.;
             }
             rotation += rotate;
-            if let Some(second) = s.guides.get(1) {
+            if let Some(second) = s.guides.iter().filter(|g| g.usable()).nth(1) {
                 let dx = second.end[0] - second.start[0];
                 let dy = second.end[1] - second.start[1];
                 if dx.hypot(dy) > 0.01 {

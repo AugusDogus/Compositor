@@ -139,3 +139,26 @@ fn inactive_camera_controls_preserve_low_alpha_pixels_exactly() {
         assert_eq!(render(&source, &settings).unwrap(), source, "case {index}");
     }
 }
+
+#[test]
+fn guided_geometry_ignores_short_lines_before_computing_corrections() {
+    let source = RgbaImage::from_fn(24, 16, |x, y| Rgba([x as u8 * 9, y as u8 * 13, 90, 255]));
+    let mut settings = Settings {
+        guided: true,
+        ..Default::default()
+    };
+    settings.guides.push(Guide {
+        start: [0.1, 0.2],
+        end: [0.9, 0.35],
+    });
+    let expected = render(&source, &settings).unwrap();
+    assert_ne!(expected, source);
+    settings.guides.insert(
+        0,
+        Guide {
+            start: [0.5, 0.5],
+            end: [0.501, 0.501],
+        },
+    );
+    assert_eq!(render(&source, &settings).unwrap(), expected);
+}

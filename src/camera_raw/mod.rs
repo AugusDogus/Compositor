@@ -245,11 +245,7 @@ impl Settings {
             }
             Group::Geometry => {
                 self.geometry != Default::default()
-                    || self.guided
-                        && self
-                            .guides
-                            .iter()
-                            .any(|g| (g.end[0] - g.start[0]).hypot(g.end[1] - g.start[1]) > 0.01)
+                    || self.guided && self.guides.iter().any(Guide::usable)
             }
             Group::Calibration => self.calibration != Default::default(),
         }
