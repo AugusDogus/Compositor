@@ -13,9 +13,13 @@ if compgen -G "$app_dir/usr/lib/libwayland-client.so*" > /dev/null; then
     printf 'AppImage must use the host Wayland client library required by its graphics drivers.\n' >&2
     exit 1
 fi
-for file in AppRun compositor.desktop compositor.png usr/bin/compositor usr/lib/libheif/plugins/libheif-libde265.so usr/share/licenses/compositor/Rawler-LGPL-2.1.txt usr/share/licenses/compositor/Rawler-NOTICE.txt usr/share/licenses/compositor/Xuan-MIT.txt; do
+for file in AppRun compositor.desktop compositor.png usr/bin/compositor usr/lib/libheif/plugins/libheif-libde265.so usr/share/licenses/compositor/Rawler-LGPL-2.1.txt usr/share/licenses/compositor/Rawler-NOTICE.txt usr/share/licenses/compositor/LibRaw-LGPL-2.1.txt usr/share/licenses/compositor/LibRaw-NOTICE.txt usr/share/licenses/compositor/Xuan-MIT.txt; do
     [[ -s "$app_dir/$file" ]] || { printf 'AppImage is missing %s\n' "$file" >&2; exit 1; }
 done
+compgen -G "$app_dir/usr/lib/libraw.so*" > /dev/null || {
+    printf 'AppImage is missing the bundled LibRaw camera decoder.\n' >&2
+    exit 1
+}
 sh -n "$app_dir/AppRun"
 desktop-file-validate "$app_dir/compositor.desktop"
 export COMPOSITOR_INFERENCE_DIR="$app_dir/usr/share/compositor/inference"
@@ -42,4 +46,15 @@ if [[ -n "${COMPOSITOR_OBJECT_SELECTION_TEST_BINARY:-}" ]]; then
     fi
     "$COMPOSITOR_OBJECT_SELECTION_TEST_BINARY" packaged_object_selection --ignored --nocapture --test-threads=4
 fi
-printf 'Verified AppImage payload, launcher, icon, HEIC decoder, inference models and native dependencies.\n'
+if [[ -n "${COMPOSITOR_RAW_TEST_BINARY:-}" ]]; then
+    [[ -f "${COMPOSITOR_XTRANS_TEST_PHOTO:-}" ]] || {
+        printf 'Set COMPOSITOR_XTRANS_TEST_PHOTO to the downloaded X-Trans fixture.\n' >&2
+        exit 1
+    }
+    if ! "$COMPOSITOR_RAW_TEST_BINARY" raw::libraw::tests::real_xtrans --ignored --list | grep -q ': test$'; then
+        printf 'RAW test binary has no real_xtrans test. Rebuild the library tests.\n' >&2
+        exit 1
+    fi
+    "$COMPOSITOR_RAW_TEST_BINARY" raw::libraw::tests::real_xtrans --ignored --nocapture
+fi
+printf 'Verified AppImage payload, launcher, icon, HEIC/RAW decoders, inference models and native dependencies.\n'

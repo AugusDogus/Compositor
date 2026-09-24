@@ -2,7 +2,7 @@ FROM docker.io/library/ubuntu:24.04
 RUN apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential ca-certificates pkg-config zlib1g-dev libwayland-dev libxkbcommon-dev \
     libx11-dev libxcb1-dev libx11-xcb-dev libxcursor-dev libxrandr-dev libxi-dev \
-    libheif-dev liblcms2-dev libvulkan1 mesa-vulkan-drivers \
+    libraw-dev libheif-dev liblcms2-dev libvulkan1 mesa-vulkan-drivers \
     && rm -rf /var/lib/apt/lists/*
 RUN apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     fonts-dejavu-core libheif-plugin-libde265 libxkbcommon-x11-0 \

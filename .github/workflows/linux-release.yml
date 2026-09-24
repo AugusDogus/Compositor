@@ -37,7 +37,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config zlib1g-dev libwayland-dev libxkbcommon-dev \
             libx11-dev libxcb1-dev libx11-xcb-dev libxcursor-dev libxrandr-dev libxi-dev \
-            libheif-dev libheif-plugin-libde265 liblcms2-dev libvulkan1 mesa-vulkan-drivers \
+            libraw-dev libheif-dev libheif-plugin-libde265 liblcms2-dev libvulkan1 mesa-vulkan-drivers \
             libxkbcommon-x11-0 libegl1 libgl1 fonts-dejavu-core curl jq file unzip python3-venv desktop-file-utils
       - name: Install Rust
         run: |
@@ -83,7 +83,10 @@ jobs:
           test -x "$test_binary"
           object_test_binary="$(cargo test --locked --lib --no-run --message-format json | jq -r 'select(.reason == "compiler-artifact" and .target.name == "compositor" and .executable != null) | .executable')"
           test -x "$object_test_binary"
-          COMPOSITOR_BACKGROUND_DEVICE=cpu COMPOSITOR_TEST_PHOTO="$RUNNER_TEMP/astronaut.png" \
+          scripts/fetch-raw-fixtures-extra.sh
+          COMPOSITOR_RAW_TEST_BINARY="$object_test_binary" \
+            COMPOSITOR_XTRANS_TEST_PHOTO="$GITHUB_WORKSPACE/target/fixtures/raw-external/fujifilm-xpro1.raf" \
+            COMPOSITOR_BACKGROUND_DEVICE=cpu COMPOSITOR_TEST_PHOTO="$RUNNER_TEMP/astronaut.png" \
             COMPOSITOR_INFERENCE_TEST_BINARY="$test_binary" \
             COMPOSITOR_OBJECT_SELECTION_TEST_BINARY="$object_test_binary" \
             scripts/check-appimage.sh dist/*.AppImage

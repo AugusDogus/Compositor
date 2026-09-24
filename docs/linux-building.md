@@ -9,7 +9,7 @@ On Ubuntu 24.04:
 ```sh
 sudo apt-get install build-essential pkg-config zlib1g-dev libwayland-dev \
   libxkbcommon-dev libxkbcommon-x11-0 libx11-dev libxcb1-dev libx11-xcb-dev \
-  libxcursor-dev libxrandr-dev libxi-dev libheif-dev libheif-plugin-libde265 \
+  libxcursor-dev libxrandr-dev libxi-dev libraw-dev libheif-dev libheif-plugin-libde265 \
   liblcms2-dev libvulkan1 mesa-vulkan-drivers libegl1 libgl1 fonts-dejavu-core
 cargo run --locked --release
 # Open a project or image:
@@ -49,3 +49,14 @@ For distributable builds, follow [AppImage builds and releases](linux-releases.m
 Nikon NEF/NRW decoding uses Rawler 0.7.2, linked into the application under LGPL-2.1. Its source revision is pinned by the crate checksum in `Cargo.lock`; [source and license details](../licenses/Rawler-NOTICE.txt) accompany packaged builds.
 
 To use a modified Rawler, unpack the [exact crate source](https://crates.io/api/v1/crates/rawler/0.7.2/download), make your changes, and add `rawler = { path = "/absolute/path/to/rawler-0.7.2" }` to the existing `[patch.crates-io]` table in `Cargo.toml`. Run `cargo update -p rawler` to record the local override, then `cargo build --release`. This rebuilds and relinks the complete editor with your decoder. The source repository contains the application source, build scripts and dependency lockfile needed for this process.
+
+LibRaw provides native high-precision decoding for X-Trans and other cameras outside Rawler's Bayer path. Source builds require `libraw-dev`; AppImages bundle the library. No runtime setup is needed. Foveon X3F is not supported because unpacking its sensor planes alone does not provide calibrated color development.
+
+To replace LibRaw in an AppImage, extract it and replace `usr/lib/libraw.so*` with an ABI-compatible build. [LibRaw source and license details](../licenses/LibRaw-NOTICE.txt) accompany the application.
+
+Validate the CC0 Fujifilm X-Pro1 fixture with:
+
+```sh
+scripts/fetch-raw-fixtures-extra.sh
+cargo test --lib raw::libraw::tests::real_xtrans -- --ignored
+```

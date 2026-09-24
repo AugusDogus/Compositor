@@ -2,6 +2,7 @@
 // Distributed under the MIT license; see licenses/Xuan-MIT.txt.
 //! Nondestructive camera RAW assets and a floating-point Develop pipeline.
 use crate::render::gpu::raw as gpu;
+mod libraw;
 mod process;
 mod settings;
 #[cfg(test)]
@@ -202,8 +203,17 @@ pub fn decode(bytes: &[u8]) -> Result<DecodedRaw> {
     )?;
     // The external decoder has panic paths for unsupported encodings. Convert these
     // into import errors so a failed camera file cannot unwind through the editor.
-    std::panic::catch_unwind(|| decode_inner(bytes))
-        .map_err(|_| invalid("The RAW decoder could not process this camera file. The current document is preserved; try another camera file."))?
+    let native = std::panic::catch_unwind(|| decode_inner(bytes)).unwrap_or_else(|_| {
+        Err(invalid(
+            "The camera decoder could not process this encoding.",
+        ))
+    });
+    match native {
+        Ok(decoded) => Ok(decoded),
+        Err(primary) => libraw::decode(bytes).map_err(|fallback| invalid(format!(
+            "RAW import failed: {primary} {fallback} The current document is preserved; try a TIFF export from camera software."
+        ))),
+    }
 }
 
 fn decode_inner(bytes: &[u8]) -> Result<DecodedRaw> {

@@ -16,6 +16,9 @@ fn main() {
         println!("cargo:rerun-if-changed={source}");
         println!("cargo:rerun-if-changed={root}/{name}.h");
     }
+    build.file("src/raw/libraw_bridge.c");
+    println!("cargo:rerun-if-changed=src/raw/libraw_bridge.c");
     build.compile("compositor_pixels");
+    println!("cargo:rustc-link-lib=raw");
     println!("cargo:rustc-link-lib=m");
 }
