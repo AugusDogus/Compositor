@@ -161,7 +161,7 @@ pub(super) fn prepare(
                 } else {
                     None
                 };
-                gpu.unwrap_or_else(|| motion(&input, distance, angle))
+                gpu.unwrap_or_else(|| crate::filters::motion::apply(&input, distance, angle))
             }
             _ => unreachable!("spatial adjustment list contains only blur layers"),
         };
@@ -174,37 +174,6 @@ pub(super) fn prepare(
         );
     }
     Ok(state.surfaces)
-}
-
-fn motion(source: &RgbaImage, distance: f64, angle: f64) -> RgbaImage {
-    let (sin, cos) = (-angle).to_radians().sin_cos();
-    let steps = distance.ceil().max(1.) as usize + 1;
-    let (w, h) = source.dimensions();
-    RgbaImage::from_fn(w, h, |x, y| {
-        let mut sum = [0.; 4];
-        for i in 0..steps {
-            let t = (i as f64 / (steps - 1) as f64 - 0.5) * distance;
-            let p = pixel(
-                source,
-                [
-                    (f64::from(x) + 0.5 + t * cos) / f64::from(w),
-                    (f64::from(y) + 0.5 + t * sin) / f64::from(h),
-                ],
-                Sampling::Smooth,
-            );
-            for k in 0..3 {
-                sum[k] += p[k] * p[3];
-            }
-            sum[3] += p[3];
-        }
-        if sum[3] > 0. {
-            for k in 0..3 {
-                sum[k] /= sum[3];
-            }
-        }
-        sum[3] /= steps as f64;
-        Rgba(sum.map(|v| (v.clamp(0., 1.) * 255.).round() as u8))
-    })
 }
 
 #[cfg(test)]

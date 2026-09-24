@@ -1,13 +1,14 @@
 pub mod finishing;
+pub(crate) mod motion;
 pub use finishing::Vignette;
 
 use crate::{
     Result,
     document::{Document, LayerContent, validate_size},
-    geometry::{Sampling, Transform},
-    invalid, native_pixels, render,
+    geometry::Transform,
+    invalid, native_pixels,
 };
-use image::{GrayImage, Luma, Rgba, RgbaImage};
+use image::{GrayImage, Luma, RgbaImage};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -148,35 +149,7 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
             &native_pixels::premultiply(&source),
             radius as f32,
         )),
-        Filter::Motion { distance, angle } => {
-            let (sin, cos) = (-angle).to_radians().sin_cos();
-            let steps = distance.ceil() as usize + 1;
-            RgbaImage::from_fn(w, h, |x, y| {
-                let mut sum = [0.; 4];
-                for step in 0..steps {
-                    let t = (step as f64 / (steps - 1) as f64 - 0.5) * distance;
-                    let p = render::pixel(
-                        &source,
-                        [
-                            (x as f64 + 0.5 + t * cos) / w as f64,
-                            (y as f64 + 0.5 + t * sin) / h as f64,
-                        ],
-                        Sampling::Smooth,
-                    );
-                    for i in 0..3 {
-                        sum[i] += p[i] * p[3];
-                    }
-                    sum[3] += p[3];
-                }
-                if sum[3] > 0. {
-                    for i in 0..3 {
-                        sum[i] /= sum[3];
-                    }
-                }
-                sum[3] /= steps as f64;
-                Rgba(sum.map(|v| (v.clamp(0., 1.) * 255.).round() as u8))
-            })
-        }
+        Filter::Motion { distance, angle } => motion::apply(&source, distance, angle),
         Filter::Noise {
             amount,
             gaussian,
@@ -274,6 +247,7 @@ pub fn gaussian_rgba(image: &RgbaImage, radius: f32) -> Result<RgbaImage> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image::Rgba;
     #[test]
     fn vignette_rejects_oversized_sparse_canvas_before_allocating_pixels() {
         let mut doc = Document::new(30_000, 30_000).unwrap();
