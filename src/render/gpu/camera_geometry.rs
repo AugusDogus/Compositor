@@ -16,18 +16,7 @@ pub(in crate::render) fn warp(image: &RgbaImage, matrix: [f32; 9]) -> Result<Opt
         return Ok(None);
     }
     let errors = crate::gpu::ErrorScopes::new(device);
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Camera Raw geometry"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("camera_geometry.wgsl").into()),
-    });
-    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some("Camera Raw geometry"),
-        layout: None,
-        module: &shader,
-        entry_point: Some("main"),
-        compilation_options: Default::default(),
-        cache: None,
-    });
+    let pipeline = &engine.camera_geometry_pipeline;
     let mut params = [0u32; 16];
     params[0] = image.width();
     params[1] = image.height();
@@ -73,7 +62,7 @@ pub(in crate::render) fn warp(image: &RgbaImage, matrix: [f32; 9]) -> Result<Opt
     let mut encoder = device.create_command_encoder(&Default::default());
     {
         let mut pass = encoder.begin_compute_pass(&Default::default());
-        pass.set_pipeline(&pipeline);
+        pass.set_pipeline(pipeline);
         pass.set_bind_group(0, &bindings, &[]);
         pass.dispatch_workgroups(image.width().div_ceil(16), image.height().div_ceil(16), 1);
     }

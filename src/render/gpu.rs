@@ -65,6 +65,7 @@ pub(super) struct Engine {
     pipeline: wgpu::ComputePipeline,
     resize_pipeline: wgpu::ComputePipeline,
     motion_pipeline: wgpu::ComputePipeline,
+    camera_geometry_pipeline: wgpu::ComputePipeline,
     effects_pipeline: wgpu::ComputePipeline,
     output: wgpu::Buffer,
     readback: wgpu::Buffer,
@@ -131,6 +132,19 @@ impl Engine {
             compilation_options: Default::default(),
             cache: None,
         });
+        let camera_geometry_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Camera Raw geometry"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("gpu/camera_geometry.wgsl").into()),
+        });
+        let camera_geometry_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Camera Raw geometry"),
+                layout: None,
+                module: &camera_geometry_shader,
+                entry_point: Some("main"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
         let effects_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Layer effects"),
             source: wgpu::ShaderSource::Wgsl(include_str!("gpu/effects.wgsl").into()),
@@ -162,6 +176,7 @@ impl Engine {
             pipeline,
             resize_pipeline,
             motion_pipeline,
+            camera_geometry_pipeline,
             effects_pipeline,
             output,
             readback,
