@@ -123,6 +123,12 @@ fn append(bytes: &mut Vec<u8>, chunk: &[u8], limit: usize) -> Result<()> {
     Ok(())
 }
 
+/// Identifies the current X11 selection owner. Layer copies also compare image
+/// contents, so subsequent writes by the same clipboard manager are detected.
+pub fn x11_owner() -> Result<u32> {
+    x11::owner()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,10 +159,4 @@ mod tests {
                 .contains("timed out")
         );
     }
-}
-
-/// Identifies the current X11 selection owner. Layer copies also compare image
-/// contents, so subsequent writes by the same clipboard manager are detected.
-pub fn x11_owner() -> Result<u32> {
-    x11::owner()
 }
