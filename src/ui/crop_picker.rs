@@ -10,6 +10,8 @@ pub(super) enum Ratio {
     Square,
     FourThirds,
     Widescreen,
+    Portrait,
+    Tall,
 }
 impl Ratio {
     fn label(self) -> &'static str {
@@ -19,6 +21,8 @@ impl Ratio {
             Self::Square => "1:1",
             Self::FourThirds => "4:3",
             Self::Widescreen => "16:9",
+            Self::Portrait => "3:4",
+            Self::Tall => "9:16",
         }
     }
     fn value(self) -> &'static str {
@@ -37,6 +41,8 @@ pub(super) fn new() -> Dropdown<Ratio> {
             Ratio::Square,
             Ratio::FourThirds,
             Ratio::Widescreen,
+            Ratio::Portrait,
+            Ratio::Tall,
         ]
         .map(|ratio| PickerItem::new(ratio.label(), ratio).id(ratio.value())),
     )

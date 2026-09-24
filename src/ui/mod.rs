@@ -572,7 +572,7 @@ impl Editor {
             self.tools.crop_picker.select_id("free");
             let doc = &self.session().document;
             self.tools.pending_crop = Some(crop::CropPreview {
-                frame: compositor::geometry::Transform::new(doc.width, doc.height),
+                frame: crop::initial_frame(doc),
                 guides: [None; 2],
             });
         }

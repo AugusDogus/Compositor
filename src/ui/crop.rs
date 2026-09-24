@@ -399,3 +399,47 @@ mod tests {
             .unwrap();
     }
 }
+
+/// Start at the selection's bounds, clipped to the canvas, as upstream does.
+pub(super) fn initial_frame(doc: &Document) -> Transform {
+    let full = Transform::new(doc.width, doc.height);
+    let Some(bounds) = doc.selection.as_ref().and_then(|s| s.bounds()) else {
+        return full;
+    };
+    let left = bounds[0].floor().clamp(0., doc.width as f64);
+    let top = bounds[1].floor().clamp(0., doc.height as f64);
+    let right = bounds[2].ceil().clamp(0., doc.width as f64);
+    let bottom = bounds[3].ceil().clamp(0., doc.height as f64);
+    if right <= left || bottom <= top {
+        return full;
+    }
+    Transform {
+        origin: [left, top],
+        size: [right - left, bottom - top],
+        ..full
+    }
+}
+
+#[cfg(test)]
+mod initial_frame_tests {
+    use super::*;
+    #[test]
+    fn crop_starts_at_selection_and_portrait_ratios_are_available() {
+        let mut doc = Document::new(100, 80).unwrap();
+        assert_eq!(initial_frame(&doc), Transform::new(100, 80));
+        doc.selection = Some(compositor::selection::Selection::rectangle(
+            100,
+            80,
+            [10., 20.],
+            [50., 60.],
+            false,
+        ));
+        assert_eq!(initial_frame(&doc).origin, [10., 20.]);
+        assert_eq!(initial_frame(&doc).size, [40., 40.]);
+        let mut picker = super::super::crop_picker::new();
+        for ratio in ["3:4", "9:16"] {
+            picker.select_id(ratio);
+            assert_eq!(picker.value_text().as_deref(), Some(ratio));
+        }
+    }
+}
