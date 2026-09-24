@@ -5,7 +5,7 @@ use image::{GrayImage, Luma, Rgba, RgbaImage};
 use serde_json::json;
 
 #[test]
-fn folder_opacity_saves_as_v8_and_upgrades_older_linux_packages() {
+fn folder_opacity_saves_as_v9_and_upgrades_older_linux_packages() {
     use compositor::{document::Document, layer_ops};
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("folders.comp");
@@ -21,7 +21,7 @@ fn folder_opacity_saves_as_v8_and_upgrades_older_linux_packages() {
         project::save(&doc, &path).unwrap();
         let mut manifest: serde_json::Value =
             serde_json::from_slice(&std::fs::read(path.join("manifest.json")).unwrap()).unwrap();
-        assert_eq!(manifest["version"], 8);
+        assert_eq!(manifest["version"], 9);
         assert_eq!(project::load(&path).unwrap(), doc);
         if opacity != 1. {
             // Linux 0.2/0.3 wrote these as v7. Keep them readable and repair on save.
@@ -37,7 +37,7 @@ fn folder_opacity_saves_as_v8_and_upgrades_older_linux_packages() {
             let upgraded: serde_json::Value =
                 serde_json::from_slice(&std::fs::read(path.join("manifest.json")).unwrap())
                     .unwrap();
-            assert_eq!(upgraded["version"], 8);
+            assert_eq!(upgraded["version"], 9);
         }
     }
 }
@@ -58,7 +58,7 @@ fn swift_project_versions_preserve_defaults_hierarchy_masks_and_adjustments() {
             .save(path.join("images").join(format!("{}.mask.png", id(n))))
             .unwrap();
     }
-    for version in 1..=7 {
+    for version in 1..=9 {
         let mut base = json!({"id":id(1), "name":"Pixels", "isVisible":true,
             "transform":transform, "imageFile":format!("{}.png", id(1))});
         if version >= 2 {
@@ -148,7 +148,55 @@ fn swift_project_versions_preserve_defaults_hierarchy_masks_and_adjustments() {
         project::save(&doc, &saved).unwrap();
         let written: serde_json::Value =
             serde_json::from_slice(&std::fs::read(saved.join("manifest.json")).unwrap()).unwrap();
-        assert_eq!(written["version"], 8);
+        assert_eq!(written["version"], 9);
         assert_eq!(project::load(&saved).unwrap(), doc);
+    }
+}
+
+#[test]
+fn v9_filter_adjustments_round_trip_and_are_rejected_in_older_manifests() {
+    use compositor::{
+        adjustment::{Adjustment, Kind},
+        document::{Document, Layer},
+    };
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("filters.comp");
+    for kind in [Kind::GaussianBlur, Kind::MotionBlur, Kind::AddNoise] {
+        let mut document = Document::new(20, 20).unwrap();
+        let mut adjustment = Adjustment::new(kind);
+        adjustment.blur_radius = Some(23.);
+        adjustment.motion_angle = Some(-35.);
+        adjustment.motion_distance = Some(84.);
+        adjustment.noise_amount = Some(34.);
+        adjustment.noise_gaussian = Some(true);
+        adjustment.noise_monochromatic = Some(true);
+        adjustment.noise_seed = Some(u32::MAX);
+        let mut layer = Layer::blank("Filter adjustment", 20, 20);
+        layer.content = LayerContent::Adjustment(Box::new(adjustment));
+        document.add(layer).unwrap();
+        project::save(&document, &path).unwrap();
+        assert_eq!(project::load(&path).unwrap(), document);
+        let manifest_path = path.join("manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+        assert_eq!(manifest["version"], 9);
+        for version in [7, 8] {
+            manifest["version"] = json!(version);
+            std::fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+            assert!(
+                project::load(&path)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("require project format version 9")
+            );
+        }
+        manifest["version"] = json!(10);
+        std::fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        assert!(
+            project::load(&path)
+                .unwrap_err()
+                .to_string()
+                .contains("Supported versions: 1 through 9")
+        );
     }
 }

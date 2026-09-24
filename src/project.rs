@@ -104,9 +104,9 @@ pub fn load(path: &Path) -> Result<Document> {
     if manifest.format != "com.compositor.project" || manifest.color_space != "sRGB" {
         return Err(invalid("This is not an sRGB Compositor project."));
     }
-    if !(1..=8).contains(&manifest.version) {
+    if !(1..=9).contains(&manifest.version) {
         return Err(invalid(format!(
-            "Project version {} is unsupported. Supported versions: 1 through 8.",
+            "Project version {} is unsupported. Supported versions: 1 through 9.",
             manifest.version
         )));
     }
@@ -149,6 +149,20 @@ pub fn load(path: &Path) -> Result<Document> {
                 "Layer '{}' contains unsafe asset paths or metadata incompatible with project version {}.",
                 record.name, manifest.version
             )));
+        }
+        if manifest.version < 9
+            && record.adjustment.as_ref().is_some_and(|adjustment| {
+                matches!(
+                    adjustment.kind,
+                    crate::adjustment::Kind::GaussianBlur
+                        | crate::adjustment::Kind::MotionBlur
+                        | crate::adjustment::Kind::AddNoise
+                )
+            })
+        {
+            return Err(invalid(
+                "Gaussian Blur, Motion Blur, and Add Noise adjustment layers require project format version 9.",
+            ));
         }
         if let Some(effects) = &record.effects
             && (!effects.validate()
@@ -315,7 +329,7 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
     raw::save(document, staged.path())?;
     let manifest = Manifest {
         format: "com.compositor.project".into(),
-        version: 8,
+        version: 9,
         color_space: "sRGB".into(),
         document_id: document.id,
         width: document.width,
