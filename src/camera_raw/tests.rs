@@ -1,5 +1,23 @@
 use super::*;
 use image::Rgba;
+
+#[test]
+fn color_noise_reduction_initializes_transparent_neighbors() {
+    let mut source = RgbaImage::new(3, 1);
+    source[(1, 0)] = Rgba([255, 0, 0, 255]);
+    let mut settings = Settings::default();
+    settings.detail.noise_color = 100.;
+    settings.detail.noise_color_detail = 0.;
+    settings.detail.noise_color_smoothness = 0.;
+
+    let adjusted = render(&source, &settings).unwrap();
+    // Radius one averages saturation over the red pixel and two transparent
+    // (zero-chroma) neighbors: HSL (0, 1/3, 1/2) becomes RGB (170, 85, 85).
+    assert_eq!(adjusted[(1, 0)], Rgba([170, 85, 85, 255]));
+    assert_eq!(adjusted[(0, 0)], Rgba([0, 0, 0, 0]));
+    assert_eq!(adjusted[(2, 0)], Rgba([0, 0, 0, 0]));
+}
+
 #[test]
 fn neutral_grade_preserves_all_bytes_and_exposure_preserves_alpha() {
     let source = RgbaImage::from_fn(16, 16, |x, y| Rgba([x as u8 * 10, y as u8 * 10, 83, 127]));
