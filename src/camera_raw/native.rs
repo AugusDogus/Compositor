@@ -242,13 +242,13 @@ pub(super) fn render(
                 tables[1].as_ptr(),
                 tables[2].as_ptr(),
                 tables[3].as_ptr(),
-                s.curve.refine_saturation,
+                s.curve.refine_saturation / 100.,
                 mixer.as_ptr(),
                 s.mixer.points.len() as i32,
                 points.as_ptr(),
                 grade.as_ptr(),
-                s.grading.blending,
-                s.grading.balance,
+                s.grading.blending / 100.,
+                s.grading.balance / 100.,
                 options
                     .point_color
                     .filter(|i| *i < s.mixer.points.len())

@@ -19,6 +19,62 @@ fn color_noise_reduction_initializes_transparent_neighbors() {
 }
 
 #[test]
+fn curve_saturation_refinement_uses_percentage_strength() {
+    use crate::adjustment::CurvePoint;
+    let source = RgbaImage::from_pixel(1, 1, Rgba([160, 100, 60, 255]));
+    let mut settings = Settings::default();
+    settings.curves.channels[0] = vec![
+        CurvePoint { x: 0., y: 0. },
+        CurvePoint { x: 255., y: 127.5 },
+    ];
+    // Halving luminance gives RGB (80, 50, 30). At +/-50% refinement,
+    // saturation scales by 0.75/1.25 instead of clipping the color channels.
+    for (strength, expected) in [
+        (-50., [86, 49, 24, 255]),
+        (0., [80, 50, 30, 255]),
+        (50., [74, 51, 36, 255]),
+    ] {
+        settings.curve.refine_saturation = strength;
+        assert_eq!(render(&source, &settings).unwrap()[(0, 0)], Rgba(expected));
+    }
+}
+
+#[test]
+fn grading_blending_and_balance_match_upstream_percentage_weights() {
+    let source = RgbaImage::from_fn(2, 1, |x, _| {
+        let gray = if x == 0 { 64 } else { 192 };
+        Rgba([gray, gray, gray, 255])
+    });
+    let mut settings = Settings::default();
+    settings.grading.wheels[0].saturation = 100.;
+    // A red shadow wheel on dark/light gray, using the upstream kernel's
+    // normalized blending and balance. Include endpoints and intermediate
+    // values so either slider accidentally saturating is observable.
+    for (blending, balance, dark, light) in [
+        (0., -100., [168, 0, 0], [208, 176, 176]),
+        (0., 0., [138, 0, 0], [192, 192, 192]),
+        (0., 100., [104, 24, 24], [192, 192, 192]),
+        (50., -100., [146, 0, 0], [215, 169, 169]),
+        (50., 0., [124, 4, 4], [198, 186, 186]),
+        (50., 100., [97, 31, 31], [192, 192, 192]),
+        (100., -100., [134, 0, 0], [217, 167, 167]),
+        (100., 0., [112, 16, 16], [208, 176, 176]),
+        (100., 100., [95, 33, 33], [195, 189, 189]),
+    ] {
+        settings.grading.blending = blending;
+        settings.grading.balance = balance;
+        let actual = render(&source, &settings).unwrap();
+        for (x, expected) in [dark, light].into_iter().enumerate() {
+            assert_eq!(
+                actual[(x as u32, 0)],
+                Rgba([expected[0], expected[1], expected[2], 255]),
+                "blending={blending}, balance={balance}, pixel={x}"
+            );
+        }
+    }
+}
+
+#[test]
 fn neutral_grade_preserves_all_bytes_and_exposure_preserves_alpha() {
     let source = RgbaImage::from_fn(16, 16, |x, y| Rgba([x as u8 * 10, y as u8 * 10, 83, 127]));
     assert_eq!(render(&source, &Settings::default()).unwrap(), source);
