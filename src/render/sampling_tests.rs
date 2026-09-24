@@ -6,6 +6,30 @@ use crate::{
 use std::sync::Arc;
 
 #[test]
+fn oversized_surfaces_fail_but_sparse_canvas_previews_remain_available() {
+    let doc = Document::new(30_000, 30_000).unwrap();
+    assert!(render(&doc, 30_000, 30_000).is_err());
+    assert!(
+        region_accelerated(
+            &doc,
+            30_000,
+            30_000,
+            [0.; 2],
+            [1.; 2],
+            &mut DownsampleCache::default(),
+        )
+        .is_err()
+    );
+    assert_eq!(render(&doc, 16, 16).unwrap().dimensions(), (16, 16));
+    assert_eq!(
+        region(&doc, 16, 16, [100.; 2], [1.; 2])
+            .unwrap()
+            .dimensions(),
+        (16, 16)
+    );
+}
+
+#[test]
 fn cursor_sampling_matches_full_surfaces_with_chained_masked_blurs() {
     let mut doc = Document::new(40, 32).unwrap();
     doc.layers[0].content =

@@ -79,6 +79,15 @@ pub fn apply(doc: &mut Document, options: Options) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn oversized_trim_preserves_the_document() {
+        let mut doc = Document::new(30_000, 30_000).unwrap();
+        let original = doc.clone();
+        let error = apply(&mut doc, Options::default()).unwrap_err();
+        assert!(error.to_string().contains("200 million pixels"));
+        assert_eq!(doc, original);
+    }
+
+    #[test]
     fn trim_color_transparency_and_independent_edges() {
         let mut image = RgbaImage::from_pixel(8, 6, image::Rgba([255, 0, 0, 0]));
         image.put_pixel(2, 1, image::Rgba([20, 30, 40, 128]));

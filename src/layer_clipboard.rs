@@ -73,6 +73,18 @@ impl Layers {
 mod tests {
     use super::*;
     #[test]
+    fn oversized_clipboard_pixels_fail_without_losing_editable_layers() {
+        let doc = Document::new(30_000, 30_000).unwrap();
+        let copied = Layers::capture(&doc).unwrap();
+        let error = copied.pixels().unwrap_err();
+        assert!(error.to_string().contains("200 million pixels"));
+        let mut target = Document::new(30_000, 30_000).unwrap();
+        copied.paste(&mut target).unwrap();
+        assert_eq!(target.layers.len(), 2);
+        target.validate().unwrap();
+    }
+
+    #[test]
     fn pasting_preserves_clipping_when_hidden_layers_or_folders_are_revealed() {
         use crate::document::{Layer, LayerContent};
         for (hide_base, hide_child, folder, hidden_sibling) in [

@@ -393,6 +393,7 @@ pub fn region_cached(
     step: Point,
     cache: &mut DownsampleCache,
 ) -> crate::Result<RgbaImage> {
+    crate::document::validate_size(width, height)?;
     let effects = crate::effects::prepare(doc, false)?;
     let prepared = cache.prepare(&effects, step);
     let mut sampler = Sampler::from_document(Cow::Borrowed(&prepared));
@@ -432,6 +433,7 @@ pub fn region_accelerated(
     step: Point,
     cache: &mut DownsampleCache,
 ) -> crate::Result<RgbaImage> {
+    crate::document::validate_size(width, height)?;
     let effects = crate::effects::prepare(doc, true)?;
     let prepared = cache.prepare_accelerated(&effects, step)?;
     let surfaces = spatial::prepare(&prepared, [width, height], origin, step, true)?;
