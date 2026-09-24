@@ -5,7 +5,8 @@ impl Action {
     pub(super) fn is_project_operation(self) -> bool {
         matches!(
             self,
-            Self::CanvasSize
+            Self::Trim
+                | Self::CanvasSize
                 | Self::ImageSize
                 | Self::Save
                 | Self::SaveAs

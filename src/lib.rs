@@ -7,6 +7,7 @@ pub mod clipboard;
 pub mod clipping;
 mod cmyk;
 pub mod crop;
+pub mod trim;
 pub mod distort;
 pub mod document;
 pub mod edits;

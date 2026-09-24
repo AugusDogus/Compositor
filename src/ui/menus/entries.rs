@@ -76,6 +76,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             Sep,
             command("Canvas Size…", "Ctrl+Alt+C", Action::CanvasSize),
             command("Image Size…", "Ctrl+Alt+I", Action::ImageSize),
+            command("Trim…", "", Action::Trim),
             Sep,
             command("Flip Canvas Horizontal", "", Action::FlipCanvasX),
             command("Flip Canvas Vertical", "", Action::FlipCanvasY),

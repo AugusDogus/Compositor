@@ -2,6 +2,7 @@ use super::*;
 use compositor::{background::Quality, filters::Filter, invalid};
 
 pub(super) enum Job {
+    Trim(compositor::trim::Options),
     SelectForeground(compositor::object_selection::Settings),
     DeleteLayersBaked,
     CopyLayers {
@@ -49,6 +50,7 @@ impl Completion {
 impl Job {
     pub(super) fn completion(&self) -> Completion {
         match self {
+            Self::Trim(_) => Completion::Pixels("Trim"),
             Self::SelectForeground(settings) => Completion::Pixels(
                 if matches!(
                     settings.target,
@@ -71,6 +73,7 @@ impl Job {
 
     pub(super) fn run(self, mut document: Document) -> Result<Document> {
         match self {
+            Job::Trim(options) => compositor::trim::apply(&mut document, options)?,
             Job::SelectForeground(settings) => {
                 compositor::object_selection::select(&mut document, settings)?
             }

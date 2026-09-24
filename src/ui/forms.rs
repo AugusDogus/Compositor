@@ -6,6 +6,7 @@ use quickgui::Dialog;
 pub(super) enum Form {
     Effects(Box<super::layer_effects::EffectsEditor>),
     Updates,
+    Trim(compositor::trim::Options),
     Shortcuts(Box<super::shortcut_editor::Draft>),
     Text(Box<super::text_editor::Draft>),
     Blend,
@@ -38,6 +39,10 @@ impl Editor {
     }
 
     pub(super) fn open_form(&mut self, action: Action) {
+        if matches!(action, Action::Trim) {
+            self.modal = Some(Form::Trim(Default::default()));
+            return;
+        }
         if matches!(action, Action::Color) {
             self.modal = Some(if self.tools.mask_target {
                 Form::MaskColor(palette::MaskSwatch::Foreground)
@@ -218,6 +223,7 @@ impl Editor {
             Form::Edit { title, .. } => *title,
             Form::Effects(_) => "Layer Effects",
             Form::Updates => "Updates",
+            Form::Trim(_) => "Trim",
             Form::Text(_) => "Text",
             Form::Shortcuts(_) => "Keyboard Shortcuts",
             Form::Close | Form::DeleteLayers => return self.confirmation_view(cx, &form),
@@ -315,6 +321,9 @@ impl Editor {
         match form {
             Form::Text(draft) => return self.text_editor_view(cx, &draft),
             Form::Shortcuts(draft) => return self.shortcuts_view(cx, &draft),
+            Form::Trim(options) => {
+                contents = contents.child(self.trim_controls(cx, options));
+            }
             Form::Effects(edit) => {
                 contents = contents.child(self.effects_controls(cx, &edit));
             }

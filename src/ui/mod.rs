@@ -35,6 +35,7 @@ mod controls;
 #[cfg(test)]
 mod creation_history_tests;
 mod crop;
+mod trim;
 mod crop_picker;
 mod cursor_art;
 mod curves;
@@ -268,6 +269,7 @@ pub enum Action {
     FlipCanvasX,
     FlipCanvasY,
     CropSettings,
+    Trim,
     PixelGrid,
     Rulers,
     Grid,

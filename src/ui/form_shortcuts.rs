@@ -15,6 +15,12 @@ impl Editor {
             self.result(result, cx);
             return;
         }
+        if *key == Key::Enter && modifiers.is_empty() && matches!(self.modal, Some(Form::Trim(_))) {
+            cx.prevent_default();
+            cx.stop_propagation();
+            self.submit_trim(cx);
+            return;
+        }
         let mapped = self.keymap.translate(key, modifiers, false);
         let panel_command = mapped.as_ref().is_some_and(|(key, modifiers)| {
             let modifiers = *modifiers;

@@ -18,7 +18,7 @@ impl Editor {
             }
             self.tools.pending_crop = None;
             match action {
-                Action::CanvasSize | Action::ImageSize => self.open_form(action),
+                Action::CanvasSize | Action::ImageSize | Action::Trim => self.open_form(action),
                 Action::ExportJpeg | Action::ExportJpegFile => self.open_jpeg(None),
                 _ => self.file_action(action, cx),
             }
@@ -99,6 +99,10 @@ impl Editor {
             }
             Action::OpenClipboard => self.queue_clipboard(clipboard_jobs::Request::Open, cx),
             Action::Transform => self.start_toolbar_transform(),
+            Action::Trim => {
+                self.open_form(action);
+                Ok(())
+            }
             Action::CanvasSize
             | Action::ImageSize
             | Action::CropSettings
