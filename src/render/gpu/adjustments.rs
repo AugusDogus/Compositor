@@ -4,6 +4,8 @@ use crate::adjustment::{Adjustment, ColorRange, HueSaturation, Kind, RangeAdjust
 
 pub(super) fn encode(a: &Adjustment, values: &mut Vec<f32>) -> u32 {
     match a.kind {
+        Kind::GaussianBlur => 11,
+        Kind::MotionBlur => 12,
         Kind::Invert => 7,
         Kind::BlackWhite => {
             let s = a.black_white_settings.unwrap_or_default();

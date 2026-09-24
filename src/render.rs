@@ -1,5 +1,6 @@
 mod downsample;
 pub(crate) mod gpu;
+mod spatial;
 pub use downsample::DownsampleCache;
 
 use crate::{
@@ -151,6 +152,8 @@ struct RenderState {
     backgrounds: HashMap<Uuid, f64>,
     stacks: HashMap<Uuid, Vec<usize>>,
     stacked: HashSet<Uuid>,
+    surfaces: spatial::Surfaces,
+    before: Option<Uuid>,
 }
 
 impl RenderState {
@@ -177,6 +180,8 @@ impl RenderState {
                 .collect(),
             stacks: HashMap::new(),
             stacked: HashSet::new(),
+            surfaces: HashMap::new(),
+            before: None,
         };
         let mut ordered = Vec::new();
         visit(doc, None, &mut ordered);
@@ -204,9 +209,18 @@ impl RenderState {
     }
 }
 
-fn adjust(layer: &Layer, point: Point, opacity: f64, out: &mut [f64; 4]) {
+fn adjust(layer: &Layer, point: Point, opacity: f64, out: &mut [f64; 4], state: &RenderState) {
     if let LayerContent::Adjustment(adjustment) = &layer.content {
-        let adjusted = adjustment.apply(*out, point);
+        let adjusted = state.surfaces.get(&layer.id).map_or_else(
+            || adjustment.apply(*out, point),
+            |surface| {
+                pixel(
+                    &surface.image,
+                    surface.transform.unit(point),
+                    Sampling::Smooth,
+                )
+            },
+        );
         // Blend RGB at full coverage and retain the backdrop's alpha, as on macOS.
         let blended = layer.blend.composite(
             [out[0], out[1], out[2], 1.],
@@ -240,9 +254,9 @@ fn paint_children(
     out: &mut [f64; 4],
     depth: usize,
     state: &RenderState,
-) {
+) -> bool {
     if depth > 64 {
-        return;
+        return false;
     }
     for layer in doc
         .layers
@@ -252,8 +266,11 @@ fn paint_children(
         if state.stacked.contains(&layer.id) {
             continue;
         }
+        if state.before == Some(layer.id) {
+            return true;
+        }
         if layer.is_group() {
-            paint_children(
+            if paint_children(
                 doc,
                 Some(layer.id),
                 point,
@@ -264,13 +281,20 @@ fn paint_children(
                 out,
                 depth + 1,
                 state,
-            );
+            ) {
+                return true;
+            }
         } else if let Some(children) = state.stacks.get(&layer.id) {
             let mut group = own_pixel(layer, point, &state.backgrounds);
             let alpha = group[3];
             group[3] = 1.;
             for index in children {
                 let child = &doc.layers[*index];
+                if state.before == Some(child.id) {
+                    *out = group;
+                    out[3] = alpha;
+                    return true;
+                }
                 if matches!(child.content, LayerContent::Adjustment(_)) {
                     adjust(
                         child,
@@ -279,6 +303,7 @@ fn paint_children(
                             * inherited.opacity
                             * mask_alpha(child, point, &state.backgrounds),
                         &mut group,
+                        state,
                     );
                 } else {
                     let mut top = own_pixel(child, point, &state.backgrounds);
@@ -300,6 +325,7 @@ fn paint_children(
                         * inherited.mask
                         * inherited.opacity,
                     out,
+                    state,
                 );
             }
         } else if let Some(image) = layer.raster() {
@@ -310,6 +336,7 @@ fn paint_children(
             *out = layer.blend.composite(*out, top);
         }
     }
+    false
 }
 
 /// A reusable composite sampler. Mask edge tones are computed once for a batch of pixels.
@@ -320,10 +347,12 @@ pub struct Sampler<'a> {
 
 impl Sampler<'static> {
     pub fn new(document: &Document) -> crate::Result<Self> {
-        Ok(Self::from_document(Cow::Owned(
-            DownsampleCache::default()
-                .prepare(&crate::effects::prepare(document, false)?, [1., 1.]),
-        )))
+        let doc = DownsampleCache::default()
+            .prepare(&crate::effects::prepare(document, false)?, [1., 1.]);
+        let surfaces = spatial::prepare(&doc, [doc.width, doc.height], [0., 0.], [1., 1.], false)?;
+        let mut sampler = Self::from_document(Cow::Owned(doc));
+        sampler.state.surfaces = surfaces;
+        Ok(sampler)
     }
 }
 
@@ -381,7 +410,8 @@ pub fn region_cached(
 ) -> crate::Result<RgbaImage> {
     let effects = crate::effects::prepare(doc, false)?;
     let prepared = cache.prepare(&effects, step);
-    let sampler = Sampler::from_document(Cow::Borrowed(&prepared));
+    let mut sampler = Sampler::from_document(Cow::Borrowed(&prepared));
+    sampler.state.surfaces = spatial::prepare(&prepared, [width, height], origin, step, false)?;
     Ok(RgbaImage::from_fn(width, height, |x, y| {
         let point = [
             origin[0] + (x as f64 + 0.5) * step[0],
@@ -419,10 +449,25 @@ pub fn region_accelerated(
 ) -> crate::Result<RgbaImage> {
     let effects = crate::effects::prepare(doc, true)?;
     let prepared = cache.prepare_accelerated(&effects, step)?;
-    if let Some(image) = gpu::render(&prepared, [width, height], origin, step)? {
+    let surfaces = spatial::prepare(&prepared, [width, height], origin, step, true)?;
+    if let Some(image) =
+        gpu::render_surfaces(&prepared, [width, height], origin, step, &surfaces, None)?
+    {
         return Ok(image);
     }
-    region_cached(&prepared, width, height, origin, step, cache)
+    let mut sampler = Sampler::from_document(Cow::Borrowed(&prepared));
+    sampler.state.surfaces = surfaces;
+    Ok(RgbaImage::from_fn(width, height, |x, y| {
+        let point = [
+            origin[0] + (f64::from(x) + 0.5) * step[0],
+            origin[1] + (f64::from(y) + 0.5) * step[1],
+        ];
+        Rgba(
+            sampler
+                .sample(point)
+                .map(|v| (v.clamp(0., 1.) * 255.).round() as u8),
+        )
+    }))
 }
 
 pub fn render(doc: &Document, width: u32, height: u32) -> crate::Result<RgbaImage> {
@@ -670,4 +715,11 @@ mod tests {
         doc.add(group).unwrap();
         assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([255, 0, 0, 128]));
     }
+}
+
+pub(crate) fn gpu_camera_geometry(
+    image: &image::RgbaImage,
+    matrix: [f32; 9],
+) -> crate::Result<Option<image::RgbaImage>> {
+    gpu::camera_geometry::warp(image, matrix)
 }

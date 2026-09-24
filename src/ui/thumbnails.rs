@@ -225,7 +225,11 @@ impl Editor {
                             Kind::Exposure => Icon::Exposure,
                             Kind::GradientMap => Icon::Palette,
                             Kind::Grain => Icon::Grain,
-                            Kind::Invert | Kind::BlackWhite | Kind::ColorBalance => Icon::Palette,
+                            Kind::GaussianBlur
+                            | Kind::MotionBlur
+                            | Kind::Invert
+                            | Kind::BlackWhite
+                            | Kind::ColorBalance => Icon::Palette,
                         })
                     }
                     _ => None,

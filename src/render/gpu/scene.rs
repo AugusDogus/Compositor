@@ -7,7 +7,7 @@ use crate::{
 use std::{collections::HashMap, sync::Arc};
 
 pub(super) const ASSET_BYTES: usize = 128 * 1024 * 1024;
-pub(super) struct Scene {
+pub(in crate::render) struct Scene {
     pub layers: Vec<u32>,
     pub operations: Vec<[u32; 2]>,
     pub adjustments: Vec<f32>,
@@ -15,7 +15,17 @@ pub(super) struct Scene {
 }
 
 impl Scene {
+    #[cfg(test)]
     pub fn compile(doc: &Document, origin: Point, step: Point) -> Option<Self> {
+        Self::compile_surfaces(doc, origin, step, &HashMap::new(), None)
+    }
+    pub fn compile_surfaces(
+        doc: &Document,
+        origin: Point,
+        step: Point,
+        surfaces: &super::super::spatial::Surfaces,
+        before: Option<uuid::Uuid>,
+    ) -> Option<Self> {
         if doc.layers.len() > 4096 {
             return None;
         }
@@ -47,7 +57,8 @@ impl Scene {
             ]
         };
         for layer in &doc.layers {
-            let image = if let Some(image) = layer.raster() {
+            let surface = surfaces.get(&layer.id);
+            let image = if let Some(image) = surface.map(|s| &s.image).or_else(|| layer.raster()) {
                 let key = Arc::as_ptr(image);
                 let offset = if let Some(offset) = colors.get(&key) {
                     *offset
@@ -71,7 +82,7 @@ impl Scene {
                     offset,
                     image.width(),
                     image.height(),
-                    u32::from(layer.transform.sampling != Sampling::Nearest),
+                    u32::from(surface.is_some() || layer.transform.sampling != Sampling::Nearest),
                 ]
             } else {
                 [0; 4]
@@ -107,7 +118,7 @@ impl Scene {
                 background = mask.background();
                 placement = mask.placement.is_some();
             }
-            let a = mapping(layer.transform);
+            let a = mapping(surface.map_or(layer.transform, |s| s.transform));
             let m = mapping(mask_transform);
             scene.layers.extend(
                 [
@@ -204,6 +215,20 @@ impl Scene {
             }
         }
         visit(&mut scene, doc, &state, None, 0);
+        if let Some(target) = before {
+            let target = *indices.get(&target)?;
+            if let Some(position) = scene
+                .operations
+                .iter()
+                .position(|op| op[1] == target && matches!(op[0], 5 | 7))
+            {
+                let clipped = scene.operations[position][0] == 5;
+                scene.operations.truncate(position);
+                if clipped {
+                    scene.operations.push([8, 0]);
+                }
+            }
+        }
         // Storage bindings cannot be empty, even for a blank document.
         if scene.layers.is_empty() {
             scene.layers.resize(32, 0);

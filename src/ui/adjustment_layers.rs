@@ -12,6 +12,8 @@ pub(super) fn title(kind: Kind) -> &'static str {
         Kind::GradientMap => "Gradient Map",
         Kind::Grain => "Grain",
         Kind::Invert => "Invert",
+        Kind::GaussianBlur => "Gaussian Blur",
+        Kind::MotionBlur => "Motion Blur",
         Kind::BlackWhite => "Black & White",
         Kind::ColorBalance => "Color Balance",
     }

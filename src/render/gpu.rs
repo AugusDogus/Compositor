@@ -3,9 +3,10 @@
 mod adjustments;
 pub(super) mod effects;
 pub(super) mod gaussian;
+pub(super) mod motion;
 pub(crate) mod raw;
 pub(super) mod resize;
-mod scene;
+pub(super) mod scene;
 #[cfg(test)]
 mod tests;
 use crate::{Result, document::Document, geometry::Point, invalid};
@@ -32,19 +33,23 @@ pub(super) fn initialize() -> Result<()> {
     engine().as_ref().map(|_| ()).map_err(invalid)
 }
 
-pub(super) fn render(
+pub(super) fn render_surfaces(
     doc: &Document,
     size: [u32; 2],
     origin: Point,
     step: Point,
+    surfaces: &super::spatial::Surfaces,
+    before: Option<uuid::Uuid>,
 ) -> Result<Option<RgbaImage>> {
-    if u64::from(size[0]) * u64::from(size[1]) < 65_536 || size[0] as usize > BATCH_PIXELS {
+    if (before.is_none() && u64::from(size[0]) * u64::from(size[1]) < 65_536)
+        || size[0] as usize > BATCH_PIXELS
+    {
         return Ok(None);
     }
     let Ok(engine) = engine() else {
         return Ok(None);
     };
-    let Some(scene) = Scene::compile(doc, origin, step) else {
+    let Some(scene) = Scene::compile_surfaces(doc, origin, step, surfaces, before) else {
         return Ok(None);
     };
     let mut engine = engine.lock().map_err(|_| {
@@ -58,12 +63,13 @@ pub(super) struct Engine {
     queue: wgpu::Queue,
     pipeline: wgpu::ComputePipeline,
     resize_pipeline: wgpu::ComputePipeline,
+    motion_pipeline: wgpu::ComputePipeline,
     effects_pipeline: wgpu::ComputePipeline,
     output: wgpu::Buffer,
     readback: wgpu::Buffer,
 }
 impl Engine {
-    fn new() -> Result<Self> {
+    pub(super) fn new() -> Result<Self> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::VULKAN,
             ..wgpu::InstanceDescriptor::new_without_display_handle()
@@ -112,6 +118,18 @@ impl Engine {
             compilation_options: Default::default(),
             cache: None,
         });
+        let motion_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Motion blur"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("gpu/motion.wgsl").into()),
+        });
+        let motion_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Motion blur"),
+            layout: None,
+            module: &motion_shader,
+            entry_point: Some("motion"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
         let effects_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Layer effects"),
             source: wgpu::ShaderSource::Wgsl(include_str!("gpu/effects.wgsl").into()),
@@ -142,6 +160,7 @@ impl Engine {
             queue,
             pipeline,
             resize_pipeline,
+            motion_pipeline,
             effects_pipeline,
             output,
             readback,
@@ -155,7 +174,7 @@ impl Engine {
         }
         Ok(())
     }
-    fn render(
+    pub(super) fn render(
         &mut self,
         scene: &Scene,
         size: [u32; 2],

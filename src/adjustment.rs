@@ -18,6 +18,10 @@ pub enum Kind {
     BlackWhite,
     #[serde(rename = "Color Balance")]
     ColorBalance,
+    #[serde(rename = "Gaussian Blur")]
+    GaussianBlur,
+    #[serde(rename = "Motion Blur")]
+    MotionBlur,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -48,6 +52,12 @@ pub struct Adjustment {
     pub black_white_settings: Option<BlackWhite>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color_balance_settings: Option<ColorBalance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blur_radius: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_angle: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_distance: Option<f64>,
 }
 
 impl Adjustment {
@@ -66,12 +76,18 @@ impl Adjustment {
             grain_settings: None,
             black_white_settings: None,
             color_balance_settings: None,
+            blur_radius: None,
+            motion_angle: None,
+            motion_distance: None,
         }
     }
     pub fn validate(&self) -> Result<()> {
         let exposure = self.exposure_settings.unwrap_or_default();
         let grain = self.grain_settings.unwrap_or_default();
-        if !self.black_white_settings.unwrap_or_default().valid()
+        if !(0.1..=250.).contains(&self.blur_radius.unwrap_or(10.))
+            || !(-90. ..=90.).contains(&self.motion_angle.unwrap_or(0.))
+            || !(1. ..=2000.).contains(&self.motion_distance.unwrap_or(10.))
+            || !self.black_white_settings.unwrap_or_default().valid()
             || !self.color_balance_settings.unwrap_or_default().valid()
             || !self.hue.is_finite()
             || self.hue.abs() > 360.
@@ -118,6 +134,8 @@ impl Adjustment {
     pub fn apply(&self, rgba: [f64; 4], point: [f64; 2]) -> [f64; 4] {
         let rgb = [rgba[0], rgba[1], rgba[2]];
         let out = match self.kind {
+            // Spatial adjustments are evaluated against a prepared backdrop surface by render.
+            Kind::GaussianBlur | Kind::MotionBlur => rgb,
             Kind::Invert => rgb.map(|v| 1. - v),
             Kind::BlackWhite => self.black_white_settings.unwrap_or_default().apply(rgb),
             Kind::ColorBalance => self.color_balance_settings.unwrap_or_default().apply(rgb),

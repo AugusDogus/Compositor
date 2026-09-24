@@ -22,6 +22,11 @@ pub(super) fn fields(a: &Adjustment) -> Vec<(&'static str, String)> {
     };
     match a.kind {
         Kind::Invert => vec![],
+        Kind::GaussianBlur => vec![n("Radius", a.blur_radius.unwrap_or(10.))],
+        Kind::MotionBlur => vec![
+            n("Distance", a.motion_distance.unwrap_or(10.)),
+            n("Angle", a.motion_angle.unwrap_or(0.)),
+        ],
         Kind::BlackWhite => {
             let s = a.black_white_settings.unwrap_or_default();
             vec![
@@ -152,6 +157,11 @@ pub(super) fn parse(base: &Adjustment, values: &[String]) -> Result<Adjustment> 
     };
     let mut a = base.clone();
     match a.kind {
+        Kind::GaussianBlur => a.blur_radius = Some(number(0)?),
+        Kind::MotionBlur => {
+            a.motion_distance = Some(number(0)?);
+            a.motion_angle = Some(number(1)?);
+        }
         Kind::Invert => {}
         Kind::BlackWhite => {
             a.black_white_settings = Some(BlackWhite {
