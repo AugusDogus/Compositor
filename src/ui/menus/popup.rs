@@ -68,7 +68,7 @@ impl Editor {
                 }
                 Command::Handles => {
                     this.tools.show_transform_controls = !this.tools.show_transform_controls;
-                    cx.invalidate();
+                    this.changed(cx);
                 }
             }
         });

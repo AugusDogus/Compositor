@@ -73,6 +73,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut editor = ui::Editor::new(Vec::new())?;
     editor.set_launch_queue(queue);
     editor.restore_layout();
+    editor.restore_tool_defaults();
     editor.restore_update_preferences();
     editor.restore_shortcuts();
     match compositor::native_clipboard::wayland::WaylandClipboard::new(app.owned_display_handle()) {

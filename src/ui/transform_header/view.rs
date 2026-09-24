@@ -72,7 +72,7 @@ impl Editor {
                     .flex_shrink_0()
                     .on_click(cx.listener("transform-auto-select", |this, cx| {
                         this.tools.transform_auto_select = !this.tools.transform_auto_select;
-                        cx.invalidate();
+                        this.changed(cx);
                     })),
             )
             .child(
@@ -81,7 +81,7 @@ impl Editor {
                     .flex_shrink_0()
                     .on_click(cx.listener("transform-show-controls", |this, cx| {
                         this.tools.show_transform_controls = !this.tools.show_transform_controls;
-                        cx.invalidate();
+                        this.changed(cx);
                     })),
             )
             .child(self.transform_numeric_controls(cx))

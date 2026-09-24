@@ -147,6 +147,7 @@ mod tool_cursor;
 #[cfg(test)]
 mod tool_header_tests;
 mod tool_preferences;
+mod tool_defaults;
 #[cfg(test)]
 mod transfer_tests;
 mod transform_fields;
@@ -326,6 +327,7 @@ pub struct Editor {
     current: usize,
     next_tab_number: usize,
     tools: project_tools::ProjectTools,
+    tool_defaults: tool_defaults::Preferences,
     tab_scrolling: tab_strip::TabScrolling,
     launch_queue: crate::launch::LaunchQueue,
     space_pan: bool,
@@ -442,6 +444,7 @@ impl Editor {
             tabs,
             current: 0,
             tools: project_tools::ProjectTools::default(),
+            tool_defaults: tool_defaults::Preferences::default(),
             next_tab_number: 2,
             tab_scrolling: tab_strip::TabScrolling::default(),
             launch_queue,
@@ -535,6 +538,7 @@ impl Editor {
         self.commit_pixels()
     }
     fn changed(&mut self, cx: &mut EventContext) {
+        self.save_tool_defaults();
         self.revision = self.revision.wrapping_add(1);
         cx.invalidate();
     }

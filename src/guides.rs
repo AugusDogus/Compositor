@@ -44,7 +44,8 @@ pub fn validate(guides: &[Guide]) -> Result<()> {
     Ok(())
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Settings {
     pub grid: bool,
     pub guides: bool,
@@ -64,7 +65,7 @@ impl Default for Settings {
             rulers: false,
             locked: false,
             snap: true,
-            to_grid: true,
+            to_grid: false,
             to_guides: true,
             to_layers: true,
             to_bounds: true,

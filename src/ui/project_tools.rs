@@ -114,6 +114,7 @@ impl Editor {
         if index == self.current {
             return;
         }
+        let toggles = tool_defaults::Toggles::capture(&self.tools);
         self.tools.dismiss_menus();
         if matches!(self.modal, Some(Form::Blend)) {
             self.modal = None;
@@ -122,6 +123,7 @@ impl Editor {
         std::mem::swap(&mut self.tools, &mut self.tabs[self.current].parked_tools);
         self.current = index;
         std::mem::swap(&mut self.tools, &mut self.tabs[index].parked_tools);
+        toggles.apply(&mut self.tools);
         self.canvas_pointer = None;
         self.sample_ring = None;
         self.pending_layer_click = None;
@@ -208,7 +210,7 @@ mod tests {
             assert_eq!(e.tools.brush.diameter, 40.);
             assert_eq!(e.tools.brush.color, Brush::default().color);
             assert_eq!(e.tools.clone_source, None);
-            assert!(e.tools.pixel_grid);
+            assert!(!e.tools.pixel_grid);
             e.tabs[e.current].set_document(Document::new(30, 30).unwrap(), None);
             e.select_tool(Tool::Shape, cx);
             e.tools.shape_radius = 27.;

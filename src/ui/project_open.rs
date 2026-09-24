@@ -88,7 +88,9 @@ impl Editor {
                     } else {
                         if self.tabs.len() == 1 && !self.has_document() {
                             self.tabs[0] = Session::new(*document, path).into();
+                            let toggles = tool_defaults::Toggles::capture(&self.tools);
                             self.tools = project_tools::ProjectTools::default();
+                            toggles.apply(&mut self.tools);
                             0
                         } else {
                             self.tabs.push(Session::new(*document, path).into());
