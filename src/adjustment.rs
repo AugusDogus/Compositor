@@ -1,4 +1,5 @@
 mod color;
+mod noise;
 use crate::{Result, invalid};
 pub use color::{BlackWhite, ColorBalance};
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,8 @@ pub enum Kind {
     GaussianBlur,
     #[serde(rename = "Motion Blur")]
     MotionBlur,
+    #[serde(rename = "Add Noise")]
+    AddNoise,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -58,6 +61,14 @@ pub struct Adjustment {
     pub motion_angle: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_distance: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub noise_amount: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub noise_gaussian: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub noise_monochromatic: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub noise_seed: Option<u32>,
 }
 
 impl Adjustment {
@@ -79,12 +90,17 @@ impl Adjustment {
             blur_radius: None,
             motion_angle: None,
             motion_distance: None,
+            noise_amount: None,
+            noise_gaussian: None,
+            noise_monochromatic: None,
+            noise_seed: None,
         }
     }
     pub fn validate(&self) -> Result<()> {
         let exposure = self.exposure_settings.unwrap_or_default();
         let grain = self.grain_settings.unwrap_or_default();
-        if !(0.1..=250.).contains(&self.blur_radius.unwrap_or(10.))
+        if !(0.1..=400.).contains(&self.noise_amount.unwrap_or(10.))
+            || !(0.1..=250.).contains(&self.blur_radius.unwrap_or(10.))
             || !(-90. ..=90.).contains(&self.motion_angle.unwrap_or(0.))
             || !(1. ..=2000.).contains(&self.motion_distance.unwrap_or(10.))
             || !self.black_white_settings.unwrap_or_default().valid()
@@ -134,6 +150,7 @@ impl Adjustment {
     pub fn apply(&self, rgba: [f64; 4], point: [f64; 2]) -> [f64; 4] {
         let rgb = [rgba[0], rgba[1], rgba[2]];
         let out = match self.kind {
+            Kind::AddNoise => noise::apply(self, rgb, point),
             // Spatial adjustments are evaluated against a prepared backdrop surface by render.
             Kind::GaussianBlur | Kind::MotionBlur => rgb,
             Kind::Invert => rgb.map(|v| 1. - v),

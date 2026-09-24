@@ -326,3 +326,33 @@ fn adjustment_ranges_extremes_and_seed_bits_match_cpu() {
         doc.layers.pop();
     }
 }
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn add_noise_matches_cpu_for_distribution_color_seed_and_document_origin() {
+    let mut engine = Engine::new().unwrap();
+    let mut doc = Document::new(32, 24).unwrap();
+    doc.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(
+        32,
+        24,
+        Rgba([110, 130, 150, 127]),
+    ))));
+    doc.layers[0].transform.origin = [-8., -6.];
+    for gaussian in [false, true] {
+        for monochromatic in [false, true] {
+            for seed in [0, 0x7fc0_1234, u32::MAX] {
+                let mut settings = Adjustment::new(Kind::AddNoise);
+                settings.noise_amount = Some(80.);
+                settings.noise_gaussian = Some(gaussian);
+                settings.noise_monochromatic = Some(monochromatic);
+                settings.noise_seed = Some(seed);
+                let mut layer = Layer::blank("Noise", 32, 24);
+                layer.content = LayerContent::Adjustment(Box::new(settings));
+                layer.opacity = 0.7;
+                doc.add(layer).unwrap();
+                check(&mut engine, &doc, [30, 22], [-7.3, -5.7], [0.83, 0.77]);
+                doc.layers.pop();
+            }
+        }
+    }
+}

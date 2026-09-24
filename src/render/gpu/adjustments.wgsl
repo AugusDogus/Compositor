@@ -34,6 +34,7 @@ fn curve(value:f32, offset:u32) -> f32 {
 fn mix32(input:u32) -> u32 {
     var x=input^(input>>16u); x*=0x7feb352du; x^=x>>15u; x*=0x846ca68bu; return x^(x>>16u);
 }
+fn noise_unit(key:u32) -> f32 {return f32(mix32(key)>>8u)/16777216.0;}
 fn lattice(x:i32,y:i32,seed:u32) -> f32 {
     let h=mix32(bitcast<u32>(x)*0x9E3779B1u ^ mix32(bitcast<u32>(y)*0x85EBCA77u ^ seed));
     return f32(h&65535u)/65535.0+f32(h>>16u)/65535.0-1.0;
@@ -105,6 +106,16 @@ fn adjust_rgb(rgb:vec3<f32>, kind:u32, offset:u32, point:vec2<f32>) -> vec3<f32>
             }
             let after=dot(result,vec3(0.299,0.587,0.114));
             if settings[offset+9u]!=0.0 && after>0.0001 {result*=dot(rgb,vec3(0.299,0.587,0.114))/after;}
+        }
+        case 10u: {
+            let p=vec2<i32>(floor(point));
+            let base=mix32(bitcast<u32>(settings[offset+3u]) ^ mix32(bitcast<u32>(p.x)*0x9e3779b9u ^ mix32(bitcast<u32>(p.y)*0x85ebca6bu)));
+            for(var c=0u;c<3u;c++) {
+                let key=select(base+c*0x9e3779b9u,base,settings[offset+2u]!=0.0);
+                var n=(noise_unit(key)*2.0-1.0)*settings[offset];
+                if settings[offset+1u]!=0.0 {n=sqrt(-2.0*log(1.0-noise_unit(key)))*cos(6.2831853*noise_unit(key^0x68e31da4u))*settings[offset]*(2.0/3.0);}
+                result[c]+=n;
+            }
         }
         default: {}
     }

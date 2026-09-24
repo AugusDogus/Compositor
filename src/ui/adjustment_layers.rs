@@ -11,6 +11,7 @@ pub(super) fn title(kind: Kind) -> &'static str {
         Kind::Exposure => "Exposure",
         Kind::GradientMap => "Gradient Map",
         Kind::Grain => "Grain",
+        Kind::AddNoise => "Add Noise",
         Kind::Invert => "Invert",
         Kind::GaussianBlur => "Gaussian Blur",
         Kind::MotionBlur => "Motion Blur",
@@ -33,6 +34,8 @@ impl Editor {
                 highlights: color(self.tools.background),
                 reversed: false,
             });
+        } else if kind == Kind::AddNoise {
+            settings.noise_seed = Some(uuid::Uuid::new_v4().as_u128() as u32);
         } else if kind == Kind::Grain {
             settings.grain_settings = Some(Grain {
                 seed: uuid::Uuid::new_v4().as_u128() as u32,

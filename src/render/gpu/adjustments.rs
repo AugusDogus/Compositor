@@ -6,6 +6,15 @@ pub(super) fn encode(a: &Adjustment, values: &mut Vec<f32>) -> u32 {
     match a.kind {
         Kind::GaussianBlur => 11,
         Kind::MotionBlur => 12,
+        Kind::AddNoise => {
+            values.extend([
+                a.noise_amount.unwrap_or(10.) as f32 / 200.,
+                f32::from(a.noise_gaussian.unwrap_or(false)),
+                f32::from(a.noise_monochromatic.unwrap_or(false)),
+                f32::from_bits(a.noise_seed.unwrap_or(0)),
+            ]);
+            10
+        }
         Kind::Invert => 7,
         Kind::BlackWhite => {
             let s = a.black_white_settings.unwrap_or_default();

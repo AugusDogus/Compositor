@@ -86,6 +86,7 @@ impl Parameter {
             (_, Some(Kind::GaussianBlur), 0) => ("Radius", (0.1, 250.), "px", Logarithmic(1)),
             (_, Some(Kind::MotionBlur), 0) => ("Distance", (1., 2000.), "px", Logarithmic(0)),
             (_, Some(Kind::MotionBlur), 1) => ("Angle", (-90., 90.), "°", Linear(0)),
+            (_, Some(Kind::AddNoise), 0) => ("Amount", (0.1, 400.), "%", Logarithmic(1)),
             (_, Some(Kind::Exposure), 0) => ("Exposure", (-20., 20.), "", Linear(2)),
             (_, Some(Kind::Exposure), 1) => ("Offset", (-0.5, 0.5), "", Linear(4)),
             (_, Some(Kind::Exposure), 2) => ("Gamma", (0.01, 9.99), "", Logarithmic(2)),

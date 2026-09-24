@@ -21,6 +21,17 @@ pub(super) fn fields(a: &Adjustment) -> Vec<(&'static str, String)> {
         )
     };
     match a.kind {
+        Kind::AddNoise => vec![
+            n("Amount", a.noise_amount.unwrap_or(10.)),
+            (
+                "Gaussian (0 or 1)",
+                u8::from(a.noise_gaussian.unwrap_or(false)).to_string(),
+            ),
+            (
+                "Monochromatic (0 or 1)",
+                u8::from(a.noise_monochromatic.unwrap_or(false)).to_string(),
+            ),
+        ],
         Kind::Invert => vec![],
         Kind::GaussianBlur => vec![n("Radius", a.blur_radius.unwrap_or(10.))],
         Kind::MotionBlur => vec![
@@ -162,6 +173,11 @@ pub(super) fn parse(base: &Adjustment, values: &[String]) -> Result<Adjustment> 
             a.motion_distance = Some(number(0)?);
             a.motion_angle = Some(number(1)?);
         }
+        Kind::AddNoise => {
+            a.noise_amount = Some(number(0)?);
+            a.noise_gaussian = Some(boolean(1)?);
+            a.noise_monochromatic = Some(boolean(2)?);
+        }
         Kind::Invert => {}
         Kind::BlackWhite => {
             a.black_white_settings = Some(BlackWhite {
@@ -291,4 +307,21 @@ pub(super) fn parse(base: &Adjustment, values: &[String]) -> Result<Adjustment> 
     }
     a.validate()?;
     Ok(a)
+}
+
+#[cfg(test)]
+mod noise_tests {
+    use super::*;
+    #[test]
+    fn noise_controls_preserve_seed_and_reject_invalid_settings() {
+        let mut settings = Adjustment::new(Kind::AddNoise);
+        settings.noise_seed = Some(u32::MAX);
+        assert_eq!(fields(&settings).len(), 3);
+        let next = parse(&settings, &["37".into(), "1".into(), "1".into()]).unwrap();
+        assert_eq!(next.noise_seed, settings.noise_seed);
+        assert_eq!(next.noise_amount, Some(37.));
+        assert_eq!(next.noise_gaussian, Some(true));
+        assert_eq!(next.noise_monochromatic, Some(true));
+        assert!(parse(&settings, &["401".into(), "0".into(), "0".into()]).is_err());
+    }
 }

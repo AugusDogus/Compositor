@@ -191,6 +191,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command("Invert", "", Action::Adjustment(Kind::Invert)),
             command("Gaussian Blur…", "", Action::Adjustment(Kind::GaussianBlur)),
             command("Motion Blur…", "", Action::Adjustment(Kind::MotionBlur)),
+            command("Add Noise…", "", Action::Adjustment(Kind::AddNoise)),
             command("Color Balance…", "", Action::Adjustment(Kind::ColorBalance)),
             command("Black & White…", "", Action::Adjustment(Kind::BlackWhite)),
         ],
