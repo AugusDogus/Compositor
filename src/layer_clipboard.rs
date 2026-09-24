@@ -73,6 +73,60 @@ impl Layers {
 mod tests {
     use super::*;
     #[test]
+    fn pasting_preserves_clipping_when_hidden_layers_or_folders_are_revealed() {
+        use crate::document::{Layer, LayerContent};
+        for (hide_base, hide_child, folder, hidden_sibling) in [
+            (true, false, false, false),
+            (false, true, false, false),
+            (false, false, true, false),
+            (true, false, false, true),
+        ] {
+            let mut target = Document::new(1, 1).unwrap();
+            crate::edits::fill(&mut target, [255, 0, 0, 128], false, false).unwrap();
+            let base = target.active.unwrap();
+            if hidden_sibling {
+                let mut sibling = Layer::blank("Hidden unrelated sibling", 1, 1);
+                sibling.visible = false;
+                target.add(sibling).unwrap();
+            }
+            target.add(Layer::blank("Clipped", 1, 1)).unwrap();
+            crate::edits::fill(&mut target, [0, 0, 255, 128], false, false).unwrap();
+            let child = target.active.unwrap();
+            target.active_layer_mut().unwrap().clip_source = Some(base);
+            let group = if folder {
+                let mut group = Layer::blank("Folder", 1, 1);
+                group.content = LayerContent::Group;
+                for layer in &mut target.layers {
+                    layer.parent = Some(group.id);
+                }
+                let id = group.id;
+                target.add(group).unwrap();
+                Some(id)
+            } else {
+                None
+            };
+            let before = crate::render::render(&target, 1, 1).unwrap();
+            for layer in &mut target.layers {
+                if (hide_base && layer.id == base)
+                    || (hide_child && layer.id == child)
+                    || Some(layer.id) == group
+                {
+                    layer.visible = false;
+                }
+            }
+            target.select(base, false);
+            let clipboard = Layers::capture(&Document::new(1, 1).unwrap()).unwrap();
+            clipboard.paste(&mut target).unwrap();
+            for layer in &mut target.layers {
+                if layer.id == base || layer.id == child || Some(layer.id) == group {
+                    layer.visible = true;
+                }
+            }
+            assert_eq!(crate::render::render(&target, 1, 1).unwrap(), before);
+        }
+    }
+
+    #[test]
     fn pasting_respects_rendered_stacks_across_hidden_layers_and_empty_folders() {
         use crate::document::{Layer, LayerContent};
         for folder in [false, true] {

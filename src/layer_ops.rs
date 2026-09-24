@@ -504,22 +504,16 @@ fn copy_insertion(
     parent: Option<Uuid>,
     position: Position,
 ) -> usize {
-    for stack in crate::clipping::stacks(doc) {
-        let base = &doc.layers[stack.base];
-        let Some(last) = stack.contiguous.last().copied() else {
-            continue;
+    if let Some((base, last)) = crate::clipping::insertion_stack(doc, parent, insertion)
+        && !copies
+            .iter()
+            .all(|l| l.clip_source == Some(doc.layers[base].id))
+    {
+        return if matches!(position, Position::Below(_)) {
+            base
+        } else {
+            last + 1
         };
-        if base.parent == parent
-            && stack.base < insertion
-            && insertion <= last
-            && !copies.iter().all(|l| l.clip_source == Some(base.id))
-        {
-            return if matches!(position, Position::Below(_)) {
-                stack.base
-            } else {
-                last + 1
-            };
-        }
     }
     insertion
 }

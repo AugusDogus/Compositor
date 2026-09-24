@@ -9,6 +9,46 @@ pub(crate) struct Stack {
     pub adjustments: Vec<usize>,
 }
 
+// Placement reserves the stack even when its base, members, or containing
+// folder are hidden. Unrelated hidden siblings and empty folders still do not
+// separate a stack. Rendering, by contrast, visits only visible content below.
+pub(crate) fn insertion_stack(
+    doc: &Document,
+    parent: Option<Uuid>,
+    insertion: usize,
+) -> Option<(usize, usize)> {
+    fn visible_content(doc: &Document, parent: Uuid) -> bool {
+        doc.layers
+            .iter()
+            .filter(|l| l.parent == Some(parent) && l.visible)
+            .any(|l| !l.is_group() || visible_content(doc, l.id))
+    }
+    for (index, base) in doc.layers[..insertion].iter().enumerate().filter(|(_, l)| {
+        l.parent == parent
+            && l.clip_source.is_none()
+            && matches!(l.content, LayerContent::Raster(_))
+    }) {
+        let mut last = index;
+        for (child_index, child) in doc
+            .layers
+            .iter()
+            .enumerate()
+            .skip(index + 1)
+            .filter(|(_, l)| l.parent == parent)
+        {
+            if child.clip_source == Some(base.id) {
+                last = child_index;
+            } else if child.visible && (!child.is_group() || visible_content(doc, child.id)) {
+                break;
+            }
+        }
+        if insertion <= last {
+            return Some((index, last));
+        }
+    }
+    None
+}
+
 pub(crate) fn stacks(doc: &Document) -> Vec<Stack> {
     fn visit(doc: &Document, parent: Option<Uuid>, out: &mut Vec<usize>) {
         for (index, layer) in doc

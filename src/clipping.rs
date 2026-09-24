@@ -10,7 +10,7 @@ use std::{
 use uuid::Uuid;
 
 mod stacks;
-pub(crate) use stacks::stacks;
+pub(crate) use stacks::{insertion_stack, stacks};
 
 #[derive(Clone, Copy)]
 pub enum DeleteMode {
