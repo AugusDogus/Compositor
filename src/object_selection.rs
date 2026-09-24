@@ -33,7 +33,7 @@ struct Cached {
 static CACHE: Mutex<Option<Cached>> = Mutex::new(None);
 fn source_document(document: &Document, all: bool) -> Result<Document> {
     crate::document::validate_size(document.width, document.height).map_err(|_| {
-        invalid("Object and subject selection need a canvas of at most 100 million pixels. Crop or resize a copy and retry; the current document is unchanged.")
+        invalid("Object and subject selection need a canvas of at most 200 million pixels. Crop or resize a copy and retry; the current document is unchanged.")
     })?;
     let mut source = document.clone();
     source.selection = None;

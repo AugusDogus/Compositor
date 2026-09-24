@@ -191,7 +191,7 @@ impl Selection {
         } else {
             None
         };
-        if u64::from(width) * u64::from(height) > crate::document::MAX_PIXELS {
+        if u64::from(width) * u64::from(height) > crate::document::MAX_SURFACE_PIXELS {
             let geometry =
                 geometry.unwrap_or_else(|| Arc::new(SelectionGeometry::polygon(&[], false)));
             return Self {
@@ -274,7 +274,7 @@ impl Selection {
         // Sparse canvases do not require a canvas-sized selection mask. Keep
         // ordinary masks unchanged and trim large ones to the drawn contours.
         let area = (bounds[2].ceil() - bounds[0].floor()) * (bounds[3].ceil() - bounds[1].floor());
-        if area > crate::document::MAX_PIXELS as f64 {
+        if area > crate::document::MAX_SURFACE_PIXELS as f64 {
             bounds = match geometry.bounds() {
                 Some(b) => [
                     bounds[0].max(b[0]),
@@ -290,7 +290,7 @@ impl Selection {
         let height = (bounds[3].ceil() - origin[1]).max(1.) as u32;
         validate_canvas_size(width, height)?;
         let geometry = Arc::new(geometry.translated([-origin[0], -origin[1]]));
-        let pixels = if u64::from(width) * u64::from(height) > crate::document::MAX_PIXELS {
+        let pixels = if u64::from(width) * u64::from(height) > crate::document::MAX_SURFACE_PIXELS {
             Coverage::geometric(geometry.clone(), [width, height])
         } else {
             Coverage::raster(geometry.rasterize(width, height)?)

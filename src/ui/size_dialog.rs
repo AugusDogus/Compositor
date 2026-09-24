@@ -204,7 +204,7 @@ impl Editor {
         controls.child(match self.size_result(Action::ImageSize, fields) {
             Ok(size) => callout(format!("Result: {} × {} pixels", size[0], size[1])),
             Err(_) => callout(
-                "Use 1–30,000 pixels per side, up to 100 megapixels, and 1–9,600 pixels/inch.",
+                "Use 1–30,000 pixels per side, up to 200 megapixels, and 1–9,600 pixels/inch.",
             )
             .text_color(Color::rgb8(255, 159, 10)),
         })

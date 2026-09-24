@@ -23,7 +23,9 @@ pub fn decode(bytes: &[u8]) -> Result<Imported> {
             use_image_data: Some(true),
             skip_thumbnail: Some(true),
             skip_linked_files_data: Some(true),
-            total_memory_limit: Some(800_000_000),
+            total_memory_limit: Some(
+                usize::try_from(crate::document::document_pixel_budget() * 8).unwrap_or(usize::MAX),
+            ),
             strict: Some(true),
             ..Default::default()
         },
@@ -35,11 +37,7 @@ pub fn decode(bytes: &[u8]) -> Result<Imported> {
     })?;
     super::vector_metadata::apply(&mut psd, metadata)?;
     let mut budget = decoded_budget(&psd);
-    if budget > 100_000_000 {
-        return Err(invalid(
-            "PSD layers and padded masks exceed the combined 100 million pixel import budget.",
-        ));
-    }
+    crate::document::validate_pixel_budget(budget)?;
     let mut document = Document::new(psd.width as u32, psd.height as u32)?;
     super::resources::import(&mut document, psd.image_resources, &mut report);
     document.layers.clear();

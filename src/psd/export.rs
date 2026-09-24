@@ -91,11 +91,7 @@ pub fn encode(doc: &Document) -> Result<Vec<u8>> {
 fn charge(width: u32, height: u32, budget: &mut u64) -> Result<()> {
     crate::document::validate_size(width, height)?;
     *budget += u64::from(width) * u64::from(height);
-    if *budget > 100_000_000 {
-        return Err(invalid(
-            "PSD layers and masks exceed the combined 100 million pixel export budget.",
-        ));
-    }
+    crate::document::validate_pixel_budget(*budget)?;
     Ok(())
 }
 fn export_layers(

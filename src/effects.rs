@@ -195,7 +195,7 @@ impl LayerEffects {
         let margin = u64::from(self.margin()) * 2;
         (u64::from(width) + margin)
             .checked_mul(u64::from(height) + margin)
-            .is_some_and(|area| area <= 100_000_000)
+            .is_some_and(|area| area <= crate::document::MAX_SURFACE_PIXELS)
     }
     pub fn is_empty(&self) -> bool {
         self.stroke.is_none()

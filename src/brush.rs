@@ -147,7 +147,7 @@ impl Stroke {
                 .ok_or_else(|| invalid("No active layer."))?;
             if matches!(layer.content, LayerContent::Raster(None))
                 && layer.transform.size[0].ceil() * layer.transform.size[1].ceil()
-                    > crate::document::MAX_PIXELS as f64
+                    > crate::document::MAX_SURFACE_PIXELS as f64
             {
                 crate::raster_extent::seed(layer, point)?;
             }

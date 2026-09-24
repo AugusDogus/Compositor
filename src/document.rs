@@ -3,7 +3,8 @@ use image::{GrayImage, RgbaImage};
 use std::{collections::HashSet, sync::Arc};
 use uuid::Uuid;
 
-pub const MAX_PIXELS: u64 = 100_000_000;
+mod limits;
+pub use limits::{MAX_SURFACE_PIXELS, document_pixel_budget};
 
 /// Canvas geometry is sparse. Only materialized pixel assets share the raster budget.
 pub fn validate_canvas_size(width: u32, height: u32) -> Result<()> {
@@ -20,10 +21,10 @@ pub fn validate_size(width: u32, height: u32) -> Result<()> {
         || height == 0
         || width > 30_000
         || height > 30_000
-        || u64::from(width) * u64::from(height) > MAX_PIXELS
+        || u64::from(width) * u64::from(height) > MAX_SURFACE_PIXELS
     {
         return Err(invalid(
-            "Dimensions must be 1 to 30,000 pixels per side and at most 100 million pixels total.",
+            "Dimensions must be 1 to 30,000 pixels per side and at most 200 million pixels total.",
         ));
     }
     Ok(())
@@ -387,7 +388,7 @@ impl Document {
                     .is_some_and(|effects| !effects.validate_size(image.width(), image.height()))
                 {
                     return Err(invalid(
-                        "Layer effects exceed the 100 megapixel surface limit. Reduce the image size or effect distance, blur, or stroke size.",
+                        "Layer effects exceed the 200 megapixel surface limit. Reduce the image size or effect distance, blur, or stroke size.",
                     ));
                 }
                 validate_size(image.width(), image.height())?;
@@ -429,11 +430,19 @@ impl Document {
                 }
             }
         }
-        if pixels > MAX_PIXELS || mask_pixels > MAX_PIXELS {
-            return Err(invalid(
-                "Project exceeds 100 million source or mask pixels.",
-            ));
-        }
+        validate_pixel_budget(pixels + mask_pixels)?;
         Ok(())
     }
+}
+
+/// Count layers and masks together, independently of the single-surface limit.
+pub fn validate_pixel_budget(pixels: u64) -> Result<()> {
+    let limit = document_pixel_budget();
+    if pixels > limit {
+        return Err(invalid(format!(
+            "Project exceeds this computer's {} million pixel budget across layers and masks. Reduce layer or mask dimensions, or split the project.",
+            limit / 1_000_000
+        )));
+    }
+    Ok(())
 }

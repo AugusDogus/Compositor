@@ -228,7 +228,7 @@ fn oversized_sparse_canvas_is_rejected_before_inference_or_materialization() {
     let mut settings = settings(Target::Subject, SelectionMode::Replace);
     settings.sample_all = true;
     let error = select(&mut doc, settings).unwrap_err().to_string();
-    assert!(error.contains("100 million pixels"));
+    assert!(error.contains("200 million pixels"));
     assert_eq!(doc, before);
 }
 #[test]

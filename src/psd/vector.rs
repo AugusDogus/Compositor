@@ -187,11 +187,7 @@ fn placement(bounds: [f64; 4], budget: &mut u64) -> Result<Transform> {
     let height = (bounds[3].ceil() - top) as u32;
     crate::document::validate_size(width, height)?;
     *budget += u64::from(width) * u64::from(height);
-    if *budget > 100_000_000 {
-        return Err(invalid(
-            "PSD vectors, layers, and masks exceed the combined 100 million pixel import budget.",
-        ));
-    }
+    crate::document::validate_pixel_budget(*budget)?;
     let mut transform = Transform::new(width, height);
     transform.origin = [left, top];
     Ok(transform)

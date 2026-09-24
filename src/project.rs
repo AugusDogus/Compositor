@@ -216,11 +216,7 @@ pub fn load(path: &Path) -> Result<Document> {
                 &mut source_pixels
             };
             *used += u64::from(width) * u64::from(height);
-            if *used > crate::document::MAX_PIXELS {
-                return Err(invalid(
-                    "Project exceeds 100 million source or mask pixels.",
-                ));
-            }
+            crate::document::validate_pixel_budget(source_pixels + mask_pixels)?;
             let image = image_io::read_image(&file)?;
             if is_mask {
                 if image

@@ -65,12 +65,11 @@ fn rectangle(c: &mut Cursor<'_>, budget: &mut u64) -> Result<()> {
             "PSD layer or mask bounds exceed the 30,000 pixel limit.",
         ));
     }
-    *budget += (width * height) as u64;
-    if *budget > 100_000_000 {
-        return Err(invalid(
-            "PSD layers and masks exceed the combined 100 million pixel import budget.",
-        ));
+    if width > 0 && height > 0 {
+        validate_size(width as u32, height as u32)?;
     }
+    *budget += (width * height) as u64;
+    crate::document::validate_pixel_budget(*budget)?;
     Ok(())
 }
 pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {

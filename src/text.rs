@@ -66,11 +66,12 @@ impl Text {
             || !(-100. ..=1000.).contains(&self.tracking)
             || !(0. ..=5000.).contains(&self.leading)
             || self.box_size.is_some_and(|s| {
-                !s.iter().all(|v| (16. ..=30_000.).contains(v)) || s[0] * s[1] > 100_000_000.
+                !s.iter().all(|v| (16. ..=30_000.).contains(v))
+                    || s[0] * s[1] > crate::document::MAX_SURFACE_PIXELS as f64
             })
         {
             return Err(invalid(
-                "Text settings exceed supported bounds. Use up to 100,000 characters, 1–2000 px type, and a box within 30,000 px and 100 megapixels.",
+                "Text settings exceed supported bounds. Use up to 100,000 characters, 1–2000 px type, and a box within 30,000 px and 200 megapixels.",
             ));
         }
         Ok(())

@@ -251,7 +251,8 @@ fn outer_glow_matches_upstream_defaults_schema_bounds_and_validation() {
     effects.outer_glow.as_mut().unwrap().size = 500.;
     assert!(effects.validate());
     assert_eq!(effects.margin(), 1502);
-    assert!(!effects.validate_size(10_000, 10_000));
+    assert!(effects.validate_size(10_000, 10_000));
+    assert!(!effects.validate_size(12_000, 12_000));
     for size in [-1., 501., f64::NAN, f64::INFINITY] {
         effects.outer_glow.as_mut().unwrap().size = size;
         assert!(!effects.validate());

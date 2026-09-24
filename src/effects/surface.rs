@@ -128,7 +128,7 @@ pub(crate) fn prepare(doc: &Document, accelerated: bool) -> Result<Document> {
         let source = layer.raster().cloned().ok_or_else(|| crate::invalid("Layer effects require a layer with pixels. Folder and adjustment effects cannot be rendered."))?;
         if !effects.validate_size(source.width(), source.height()) {
             return Err(crate::invalid(
-                "The layer effects need more than 100 million pixels. Reduce the stroke, glow size, shadow distance, blur, or layer size; source pixels are preserved.",
+                "The layer effects need more than 200 million pixels. Reduce the stroke, glow size, shadow distance, blur, or layer size; source pixels are preserved.",
             ));
         }
         let rendered = surface(layer, &source, &effects, accelerated)?;

@@ -219,7 +219,7 @@ pub fn merge(doc: &mut Document, all: bool) -> Result<()> {
             layer.clip_source = None;
         }
     }
-    let region = if u64::from(doc.width) * u64::from(doc.height) > crate::document::MAX_PIXELS {
+    let region = if u64::from(doc.width) * u64::from(doc.height) > crate::document::MAX_SURFACE_PIXELS {
         // Adjustments and masks only modify existing alpha. The union of pixel
         // layer bounds therefore contains the complete merged result.
         let mut b = [doc.width as f64, doc.height as f64, 0., 0.];

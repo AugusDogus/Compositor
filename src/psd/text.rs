@@ -38,11 +38,7 @@ pub(super) fn import(
     }
     let (pixels, baseline) = renderer.render_with_baseline(&style)?;
     *budget += u64::from(pixels.width()) * u64::from(pixels.height());
-    if *budget > 100_000_000 {
-        return Err(invalid(
-            "Photoshop text exceeds the combined 100 million pixel import budget.",
-        ));
-    }
+    crate::document::validate_pixel_budget(*budget)?;
     let [xx, xy, yx, yy, tx, ty] = matrix;
     let scale = xx.hypot(yx);
     let anchor = if let Some([left, top]) = frame {
