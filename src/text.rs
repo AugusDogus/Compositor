@@ -132,6 +132,13 @@ impl TextRenderer {
     pub fn families(&self) -> &[String] {
         &self.families
     }
+    /// Baseline used to anchor newly clicked point text, including an empty draft.
+    pub fn first_baseline(&mut self, style: &Text) -> Result<f64> {
+        let mut sample = style.clone();
+        sample.content = " ".into();
+        self.render_with_baseline(&sample)
+            .map(|(_, baseline)| baseline)
+    }
     pub fn render(&mut self, style: &Text) -> Result<RgbaImage> {
         self.render_with_baseline(style).map(|(pixels, _)| pixels)
     }

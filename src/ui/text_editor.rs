@@ -108,11 +108,18 @@ impl Editor {
                 style
             });
         style.validate()?;
-        let origin = target
+        let mut origin = target
             .as_ref()
             .map_or([start[0].min(end[0]), start[1].min(end[1])], |l| {
                 l.transform.origin
             });
+        if target.is_none() && box_size.is_none() {
+            let baseline = self
+                .text_renderer
+                .get_or_insert_with(TextRenderer::default)
+                .first_baseline(&style)?;
+            origin = [start[0] - 12., start[1] - baseline];
+        }
         if let Some(layer) = &target {
             self.session_mut().document.select(layer.id, false);
         }

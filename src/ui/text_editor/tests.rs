@@ -114,3 +114,25 @@ fn text_color_picker_returns_to_draft_and_preserves_precise_imported_colors_on_n
     assert!(matches!(editor.modal, Some(Form::Text(_))));
     assert!(editor.session().document == original);
 }
+
+#[test]
+fn clicked_point_text_starts_at_its_baseline_and_dragged_text_keeps_its_frame() {
+    let mut editor = Editor::with_test_document();
+    editor.session_mut().zoom = 1.;
+    let pointer = [220., 180.];
+    editor.begin_text(pointer, pointer, true).unwrap();
+    let Form::Text(draft) = editor.modal.as_ref().unwrap() else {
+        panic!("text draft missing")
+    };
+    let baseline = TextRenderer::default()
+        .first_baseline(&draft.style)
+        .unwrap();
+    assert_eq!(draft.origin, [pointer[0] - 12., pointer[1] - baseline]);
+    editor.modal = None;
+    editor.begin_text([20., 30.], [220., 180.], true).unwrap();
+    let Form::Text(draft) = editor.modal.as_ref().unwrap() else {
+        panic!("text draft missing")
+    };
+    assert_eq!(draft.origin, [20., 30.]);
+    assert_eq!(draft.style.box_size, Some([200., 150.]));
+}
