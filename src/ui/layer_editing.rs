@@ -18,6 +18,7 @@ impl Action {
                 | Self::Transform
                 | Self::AddMask
                 | Self::HideMask
+                | Self::LinkMask
                 | Self::ToggleMask
                 | Self::DeleteMask
                 | Self::Clip

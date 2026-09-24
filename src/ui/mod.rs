@@ -288,6 +288,7 @@ pub enum Action {
     AddMask,
     HideMask,
     ToggleMask,
+    LinkMask,
     DeleteMask,
     Clip,
     SelectSubject,

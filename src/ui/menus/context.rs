@@ -14,7 +14,7 @@ impl Editor {
                 Entry::Item(label, shortcut, command) => {
                     let invoke = Invoke { menu: index, item };
                     let label = if index == 8 {
-                        label.into()
+                        self.row_menu_label(label, command)
                     } else {
                         self.menu_label(label, command)
                     };
@@ -190,13 +190,19 @@ impl Editor {
                 compositor::transform::selection_bounds(doc, self.tools.mask_target).is_some()
             }
             Command::Edit(Action::Filter(compositor::filters::Filter::Vignette(_))) => {
-                !self.tools.mask_target && layer.is_some_and(|l| l.raw.is_none() && matches!(l.content, LayerContent::Raster(_)))
+                !self.tools.mask_target
+                    && layer.is_some_and(|l| {
+                        l.raw.is_none() && matches!(l.content, LayerContent::Raster(_))
+                    })
             }
             Command::Edit(Action::Filter(compositor::filters::Filter::ContentFill)) => {
                 self.can_content_aware_fill()
             }
             Command::Edit(
-                Action::CameraRaw | Action::AdjustPixels(_) | Action::Filter(_) | Action::RemoveBackground,
+                Action::CameraRaw
+                | Action::AdjustPixels(_)
+                | Action::Filter(_)
+                | Action::RemoveBackground,
             ) => self.can_adjust_colors(),
             Command::Edit(Action::Raise | Action::Lower) => layer.is_some_and(|active| {
                 let siblings: Vec<_> = doc

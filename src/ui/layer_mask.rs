@@ -58,38 +58,42 @@ impl Editor {
                         if !this.can_edit_layers() {
                             return;
                         }
-                        let result = this.finish_pending_edits().and_then(|()| {
-                            let label = if this
-                                .session()
-                                .document
-                                .layer(id)
-                                .and_then(|layer| layer.mask.as_ref())
-                                .is_some_and(|mask| mask.linked)
-                            {
-                                "Unlink Layer Mask"
-                            } else {
-                                "Link Layer Mask"
-                            };
-                            this.session_mut().edit(label, |doc| {
-                                let layer = doc
-                                    .layers
-                                    .iter_mut()
-                                    .find(|layer| layer.id == id)
-                                    .ok_or_else(|| invalid("The mask layer was removed."))?;
-                                let mask = layer
-                                    .mask
-                                    .as_mut()
-                                    .ok_or_else(|| invalid("The layer mask was removed."))?;
-                                mask.linked = !mask.linked;
-                                if !mask.linked && mask.placement.is_none() {
-                                    mask.placement = Some(layer.transform);
-                                }
-                                Ok(())
-                            })
-                        });
+                        let result = this
+                            .finish_pending_edits()
+                            .and_then(|()| this.toggle_mask_link(id));
                         this.result(result, cx);
                     })),
             )
+    }
+
+    pub(super) fn toggle_mask_link(&mut self, id: uuid::Uuid) -> Result<()> {
+        let label = if self
+            .session()
+            .document
+            .layer(id)
+            .and_then(|layer| layer.mask.as_ref())
+            .is_some_and(|mask| mask.linked)
+        {
+            "Unlink Layer Mask"
+        } else {
+            "Link Layer Mask"
+        };
+        self.session_mut().edit(label, |doc| {
+            let layer = doc
+                .layers
+                .iter_mut()
+                .find(|layer| layer.id == id)
+                .ok_or_else(|| invalid("The mask layer was removed."))?;
+            let mask = layer
+                .mask
+                .as_mut()
+                .ok_or_else(|| invalid("The layer mask was removed."))?;
+            mask.linked = !mask.linked;
+            if !mask.linked && mask.placement.is_none() {
+                mask.placement = Some(layer.transform);
+            }
+            Ok(())
+        })
     }
 
     pub(super) fn retain_mask_target(&mut self, previous: Option<uuid::Uuid>) {

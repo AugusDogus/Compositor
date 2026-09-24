@@ -70,7 +70,10 @@ impl Editor {
                 self.tools.pending_crop = None;
             }
             if matches!(action, Action::AdjustPixels(kind) if kind != Kind::HueSaturation)
-                || matches!(action, Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground)
+                || matches!(
+                    action,
+                    Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground
+                )
             {
                 self.tools.polygon = None;
             }
@@ -255,6 +258,12 @@ impl Editor {
                 }
                 result
             }
+            Action::LinkMask => self
+                .session()
+                .document
+                .active
+                .ok_or_else(|| invalid("Select a layer with a mask."))
+                .and_then(|id| self.toggle_mask_link(id)),
             Action::ToggleMask | Action::DeleteMask => {
                 let label = if matches!(action, Action::DeleteMask) {
                     "Delete Layer Mask"
@@ -419,7 +428,8 @@ impl Editor {
                 Ok(())
             }
             Action::ZoomIn | Action::ZoomOut => {
-                self.session_mut().keyboard_zoom(matches!(action, Action::ZoomIn));
+                self.session_mut()
+                    .keyboard_zoom(matches!(action, Action::ZoomIn));
                 Ok(())
             }
             Action::CloseTab => {
