@@ -347,9 +347,13 @@ pub struct Sampler<'a> {
 
 impl Sampler<'static> {
     pub fn new(document: &Document) -> crate::Result<Self> {
+        Self::for_region(document, [document.width, document.height], [0., 0.])
+    }
+
+    fn for_region(document: &Document, size: [u32; 2], origin: Point) -> crate::Result<Self> {
         let doc = DownsampleCache::default()
             .prepare(&crate::effects::prepare(document, false)?, [1., 1.]);
-        let surfaces = spatial::prepare(&doc, [doc.width, doc.height], [0., 0.], [1., 1.], false)?;
+        let surfaces = spatial::prepare(&doc, size, origin, [1., 1.], false)?;
         let mut sampler = Self::from_document(Cow::Owned(doc));
         sampler.state.surfaces = surfaces;
         Ok(sampler)
@@ -380,8 +384,14 @@ impl<'a> Sampler<'a> {
 }
 
 pub fn sample(doc: &Document, point: Point) -> crate::Result<[f64; 4]> {
-    Ok(Sampler::new(doc)?.sample(point))
+    // Spatial surfaces use pixel centers on the document grid. Retain both
+    // neighboring centers for bilinear sampling; prepare adds each blur's halo.
+    let origin = point.map(|v| (v - 0.5).floor());
+    Ok(Sampler::for_region(doc, [2, 2], origin)?.sample(point))
 }
+
+#[cfg(test)]
+mod sampling_tests;
 
 pub fn region(
     doc: &Document,
