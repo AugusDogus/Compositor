@@ -56,7 +56,7 @@ impl Engine {
         let unused_output = allocate("Unused blur pixels", 4, storage);
         let mut encoder = self.device.create_command_encoder(&Default::default());
         for (phase, source, destination) in [(5, &input, &rows), (6, &rows, &columns)] {
-            let mut params = [0u32; 36];
+            let mut params = [0u32; 40];
             params[0] = image.width();
             params[1] = image.height();
             params[2] = phase;
