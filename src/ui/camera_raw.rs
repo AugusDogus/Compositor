@@ -1,7 +1,11 @@
 //! Camera Raw's grouped controls and draft settings. All edits use the filter transaction.
 mod balance;
 mod controls;
+mod curve;
 mod fields;
+mod grading;
+#[cfg(test)]
+mod graph_tests;
 mod groups;
 mod histogram;
 mod parameters;
@@ -26,6 +30,11 @@ pub(super) struct Edit {
     pub channel: usize,
     pub mixer_page: MixerPage,
     pub point: usize,
+    curve_page: curve::Page,
+    curve_interaction: curve::Interaction,
+    curve_selected: Option<usize>,
+    grading_page: grading::Page,
+    grading_interaction: grading::Interaction,
     tool: pointer::Tool,
     drag: Option<pointer::Drag>,
     pub preview: compositor::camera_raw::Preview,
@@ -46,6 +55,11 @@ impl Default for Edit {
             channel: 0,
             mixer_page: Default::default(),
             point: 0,
+            curve_page: Default::default(),
+            curve_interaction: Default::default(),
+            curve_selected: None,
+            grading_page: Default::default(),
+            grading_interaction: Default::default(),
             tool: Default::default(),
             drag: None,
             preview: Default::default(),

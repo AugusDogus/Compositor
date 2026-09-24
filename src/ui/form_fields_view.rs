@@ -195,6 +195,9 @@ impl Editor {
             {
                 continue;
             }
+            if matches!(action, Action::CameraRaw) && !self.camera_graph_field_visible(index) {
+                continue;
+            }
             if matches!(action, Action::CameraRaw)
                 && let Some(control) = self.camera_parameter_control(cx, index, value)
             {

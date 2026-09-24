@@ -37,7 +37,12 @@ impl Editor {
             _ => div(),
         };
         result = result.child(choices);
-        result.child(self.camera_tool_controls(cx))
+        match group {
+            Group::Curve => result.child(self.camera_curve_editor(cx)),
+            Group::Grading => result.child(self.camera_grading_editor(cx)),
+            _ => result,
+        }
+        .child(self.camera_tool_controls(cx))
     }
 }
 
@@ -91,6 +96,9 @@ impl Editor {
         result.child(choices)
     }
     fn camera_group_curve(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        if self.camera_raw.curve_page == super::curve::Page::Parametric {
+            return div();
+        }
         let result = div().flex_col().gap(8.);
         let mut choices = div().flex_row().flex_wrap().gap(4.);
         for (i, label) in ["RGB", "Red", "Green", "Blue"].into_iter().enumerate() {
@@ -100,6 +108,8 @@ impl Editor {
                     move |this, cx| {
                         this.camera_change(|e| {
                             e.channel = i;
+                            e.curve_selected = None;
+                            e.curve_interaction = super::curve::Interaction::Idle;
                         });
                         this.changed(cx);
                     },
@@ -192,11 +202,17 @@ impl Editor {
             .enumerate()
         {
             choices = choices.child(
-                Self::check_control(label, self.camera_raw.wheel == i).on_click(cx.listener(
+                Self::check_control(
+                    label,
+                    self.camera_raw.wheel == i
+                        && self.camera_raw.grading_page == super::grading::Page::Single,
+                )
+                .on_click(cx.listener(
                     format!("camera-grade-{i}"),
                     move |this, cx| {
                         this.camera_change(|e| {
                             e.wheel = i;
+                            e.grading_page = super::grading::Page::Single;
                         });
                         this.changed(cx);
                     },

@@ -6,7 +6,16 @@ fn quickgui_fragment(input: QuickGuiShaderInput) -> vec4<f32> {
     var hue = input.params[0].x;
     var saturation = input.uv.x;
     var brightness = 1.0 - input.uv.y;
-    if input.params[0].y > 0.5 {
+    var alpha = 1.0;
+    if input.params[0].y > 1.5 {
+        let delta = input.uv - vec2<f32>(0.5);
+        let distance = length(delta);
+        hue = atan2(-delta.y, delta.x) * 57.2957795;
+        saturation = 1.0;
+        brightness = 1.0;
+        let edge = max(fwidth(distance), 0.0001);
+        alpha = (1.0 - smoothstep(0.5 - edge, 0.5, distance)) * 0.85;
+    } else if input.params[0].y > 0.5 {
         hue = (1.0 - input.uv.y) * 360.0;
         saturation = 1.0;
         brightness = 1.0;
@@ -22,5 +31,5 @@ fn quickgui_fragment(input: QuickGuiShaderInput) -> vec4<f32> {
     else if h < 5.0 { rgb = vec3<f32>(x, 0.0, c); }
     else { rgb = vec3<f32>(c, 0.0, x); }
     // HSB and the RGB fields use encoded sRGB. QuickGUI shaders return linear light.
-    return vec4<f32>(decode_srgb(rgb + vec3<f32>(brightness - c)), 1.0);
+    return vec4<f32>(decode_srgb(rgb + vec3<f32>(brightness - c)), alpha);
 }
