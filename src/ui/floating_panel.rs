@@ -157,7 +157,7 @@ impl Editor {
         if !matches!(
             form,
             Form::Edit {
-                action: Action::EditAdjustment | Action::Filter(_) | Action::RemoveBackground,
+                action: Action::EditAdjustment | Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground,
                 ..
             }
         ) {

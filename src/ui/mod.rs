@@ -48,6 +48,7 @@ mod file_dialogs;
 mod file_drop;
 mod file_jobs;
 mod files;
+mod camera_raw;
 mod filter_controls;
 mod filter_preview;
 mod floating;
@@ -244,6 +245,7 @@ pub enum Action {
     ExportTiff,
     ExportWebp,
     DevelopRaw,
+    CameraRaw,
     RasterizeRaw,
     ExportPsd,
     OpenPsd,
@@ -374,6 +376,7 @@ pub struct Editor {
     slider_drag: Option<scalar_controls::SliderDrag>,
     adjustment_edit: Option<adjustments::AdjustmentEdit>,
     filter_edit: Option<filter_preview::FilterEdit>,
+    camera_raw: camera_raw::Edit,
     background_mode: background_controls::Mode,
     jpeg_export: Option<jpeg_export::JpegExport>,
     rename: Option<rename::LayerRename>,
@@ -491,6 +494,7 @@ impl Editor {
             slider_drag: None,
             adjustment_edit: None,
             filter_edit: None,
+            camera_raw: Default::default(),
             background_mode: background_controls::Mode::Basic,
             jpeg_export: None,
             rename: None,

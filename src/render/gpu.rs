@@ -1,6 +1,7 @@
 //! Vulkan viewport compositing. The CPU renderer remains the reference and the
 //! fallback for unavailable hardware or scenes exceeding the bounded GPU budget.
 mod adjustments;
+pub(super) mod camera_geometry;
 pub(super) mod effects;
 pub(super) mod gaussian;
 pub(super) mod motion;

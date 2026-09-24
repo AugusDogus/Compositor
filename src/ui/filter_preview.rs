@@ -10,14 +10,15 @@ enum Work {
     Applying,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq)]
 enum Settings {
     Pixels(Filter),
+    CameraRaw(Arc<compositor::camera_raw::Settings>),
     Background(compositor::background::Quality),
 }
 
 impl Settings {
-    fn automatic(self) -> bool {
+    fn automatic(&self) -> bool {
         matches!(
             self,
             Self::Pixels(Filter::ContentFill) | Self::Background(_)
@@ -49,6 +50,13 @@ pub(super) struct FilterEdit {
 }
 
 impl Editor {
+    pub(super) fn open_camera_raw(&mut self) -> Result<()> {
+        self.camera_raw = Default::default();
+        self.begin_filter(Settings::CameraRaw(Arc::new(
+            self.camera_raw.settings.clone(),
+        )))
+    }
+
     pub(super) fn open_filter(&mut self, filter: Filter) -> Result<()> {
         self.begin_filter(Settings::Pixels(filter))
     }
@@ -110,7 +118,7 @@ impl Editor {
                     && edit
                         .prepared
                         .as_ref()
-                        .is_some_and(|prepared| Some(prepared.settings) == edit.desired)
+                        .is_some_and(|prepared| Some(&prepared.settings) == edit.desired.as_ref())
             })
     }
 
@@ -187,7 +195,7 @@ impl Editor {
             session: self.session().id,
             original: self.session().document.clone(),
             prepared: None,
-            desired: Some(settings),
+            desired: Some(settings.clone()),
             subject: None,
             revision: 0,
             work: Work::Queued,
@@ -196,6 +204,7 @@ impl Editor {
         });
         self.open_form(match settings {
             Settings::Pixels(filter) => Action::Filter(filter),
+            Settings::CameraRaw(_) => Action::CameraRaw,
             Settings::Background(_) => Action::RemoveBackground,
         });
         Ok(())
@@ -296,6 +305,10 @@ impl Editor {
         let result = match action {
             Action::Filter(filter) => Self::filter_values(*filter, &values).map(Settings::Pixels),
             Action::RemoveBackground => self.background_values(&values).map(Settings::Background),
+            Action::CameraRaw => self
+                .camera_raw
+                .parse_fields(&values)
+                .map(|settings| Settings::CameraRaw(Arc::new(settings))),
             _ => return,
         };
         let Some(edit) = &mut self.filter_edit else {
@@ -342,7 +355,7 @@ impl Editor {
         if !edit.enabled || edit.work != Work::Queued {
             return;
         }
-        let Some(settings) = edit.desired else {
+        let Some(settings) = edit.desired.clone() else {
             return;
         };
         let (id, revision, mask) = (edit.id, edit.revision, edit.mask);
@@ -352,6 +365,9 @@ impl Editor {
         let launched = cx.spawn_background(
             move || -> Result<PreviewOutput> {
                 match settings {
+                    Settings::CameraRaw(settings) => {
+                        compositor::camera_raw::preview(&mut document, &settings)?
+                    }
                     Settings::Pixels(filter) => {
                         compositor::filters::apply(&mut document, filter, mask)?
                     }
@@ -407,7 +423,7 @@ impl Editor {
             return;
         }
         edit.work = Work::Idle;
-        if !edit.enabled && !edit.desired.is_some_and(Settings::automatic) {
+        if !edit.enabled && !edit.desired.as_ref().is_some_and(Settings::automatic) {
             edit.prepared = None;
             return;
         }
@@ -417,7 +433,7 @@ impl Editor {
                     .document
                     .active_layer()
                     .cloned()
-                    .zip(edit.desired)
+                    .zip(edit.desired.clone())
                     .map(|(layer, settings)| Prepared { layer, settings });
                 if let Some(Form::Edit { error, .. }) = &mut self.modal {
                     error.clear();

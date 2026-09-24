@@ -16,6 +16,7 @@ pub(super) enum Job {
         original: Box<compositor::document::Layer>,
         selection: Option<compositor::selection::Selection>,
     },
+    CameraRaw { settings: Box<compositor::camera_raw::Settings>, source: Box<Document> },
     Filter {
         filter: Filter,
         source: Box<Document>,
@@ -66,6 +67,7 @@ impl Job {
             Self::AdjustColors { settings, .. } => {
                 Completion::Pixels(super::adjustment_layers::title(settings.kind))
             }
+            Self::CameraRaw { .. } => Completion::Pixels("Camera Raw Filter"),
             Self::Filter { filter, .. } => Completion::Pixels(Editor::filter_fields(*filter).0),
             Self::RemoveBackground { .. } => Completion::BackgroundMask,
         }
@@ -104,6 +106,14 @@ impl Job {
                 let mut prepared = original.as_ref().clone();
                 compositor::pixel_adjustment::apply(&mut prepared, &settings, selection.as_ref())?;
                 super::layer_preview::overlay(&mut document, &original, &prepared, false);
+            }
+            Job::CameraRaw { settings, mut source } => {
+                refresh_source_mask(&mut source, &document)?;
+                let original = source.active_layer().cloned().ok_or_else(|| invalid("The Camera Raw layer is missing."))?;
+                compositor::camera_raw::apply(&mut source, &settings)?;
+                if let Some(prepared) = source.layer(original.id) {
+                    super::layer_preview::overlay(&mut document, &original, prepared, false);
+                }
             }
             Job::Filter {
                 filter,

@@ -195,6 +195,12 @@ impl Editor {
             {
                 continue;
             }
+            if matches!(action, Action::CameraRaw)
+                && let Some(control) = self.camera_parameter_control(cx, index, value)
+            {
+                rows = rows.child(control);
+                continue;
+            }
             if let Some(control) = self.parameter_control(cx, action, index, value) {
                 rows = rows.child(control);
                 continue;

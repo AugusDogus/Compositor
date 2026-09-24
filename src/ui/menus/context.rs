@@ -196,7 +196,7 @@ impl Editor {
                 self.can_content_aware_fill()
             }
             Command::Edit(
-                Action::AdjustPixels(_) | Action::Filter(_) | Action::RemoveBackground,
+                Action::CameraRaw | Action::AdjustPixels(_) | Action::Filter(_) | Action::RemoveBackground,
             ) => self.can_adjust_colors(),
             Command::Edit(Action::Raise | Action::Lower) => layer.is_some_and(|active| {
                 let siblings: Vec<_> = doc

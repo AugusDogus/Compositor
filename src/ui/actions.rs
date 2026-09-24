@@ -70,7 +70,7 @@ impl Editor {
                 self.tools.pending_crop = None;
             }
             if matches!(action, Action::AdjustPixels(kind) if kind != Kind::HueSaturation)
-                || matches!(action, Action::Filter(_) | Action::RemoveBackground)
+                || matches!(action, Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground)
             {
                 self.tools.polygon = None;
             }
@@ -123,6 +123,7 @@ impl Editor {
                 result
             }
             Action::Filter(filter) => self.open_filter(filter),
+            Action::CameraRaw => self.open_camera_raw(),
             Action::RemoveBackground => self.open_background(),
             Action::AdjustPixels(kind) => self.open_pixel_adjustment(kind),
             Action::EditAdjustment => self.open_adjustment(None),
