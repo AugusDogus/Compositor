@@ -139,3 +139,17 @@ fn text_conversion_reports_font_fallback_and_omitted_warp() {
     assert!(report.contains("not installed"));
     assert!(report.contains("warp is omitted"));
 }
+
+#[test]
+fn inverted_paragraph_frame_keeps_saved_pixels() {
+    let mut source = type_layer([1., 0., 0., 1., 100., 80.]);
+    let text = source.additional_info.text.as_mut().unwrap();
+    text.shape_type = Some(ps::TextShapeType::Box);
+    text.box_bounds = Some(vec![10., 10., 8., 20.]);
+    let imported = decode(source, false);
+    assert!(imported.document.layers[0].text.is_none());
+    assert_eq!(
+        imported.document.layers[0].raster().unwrap().as_raw(),
+        &[9, 8, 7, 255]
+    );
+}

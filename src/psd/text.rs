@@ -174,6 +174,12 @@ fn settings(
     }
     let frame = paragraph_frame(source)?;
     if let Some([left, top, right, bottom]) = frame {
+        if ![left, top, right, bottom].iter().all(|v| v.is_finite())
+            || right <= left
+            || bottom <= top
+        {
+            return None;
+        }
         style.box_size = Some([(right - left) * scale + 24., (bottom - top) * scale + 24.]);
     }
     style.validate().ok()?;
