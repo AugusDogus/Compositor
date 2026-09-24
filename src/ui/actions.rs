@@ -419,13 +419,7 @@ impl Editor {
                 Ok(())
             }
             Action::ZoomIn | Action::ZoomOut => {
-                let factor = if matches!(action, Action::ZoomIn) {
-                    1.25
-                } else {
-                    0.8
-                };
-                let session = self.session_mut();
-                session.zoom_at(session.zoom * factor, [0., 0.]);
+                self.session_mut().keyboard_zoom(matches!(action, Action::ZoomIn));
                 Ok(())
             }
             Action::CloseTab => {

@@ -79,6 +79,42 @@ impl Session {
         self.saved_revision != Some(self.revision)
     }
 
+    pub fn keyboard_zoom(&mut self, inward: bool) {
+        const LEVELS: [f64; 17] = [
+            0.125,
+            1. / 6.,
+            0.25,
+            1. / 3.,
+            0.5,
+            2. / 3.,
+            1.,
+            1.25,
+            1.5,
+            2.,
+            3.,
+            4.,
+            5.,
+            6.,
+            8.,
+            12.,
+            16.,
+        ];
+        let tolerance = (self.zoom.abs() * 1e-9).max(1e-9);
+        let next = if inward {
+            LEVELS
+                .into_iter()
+                .find(|level| *level > self.zoom + tolerance)
+        } else {
+            LEVELS
+                .into_iter()
+                .rev()
+                .find(|level| *level < self.zoom - tolerance)
+        };
+        if let Some(next) = next {
+            self.zoom_at(next, [0., 0.]);
+        }
+    }
+
     /// Zoom is measured in display pixels. The anchor and pan are logical view coordinates.
     pub fn zoom_at(&mut self, zoom: f64, anchor_from_center: Point) {
         if !zoom.is_finite() || anchor_from_center.iter().any(|v| !v.is_finite()) {
@@ -367,6 +403,24 @@ impl Session {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn keyboard_zoom_steps_from_continuous_values_without_floating_point_stalls() {
+        let mut s = super::Session::new(crate::document::Document::new(2, 2).unwrap(), None);
+        for (start, inward, expected) in [
+            (0.91, true, 1.),
+            (1. + 1e-12, false, 2. / 3.),
+            (1. - 1e-12, true, 1.25),
+            (0.001, false, 0.001),
+            (32., true, 32.),
+            (32., false, 16.),
+            (0.001, true, 0.125),
+        ] {
+            s.zoom_at(start, [0., 0.]);
+            s.keyboard_zoom(inward);
+            assert_eq!(s.zoom, expected);
+        }
+    }
+
     use super::*;
     #[test]
     fn independent_edits_survive_preview_cancellation_and_keep_separate_history() {
