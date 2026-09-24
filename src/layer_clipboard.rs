@@ -59,7 +59,7 @@ impl Layers {
         };
         layer_ops::copy_to_project(&self.document, target, id, center)?;
         if let Some(active) = target.active {
-            layer_ops::place(
+            layer_ops::place_copies(
                 target,
                 active,
                 parent,
@@ -72,6 +72,26 @@ impl Layers {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn paste_above_a_clipping_base_preserves_the_existing_stack() {
+        let mut source = Document::new(8, 8).unwrap();
+        source.layers[0].name = "Source".into();
+        let clipboard = Layers::capture(&source).unwrap();
+        let mut target = Document::new(8, 8).unwrap();
+        let base = target.active.unwrap();
+        let mut clipped = crate::document::Layer::blank("Clipped", 8, 8);
+        clipped.clip_source = Some(base);
+        target.add(clipped.clone()).unwrap();
+        target.select(base, false);
+        let originals = target.layers.clone();
+        clipboard.paste(&mut target).unwrap();
+        for original in originals {
+            assert_eq!(target.layer(original.id), Some(&original));
+        }
+        assert_eq!(target.active_layer().unwrap().clip_source, None);
+        target.validate().unwrap();
+    }
+
     #[test]
     fn copying_selected_folder_preserves_text_effects_and_internal_links() {
         let mut doc = Document::new(20, 20).unwrap();

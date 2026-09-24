@@ -317,7 +317,7 @@ pub fn duplicate_active(doc: &mut Document) -> Result<()> {
         let copy = doc
             .active
             .ok_or_else(|| invalid("The duplicated folder is missing."))?;
-        place(doc, copy, parent, Position::Above(id))?;
+        place_copies(doc, copy, parent, Position::Above(id))?;
         if let Some(layer) = doc.active_layer_mut() {
             layer.name.push_str(" copy");
         }
@@ -362,7 +362,7 @@ pub fn duplicate_selected(doc: &mut Document) -> Result<()> {
             layer.name.push_str(" copy");
         }
     }
-    place(doc, active, parent, Position::Above(top))
+    place_copies(doc, active, parent, Position::Above(top))
 }
 
 /// The ordered roots a drag carries, excluding descendants of selected folders.
@@ -385,7 +385,34 @@ pub fn drag_roots(doc: &Document, id: Uuid) -> Result<Vec<Uuid>> {
     Ok(ordered)
 }
 
+enum ClippingPlacement {
+    NormalizeStack,
+    PreserveLinks,
+}
+
 pub fn place(doc: &mut Document, id: Uuid, parent: Option<Uuid>, position: Position) -> Result<()> {
+    place_with_clipping(doc, id, parent, position, ClippingPlacement::NormalizeStack)
+}
+
+/// Copies retain their explicit clipping references. Unlike moving an existing
+/// layer, inserting a copy must not change an original layer's clipping stack
+/// or silently clip the newly pasted content to the insertion neighbor.
+pub(crate) fn place_copies(
+    doc: &mut Document,
+    id: Uuid,
+    parent: Option<Uuid>,
+    position: Position,
+) -> Result<()> {
+    place_with_clipping(doc, id, parent, position, ClippingPlacement::PreserveLinks)
+}
+
+fn place_with_clipping(
+    doc: &mut Document,
+    id: Uuid,
+    parent: Option<Uuid>,
+    position: Position,
+    clipping: ClippingPlacement,
+) -> Result<()> {
     let roots = drag_roots(doc, id)?;
     let moved: HashSet<_> = roots.iter().flat_map(|id| doc.descendants(*id)).collect();
     let target = match position {
@@ -424,6 +451,15 @@ pub fn place(doc: &mut Document, id: Uuid, parent: Option<Uuid>, position: Posit
             i + usize::from(matches!(position, Position::Above(_)))
         });
     doc.layers.splice(insertion..insertion, layers);
+    doc.active = if roots.contains(&id) {
+        Some(id)
+    } else {
+        roots.last().copied()
+    };
+    doc.selected = roots_set;
+    if matches!(clipping, ClippingPlacement::PreserveLinks) {
+        return Ok(());
+    }
     // A layer inserted between a clipping base and its children joins that stack.
     let siblings: Vec<_> = doc.layers.iter().filter(|l| l.parent == parent).collect();
     if roots.len() == 1
@@ -453,12 +489,6 @@ pub fn place(doc: &mut Document, id: Uuid, parent: Option<Uuid>, position: Posit
             };
         }
     }
-    doc.active = if roots.contains(&id) {
-        Some(id)
-    } else {
-        roots.last().copied()
-    };
-    doc.selected = roots_set;
     Ok(())
 }
 
@@ -467,8 +497,8 @@ pub fn copy_into(source: &Document, destination: &mut Document, id: Uuid) -> Res
     copy_layers(source, destination, id, false)
 }
 
-/// Copies inside one document, retaining external clipping links until placement
-/// normalizes the resulting sibling stack. The caller owns the transaction.
+/// Copies inside one document, retaining clipping links on both original and
+/// copied layers. The caller owns the transaction.
 pub fn duplicate_to(
     doc: &mut Document,
     id: Uuid,
@@ -480,7 +510,7 @@ pub fn duplicate_to(
     let copied = doc
         .active
         .ok_or_else(|| invalid("The copied layer is missing."))?;
-    place(doc, copied, parent, position)
+    place_copies(doc, copied, parent, position)
 }
 
 fn copy_layers(
@@ -587,6 +617,47 @@ mod tests {
     use super::*;
     use crate::{edits, session::Session};
     use image::Rgba;
+
+    #[test]
+    fn duplicating_multiple_layers_preserves_original_and_copied_clipping() {
+        let mut doc = Document::new(8, 8).unwrap();
+        let a = doc.active.unwrap();
+        let mut b = Layer::blank("B", 8, 8);
+        b.clip_source = Some(a);
+        doc.add(b).unwrap();
+        let b = doc.active.unwrap();
+        doc.add(Layer::blank("C", 8, 8)).unwrap();
+        let c = doc.active.unwrap();
+        doc.active_layer_mut().unwrap().content =
+            LayerContent::Raster(Some(Arc::new(image::RgbaImage::from_fn(8, 8, |x, _| {
+                Rgba([30, 40, 50, if x < 4 { 255 } else { 0 }])
+            }))));
+        let mut d = Layer::blank("D", 8, 8);
+        d.content = LayerContent::Raster(Some(Arc::new(image::RgbaImage::from_pixel(
+            8,
+            8,
+            Rgba([200, 30, 10, 255]),
+        ))));
+        d.clip_source = Some(c);
+        doc.add(d).unwrap();
+        doc.select(b, false);
+        doc.select(c, true);
+        let originals = doc.layers.clone();
+        let before = render::render(&doc, 8, 8).unwrap();
+        duplicate_selected(&mut doc).unwrap();
+        for original in originals {
+            assert_eq!(doc.layer(original.id), Some(&original));
+        }
+        let copied_b = doc.layers.iter().find(|l| l.name == "B copy").unwrap();
+        assert_eq!(copied_b.clip_source, Some(a));
+        doc.validate().unwrap();
+        for layer in &mut doc.layers {
+            if doc.selected.contains(&layer.id) {
+                layer.visible = false;
+            }
+        }
+        assert_eq!(render::render(&doc, 8, 8).unwrap(), before);
+    }
 
     #[test]
     fn cross_project_copy_centers_pixels_and_positioned_masks_and_bakes_external_clipping() {
