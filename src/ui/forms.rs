@@ -349,7 +349,10 @@ impl Editor {
                 error,
                 ..
             } => {
-                let filter_sheet = matches!(action, Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground);
+                let filter_sheet = matches!(
+                    action,
+                    Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground
+                );
                 if size_sheet {
                     contents = contents.child(self.size_dialog_view(cx, action, &fields));
                 } else {
@@ -365,7 +368,7 @@ impl Editor {
                         );
                     }
                     if matches!(action, Action::CameraRaw) {
-                        contents = contents.child(self.camera_raw_controls(cx));
+                        contents = contents.child(self.camera_panel_header(cx));
                     }
                     if matches!(action, Action::RemoveBackground) {
                         contents = contents.child(
@@ -597,11 +600,17 @@ impl Editor {
                 self.apply_selection_feather(amount as u16)?;
             }
             Action::CameraRaw => {
-                if !self.filter_source_is_current() { self.cancel_filter(); return Ok(()); }
+                if !self.filter_source_is_current() {
+                    self.cancel_filter();
+                    return Ok(());
+                }
                 let settings = self.camera_raw.parse_fields(&values)?;
                 let (source, _) = self.filter_source()?;
                 self.begin_filter_commit();
-                self.queue(jobs::Job::CameraRaw { settings: Box::new(settings), source });
+                self.queue(jobs::Job::CameraRaw {
+                    settings: Box::new(settings),
+                    source,
+                });
             }
             Action::Filter(filter) => {
                 if !self.filter_source_is_current() {

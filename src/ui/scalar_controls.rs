@@ -183,6 +183,7 @@ impl Editor {
             if event.phase == PointerPhase::Down && event.button != quickgui::MouseButton::Left {
                 return;
             }
+            this.camera_slider_preview(scalar, event);
             let travel = event.size.width - THUMB_SIZE;
             if !travel.is_finite() || travel <= 0. {
                 return;

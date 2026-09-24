@@ -2,6 +2,9 @@
 mod color;
 mod geometry;
 mod native;
+mod preview;
+pub use preview::{Clipping, Preview};
+pub mod sampling;
 pub mod scalars;
 #[cfg(test)]
 mod tests;
@@ -226,19 +229,20 @@ impl Settings {
     }
 }
 pub fn apply(document: &mut Document, settings: &Settings) -> Result<()> {
-    apply_scaled(document, settings, None)
+    apply_scaled(document, settings, None, Preview::default())
 }
 
 /// Bound interactive processing while keeping the original layer placement.
 /// Full-resolution pixels are used only by the Apply worker.
-pub fn preview(document: &mut Document, settings: &Settings) -> Result<()> {
-    apply_scaled(document, settings, Some(1280))
+pub fn preview(document: &mut Document, settings: &Settings, options: Preview) -> Result<()> {
+    apply_scaled(document, settings, Some(1280), options)
 }
 
 fn apply_scaled(
     document: &mut Document,
     settings: &Settings,
     preview_side: Option<u32>,
+    options: Preview,
 ) -> Result<()> {
     settings.validate()?;
     let selection = document.selection.clone();
@@ -266,7 +270,7 @@ fn apply_scaled(
         (f64::from(limit) / f64::from(layer.raster().map_or(limit, |p| p.width().max(p.height()))))
             .min(1.)
     });
-    let mut result = render_scaled(&source, settings, scale)?;
+    let mut result = render_scaled(&source, settings, scale, options)?;
     if let Some(selection) = selection {
         let (w, h) = result.dimensions();
         for (x, y, pixel) in result.enumerate_pixels_mut() {
@@ -294,18 +298,28 @@ fn apply_scaled(
     Ok(())
 }
 pub fn render(source: &RgbaImage, settings: &Settings) -> Result<RgbaImage> {
-    render_scaled(source, settings, 1.)
+    render_scaled(source, settings, 1., Preview::default())
 }
 
-fn render_scaled(source: &RgbaImage, settings: &Settings, scale: f64) -> Result<RgbaImage> {
+fn render_scaled(
+    source: &RgbaImage,
+    settings: &Settings,
+    scale: f64,
+    options: Preview,
+) -> Result<RgbaImage> {
     settings.validate()?;
     crate::document::validate_size(source.width(), source.height())?;
     let s = settings.rendered();
-    if s == Settings::default() {
+    if s == Settings::default() && options == Preview::default() {
         return Ok(source.clone());
     }
-    let warped = geometry::render(source, &s)?;
-    native::render(&warped, &s, scale)
+    let warped =
+        if options.clipping.is_none() && !options.sharpen_mask && options.point_color.is_none() {
+            geometry::render(source, &s)?
+        } else {
+            source.clone()
+        };
+    native::render(&warped, &s, scale, options)
 }
 
 /// Gray-world white balance in linear light, using the same gains as the grade.
@@ -313,7 +327,10 @@ pub fn auto_balance(source: &RgbaImage) -> Result<[f64; 2]> {
     let mut sum = [0.; 3];
     let mut weight = 0.;
     for pixel in source.pixels() {
-        let alpha = f64::from(pixel[3]) / 255.;
+        if pixel[3] == 0 {
+            continue;
+        }
+        let alpha = 1.;
         weight += alpha;
         for c in 0..3 {
             let v = f64::from(pixel[c]) / 255.;

@@ -13,7 +13,10 @@ enum Work {
 #[derive(Clone, PartialEq)]
 enum Settings {
     Pixels(Filter),
-    CameraRaw(Arc<compositor::camera_raw::Settings>),
+    CameraRaw(
+        Arc<compositor::camera_raw::Settings>,
+        compositor::camera_raw::Preview,
+    ),
     Background(compositor::background::Quality),
 }
 
@@ -33,6 +36,7 @@ struct Prepared {
 
 struct PreviewOutput {
     document: Document,
+    camera_scope: Option<Arc<image::RgbaImage>>,
     subject: Option<compositor::background::SubjectMask>,
 }
 
@@ -43,6 +47,7 @@ pub(super) struct FilterEdit {
     prepared: Option<Prepared>,
     desired: Option<Settings>,
     subject: Option<compositor::background::SubjectMask>,
+    camera_scope: Option<Arc<image::RgbaImage>>,
     revision: u64,
     work: Work,
     enabled: bool,
@@ -51,10 +56,11 @@ pub(super) struct FilterEdit {
 
 impl Editor {
     pub(super) fn open_camera_raw(&mut self) -> Result<()> {
-        self.camera_raw = Default::default();
-        self.begin_filter(Settings::CameraRaw(Arc::new(
-            self.camera_raw.settings.clone(),
-        )))
+        self.camera_raw = super::camera_raw::Edit::with_settings(self.camera_raw_last.clone());
+        self.begin_filter(Settings::CameraRaw(
+            Arc::new(self.camera_raw.settings.clone()),
+            self.camera_raw.preview,
+        ))
     }
 
     pub(super) fn open_filter(&mut self, filter: Filter) -> Result<()> {
@@ -78,6 +84,13 @@ impl Editor {
         Ok(edit.subject.clone())
     }
 
+    pub(super) fn camera_scope_pixels(&self) -> Option<&image::RgbaImage> {
+        let edit = self.filter_edit.as_ref()?;
+        edit.camera_scope
+            .as_deref()
+            .or_else(|| edit.original.active_layer()?.raster().map(|p| p.as_ref()))
+    }
+
     pub(super) fn filter_applying(&self) -> bool {
         self.filter_edit
             .as_ref()
@@ -85,6 +98,15 @@ impl Editor {
     }
 
     pub(super) fn begin_filter_commit(&mut self) {
+        if matches!(
+            self.tool_form(),
+            Some(Form::Edit {
+                action: Action::CameraRaw,
+                ..
+            })
+        ) {
+            self.camera_raw.committing = Some(self.camera_raw.settings.rendered());
+        }
         if let Some(edit) = &mut self.filter_edit {
             edit.work = Work::Applying;
         }
@@ -197,6 +219,7 @@ impl Editor {
             prepared: None,
             desired: Some(settings.clone()),
             subject: None,
+            camera_scope: None,
             revision: 0,
             work: Work::Queued,
             enabled: true,
@@ -204,7 +227,7 @@ impl Editor {
         });
         self.open_form(match settings {
             Settings::Pixels(filter) => Action::Filter(filter),
-            Settings::CameraRaw(_) => Action::CameraRaw,
+            Settings::CameraRaw(_, _) => Action::CameraRaw,
             Settings::Background(_) => Action::RemoveBackground,
         });
         Ok(())
@@ -308,7 +331,7 @@ impl Editor {
             Action::CameraRaw => self
                 .camera_raw
                 .parse_fields(&values)
-                .map(|settings| Settings::CameraRaw(Arc::new(settings))),
+                .map(|settings| Settings::CameraRaw(Arc::new(settings), self.camera_raw.preview)),
             _ => return,
         };
         let Some(edit) = &mut self.filter_edit else {
@@ -364,9 +387,17 @@ impl Editor {
         edit.work = Work::Running;
         let launched = cx.spawn_background(
             move || -> Result<PreviewOutput> {
+                let mut camera_scope = None;
                 match settings {
-                    Settings::CameraRaw(settings) => {
-                        compositor::camera_raw::preview(&mut document, &settings)?
+                    Settings::CameraRaw(settings, options) => {
+                        let mut grade = document.clone();
+                        compositor::camera_raw::preview(&mut grade, &settings, Default::default())?;
+                        camera_scope = grade.active_layer().and_then(|l| l.raster()).cloned();
+                        if options == compositor::camera_raw::Preview::default() {
+                            document = grade;
+                        } else {
+                            compositor::camera_raw::preview(&mut document, &settings, options)?;
+                        }
                     }
                     Settings::Pixels(filter) => {
                         compositor::filters::apply(&mut document, filter, mask)?
@@ -381,7 +412,11 @@ impl Editor {
                     }
                 }
                 document.validate()?;
-                Ok(PreviewOutput { document, subject })
+                Ok(PreviewOutput {
+                    document,
+                    subject,
+                    camera_scope,
+                })
             },
             move |this, result, cx| {
                 let result = result
@@ -429,6 +464,7 @@ impl Editor {
         }
         match result {
             Ok(output) => {
+                edit.camera_scope = output.camera_scope;
                 edit.prepared = output
                     .document
                     .active_layer()
@@ -441,6 +477,7 @@ impl Editor {
                 self.refresh_filter_document();
             }
             Err(e) => {
+                edit.camera_scope = None;
                 edit.prepared = None;
                 self.refresh_filter_document();
                 if let Some(Form::Edit { error, .. }) = self.tool_form_mut() {

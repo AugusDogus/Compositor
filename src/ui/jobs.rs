@@ -16,7 +16,10 @@ pub(super) enum Job {
         original: Box<compositor::document::Layer>,
         selection: Option<compositor::selection::Selection>,
     },
-    CameraRaw { settings: Box<compositor::camera_raw::Settings>, source: Box<Document> },
+    CameraRaw {
+        settings: Box<compositor::camera_raw::Settings>,
+        source: Box<Document>,
+    },
     Filter {
         filter: Filter,
         source: Box<Document>,
@@ -34,6 +37,7 @@ pub(super) enum Completion {
     DeleteLayers,
     CopyLayers,
     Pixels(&'static str),
+    CameraRaw,
     BackgroundMask,
 }
 
@@ -43,6 +47,7 @@ impl Completion {
             Self::DeleteLayers => compositor::clipping::deletion_label(original),
             Self::CopyLayers => "Copy Layers from Project",
             Self::Pixels(label) => label,
+            Self::CameraRaw => "Camera Raw Filter",
             Self::BackgroundMask => "Remove Background",
         }
     }
@@ -67,7 +72,7 @@ impl Job {
             Self::AdjustColors { settings, .. } => {
                 Completion::Pixels(super::adjustment_layers::title(settings.kind))
             }
-            Self::CameraRaw { .. } => Completion::Pixels("Camera Raw Filter"),
+            Self::CameraRaw { .. } => Completion::CameraRaw,
             Self::Filter { filter, .. } => Completion::Pixels(Editor::filter_fields(*filter).0),
             Self::RemoveBackground { .. } => Completion::BackgroundMask,
         }
@@ -107,9 +112,15 @@ impl Job {
                 compositor::pixel_adjustment::apply(&mut prepared, &settings, selection.as_ref())?;
                 super::layer_preview::overlay(&mut document, &original, &prepared, false);
             }
-            Job::CameraRaw { settings, mut source } => {
+            Job::CameraRaw {
+                settings,
+                mut source,
+            } => {
                 refresh_source_mask(&mut source, &document)?;
-                let original = source.active_layer().cloned().ok_or_else(|| invalid("The Camera Raw layer is missing."))?;
+                let original = source
+                    .active_layer()
+                    .cloned()
+                    .ok_or_else(|| invalid("The Camera Raw layer is missing."))?;
                 compositor::camera_raw::apply(&mut source, &settings)?;
                 if let Some(prepared) = source.layer(original.id) {
                     super::layer_preview::overlay(&mut document, &original, prepared, false);
@@ -242,7 +253,16 @@ impl Editor {
         // Keep the preview visible until processing ends. Release its transaction
         // before recording the result, so Undo restores committed original pixels.
         self.finish_panel_commit(id);
-        result.and_then(|document| self.finish_job(id, initial, document, completion))
+        let result = result.and_then(|document| self.finish_job(id, initial, document, completion));
+        if matches!(completion, Completion::CameraRaw) {
+            let applied = self.camera_raw.committing.take();
+            if result.is_ok()
+                && let Some(applied) = applied
+            {
+                self.camera_raw_last = applied;
+            }
+        }
+        result
     }
 
     fn finish_job(

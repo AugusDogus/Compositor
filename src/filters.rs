@@ -261,6 +261,15 @@ fn pad(image: &RgbaImage, transform: Transform, margin: u32) -> Result<(RgbaImag
     Ok((pixels, expanded))
 }
 
+/// Gaussian blur in premultiplied color, accelerated by Vulkan when available.
+pub fn gaussian_rgba(image: &RgbaImage, radius: f32) -> Result<RgbaImage> {
+    finishing::range(f64::from(radius), 0.1, 250.)?;
+    Ok(native_pixels::unpremultiply(finishing::blur(
+        &native_pixels::premultiply(image),
+        radius,
+    )?))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -384,11 +393,3 @@ mod tests {
     }
 }
 
-/// Gaussian blur in premultiplied color, accelerated by Vulkan when available.
-pub fn gaussian_rgba(image: &RgbaImage, radius: f32) -> Result<RgbaImage> {
-    finishing::range(f64::from(radius), 0.1, 250.)?;
-    Ok(native_pixels::unpremultiply(finishing::blur(
-        &native_pixels::premultiply(image),
-        radius,
-    )?))
-}

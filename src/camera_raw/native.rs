@@ -1,6 +1,24 @@
 use super::*;
 use crate::native_pixels;
 unsafe extern "C" {
+    fn adjust_camera_raw_clip_overlay(
+        rgba: *mut u8,
+        width: usize,
+        height: usize,
+        stride: usize,
+        shadows: i32,
+        highlights: i32,
+    );
+    fn adjust_camera_raw_sharpen_mask_overlay(
+        rgba: *mut u8,
+        width: usize,
+        height: usize,
+        stride: usize,
+        radius: f64,
+        detail: f64,
+        masking: f64,
+        scale: f64,
+    );
     fn adjust_camera_raw(
         rgba: *mut u8,
         width: usize,
@@ -123,7 +141,12 @@ unsafe extern "C" {
         unitsPerPixel: f64,
     );
 }
-pub(super) fn render(image: &RgbaImage, s: &Settings, scale: f64) -> Result<RgbaImage> {
+pub(super) fn render(
+    image: &RgbaImage,
+    s: &Settings,
+    scale: f64,
+    options: Preview,
+) -> Result<RgbaImage> {
     let defaults = Settings::default();
     let mut pixels = native_pixels::premultiply(image);
     let (w, h) = (image.width() as usize, image.height() as usize);
@@ -133,7 +156,10 @@ pub(super) fn render(image: &RgbaImage, s: &Settings, scale: f64) -> Result<Rgba
     // remains alive and uniquely borrowed throughout. LUT/mixer buffers below have
     // exactly the lengths specified in AdjustPixels.h. No kernel retains a pointer.
     unsafe {
-        if s.calibration != defaults.calibration {
+        if options.clipping.is_none()
+            && !options.sharpen_mask
+            && s.calibration != defaults.calibration
+        {
             let c = &s.calibration;
             adjust_camera_raw_calibration(
                 p,
@@ -157,7 +183,7 @@ pub(super) fn render(image: &RgbaImage, s: &Settings, scale: f64) -> Result<Rgba
                 },
             );
         }
-        if s.light != defaults.light || s.color != defaults.color {
+        if s.light != defaults.light || s.color != defaults.color || options.clipping.is_some() {
             let l = &s.light;
             let c = &s.color;
             let warm = c.temperature / 100.;
@@ -178,13 +204,35 @@ pub(super) fn render(image: &RgbaImage, s: &Settings, scale: f64) -> Result<Rgba
                 l.blacks,
                 c.vibrance,
                 c.saturation,
-                0,
+                match options.clipping {
+                    Some(Clipping::Shadows) => 2,
+                    Some(Clipping::Highlights) => 1,
+                    None => 0,
+                },
             );
+        }
+        if options.clipping.is_some() {
+            return Ok(native_pixels::unpremultiply(pixels));
+        }
+        if options.sharpen_mask {
+            let d = &s.detail;
+            adjust_camera_raw_sharpen_mask_overlay(
+                p,
+                w,
+                h,
+                stride,
+                d.sharpen_radius,
+                d.sharpen_detail,
+                d.sharpen_masking,
+                scale,
+            );
+            return Ok(native_pixels::unpremultiply(pixels));
         }
         if s.curve != defaults.curve
             || s.curves != defaults.curves
             || s.mixer != defaults.mixer
             || s.grading != defaults.grading
+            || options.point_color.is_some()
         {
             let tables = super::color::tables(s);
             let mixer = s.mixer.floats();
@@ -206,7 +254,10 @@ pub(super) fn render(image: &RgbaImage, s: &Settings, scale: f64) -> Result<Rgba
                 grade.as_ptr(),
                 s.grading.blending,
                 s.grading.balance,
-                -1,
+                options
+                    .point_color
+                    .filter(|i| *i < s.mixer.points.len())
+                    .map_or(-1, |i| i as i32),
             );
         }
         if s.effects != defaults.effects {
@@ -307,6 +358,17 @@ pub(super) fn render(image: &RgbaImage, s: &Settings, scale: f64) -> Result<Rgba
                 scale,
             );
         }
+    }
+    // SAFETY: pixels remains a checked, tightly packed RGBA image.
+    unsafe {
+        adjust_camera_raw_clip_overlay(
+            p,
+            w,
+            h,
+            stride,
+            i32::from(options.shadow_overlay),
+            i32::from(options.highlight_overlay),
+        );
     }
     Ok(native_pixels::unpremultiply(pixels))
 }

@@ -527,6 +527,13 @@ pub(crate) fn gpu_coverage_blur(
     gpu::gaussian::blur(image, sigma)
 }
 
+pub(crate) fn gpu_camera_geometry(
+    image: &image::RgbaImage,
+    matrix: [f32; 9],
+) -> crate::Result<Option<image::RgbaImage>> {
+    gpu::camera_geometry::warp(image, matrix)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -717,9 +724,3 @@ mod tests {
     }
 }
 
-pub(crate) fn gpu_camera_geometry(
-    image: &image::RgbaImage,
-    matrix: [f32; 9],
-) -> crate::Result<Option<image::RgbaImage>> {
-    gpu::camera_geometry::warp(image, matrix)
-}

@@ -276,6 +276,13 @@ impl Editor {
                 this.result(result, cx);
                 return;
             }
+            if this.camera_sampling() {
+                cx.focus(focus);
+                let result = this.camera_sample_pointer(event);
+                if this.camera_tool_active() || result.is_err() { this.result(result, cx); }
+                else { cx.invalidate(); }
+                return;
+            }
             if this.adjustment_sampling() {
                 cx.focus(focus);
                 let result = this.adjustment_sample_pointer(event);
@@ -420,6 +427,7 @@ impl Editor {
             }
         };
         surface
+            .child(self.camera_guides_overlay(zoom, offset))
             .child(self.snap_guides_overlay(zoom, offset))
             .child(self.layout_overlay(cx, [width, height], zoom, offset, backing_scale))
             .child(rendering_status)

@@ -380,6 +380,7 @@ pub struct Editor {
     adjustment_edit: Option<adjustments::AdjustmentEdit>,
     filter_edit: Option<filter_preview::FilterEdit>,
     camera_raw: camera_raw::Edit,
+    camera_raw_last: compositor::camera_raw::Settings,
     background_mode: background_controls::Mode,
     jpeg_export: Option<jpeg_export::JpegExport>,
     rename: Option<rename::LayerRename>,
@@ -499,6 +500,7 @@ impl Editor {
             adjustment_edit: None,
             filter_edit: None,
             camera_raw: Default::default(),
+            camera_raw_last: Default::default(),
             background_mode: background_controls::Mode::Basic,
             jpeg_export: None,
             rename: None,
@@ -842,6 +844,7 @@ impl Editor {
     }
 
     fn workspace_view(&mut self, cx: &mut ViewContext<'_, Self>) -> Element {
+        self.start_camera_balance(cx);
         self.start_filter_preview(cx);
         self.start_adjustment_preview(cx);
         self.start_adjustment_histogram(cx);

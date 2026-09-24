@@ -143,6 +143,7 @@ fn automatic_preview_completed_while_hidden_is_retained_and_content_fill_commits
         id,
         revision,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: prepared.clone(),
             subject: None,
         }),
@@ -222,6 +223,7 @@ fn automatic_filter_buttons_and_enter_wait_for_success_and_toggles_reuse_results
                 id,
                 revision,
                 Ok(PreviewOutput {
+                    camera_scope: None,
                     document,
                     subject: None,
                 }),
@@ -271,6 +273,7 @@ fn changed_background_settings_cannot_apply_an_older_successful_preview() {
         id,
         0,
         Ok(PreviewOutput {
+            camera_scope: None,
             document,
             subject: None,
         }),
@@ -309,6 +312,7 @@ fn applying_a_filter_keeps_the_panel_and_preview_until_success_or_failure() {
             id,
             0,
             Ok(PreviewOutput {
+                camera_scope: None,
                 document: preview.clone(),
                 subject: None,
             }),
@@ -421,6 +425,7 @@ fn mask_metadata_from_history_survives_delayed_preview_refresh_and_cancel() {
         id,
         0,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: prepared.clone(),
             subject: None,
         }),
@@ -456,6 +461,7 @@ fn invert_keeps_filter_preview_and_disabled_preview_uses_the_new_baseline() {
             id,
             0,
             Ok(PreviewOutput {
+                camera_scope: None,
                 document: preview.clone(),
                 subject: None,
             }),
@@ -470,6 +476,7 @@ fn invert_keeps_filter_preview_and_disabled_preview_uses_the_new_baseline() {
             id,
             0,
             Ok(PreviewOutput {
+                camera_scope: None,
                 document: preview.clone(),
                 subject: None,
             }),
@@ -589,6 +596,7 @@ fn cancelled_background_preview_cannot_restore_a_mask() {
         id,
         0,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: preview.clone(),
             subject: None,
         }),
@@ -599,6 +607,7 @@ fn cancelled_background_preview_cannot_restore_a_mask() {
         id,
         0,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: preview,
             subject: None,
         }),
@@ -627,6 +636,7 @@ fn stale_and_cancelled_filter_previews_cannot_replace_current_pixels() {
         id,
         0,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: preview.clone(),
             subject: None,
         }),
@@ -636,6 +646,7 @@ fn stale_and_cancelled_filter_previews_cannot_replace_current_pixels() {
         id,
         1,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: preview.clone(),
             subject: None,
         }),
@@ -647,6 +658,7 @@ fn stale_and_cancelled_filter_previews_cannot_replace_current_pixels() {
         id,
         1,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: preview,
             subject: None,
         }),
@@ -674,6 +686,7 @@ fn delayed_filter_result_cannot_restore_removed_target_or_old_metadata() {
         id,
         0,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: source.clone(),
             subject: None,
         }),
@@ -700,6 +713,7 @@ fn delayed_filter_result_cannot_restore_removed_target_or_old_metadata() {
         id,
         0,
         Ok(PreviewOutput {
+            camera_scope: None,
             document: source.clone(),
             subject: None,
         }),

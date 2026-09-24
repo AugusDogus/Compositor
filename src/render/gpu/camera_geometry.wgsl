@@ -11,7 +11,9 @@ fn sample_pixel(p:vec2<i32>)->vec4<f32> {
  if any(id.xy>=params.size.xy) {return;}
  let p=vec3<f32>(vec2<f32>(id.xy)+0.5,1.);
  let z=dot(params.c.xyz,p);
+ if abs(z)<0.00000001 {output[id.y*params.size.x+id.x]=0u;return;}
  let uv=vec2<f32>(dot(params.a.xyz,p),dot(params.b.xyz,p))/z;
+ if any(uv<vec2<f32>(0.)) || any(uv>=vec2<f32>(1.)) {output[id.y*params.size.x+id.x]=0u;return;}
  let xy=uv*vec2<f32>(params.size.xy)-0.5;
  let lo=vec2<i32>(floor(xy));let f=fract(xy);
  let top=mix(sample_pixel(lo),sample_pixel(lo+vec2<i32>(1,0)),f.x);
