@@ -5,11 +5,18 @@ pub(super) enum Scope {
     Histogram,
     Vectorscope,
 }
-impl Editor {
-    pub(in crate::ui) fn camera_histogram(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+
+struct Data {
+    bins: [[u32; 256]; 3],
+    scope: Vec<f32>,
+    maximum: f32,
+    scope_peak: f32,
+}
+impl Data {
+    fn from_pixels(pixels: Option<&image::RgbaImage>) -> Self {
         let mut bins = [[0u32; 256]; 3];
         let mut scope = vec![0_f32; 64 * 64];
-        if let Some(pixels) = self.camera_scope_pixels() {
+        if let Some(pixels) = pixels {
             let step = (pixels.len() / 4 / 65_536).max(1);
             for pixel in pixels.pixels().step_by(step) {
                 if pixel[3] > 0 {
@@ -30,15 +37,58 @@ impl Editor {
             }
         }
         let maximum = bins.iter().flatten().copied().max().unwrap_or(1).max(1) as f32;
-        let mode = self.camera_raw.scope;
         let scope_peak = scope.iter().copied().fold(1_f32, f32::max);
+        Self {
+            bins,
+            scope,
+            maximum,
+            scope_peak,
+        }
+    }
+}
+/// Holding the source Arc makes identity checks safe even when a new image has
+/// the same dimensions. Copy-on-write edits cannot silently mutate cached pixels.
+pub(super) struct Cache {
+    pixels: Option<Arc<image::RgbaImage>>,
+    data: Arc<Data>,
+}
+impl Default for Cache {
+    fn default() -> Self {
+        Self {
+            pixels: None,
+            data: Arc::new(Data::from_pixels(None)),
+        }
+    }
+}
+impl Cache {
+    fn data(&mut self, pixels: Option<&Arc<image::RgbaImage>>) -> Arc<Data> {
+        let unchanged = match (self.pixels.as_ref(), pixels) {
+            (Some(old), Some(new)) => Arc::ptr_eq(old, new),
+            (None, None) => true,
+            _ => false,
+        };
+        if !unchanged {
+            self.data = Arc::new(Data::from_pixels(pixels.map(Arc::as_ref)));
+            self.pixels = pixels.cloned();
+        }
+        Arc::clone(&self.data)
+    }
+}
+impl Editor {
+    pub(in crate::ui) fn camera_histogram(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        let data = self
+            .camera_raw
+            .scopes
+            .borrow_mut()
+            .data(self.camera_scope_pixels());
+        let mode = self.camera_raw.scope;
         let histogram = quickgui::canvas(move |bounds, painter| {
             if mode == Scope::Vectorscope {
                 let side = bounds.height.min(bounds.width);
                 let left = (bounds.width - side) / 2.;
-                for (i, value) in scope.iter().enumerate() {
+                for (i, value) in data.scope.iter().enumerate() {
                     if *value > 0. {
-                        let alpha = ((*value / scope_peak).sqrt() * 255.).round() as u8;
+                        let alpha = ((*value / data.scope_peak).sqrt() * 255.).round() as u8;
                         painter.fill_rect(
                             quickgui::Rect::new(
                                 left + (i % 64) as f32 * side / 64.,
@@ -61,9 +111,9 @@ impl Editor {
             .enumerate()
             {
                 let mut path = quickgui::PathBuilder::stroke((bounds.width / 256.).max(1.));
-                for (i, count) in bins[channel].iter().enumerate() {
+                for (i, count) in data.bins[channel].iter().enumerate() {
                     let x = (i as f32 + 0.5) * bounds.width / 256.;
-                    let height = (*count as f32 / maximum).sqrt() * bounds.height;
+                    let height = (*count as f32 / data.maximum).sqrt() * bounds.height;
                     path.move_to(quickgui::Point::new(x, bounds.height));
                     path.line_to(quickgui::Point::new(x, bounds.height - height));
                 }
@@ -113,5 +163,36 @@ impl Editor {
             )
             .child(histogram)
             .child(text(readout).text_size(11.).line_height(14.))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgba, RgbaImage};
+
+    #[test]
+    fn scopes_reuse_pixels_and_invalidate_on_replacement_or_copy_on_write() {
+        let mut cache = Cache::default();
+        let mut pixels = Arc::new(RgbaImage::from_pixel(2, 2, Rgba([255, 0, 0, 255])));
+        let first = cache.data(Some(&pixels));
+        assert_eq!(first.bins[0][255], 4);
+        assert_eq!(first.scope.iter().sum::<f32>(), 4.);
+        assert!(Arc::ptr_eq(&first, &cache.data(Some(&pixels))));
+        Arc::make_mut(&mut pixels).put_pixel(0, 0, Rgba([0, 255, 0, 128]));
+        let changed = cache.data(Some(&pixels));
+        assert!(!Arc::ptr_eq(&first, &changed));
+        assert_eq!(changed.bins[0][255], 3);
+        assert_eq!(changed.bins[1][255], 1);
+        assert!((changed.scope.iter().sum::<f32>() - (3. + 128. / 255.)).abs() < 1e-5);
+        let replacement = Arc::new(RgbaImage::from_pixel(2, 2, Rgba([0, 0, 255, 255])));
+        let replaced = cache.data(Some(&replacement));
+        assert_eq!(replaced.bins[2][255], 4);
+        assert!(!Arc::ptr_eq(&changed, &replaced));
+        assert!(Arc::ptr_eq(&replaced, &cache.data(Some(&replacement))));
+        let cleared = cache.data(None);
+        assert_eq!(cleared.bins.iter().flatten().sum::<u32>(), 0);
+        assert_eq!(cleared.scope.iter().sum::<f32>(), 0.);
+        assert!(Arc::ptr_eq(&cleared, &cache.data(None)));
     }
 }

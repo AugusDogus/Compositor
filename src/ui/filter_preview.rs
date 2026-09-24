@@ -84,11 +84,11 @@ impl Editor {
         Ok(edit.subject.clone())
     }
 
-    pub(super) fn camera_scope_pixels(&self) -> Option<&image::RgbaImage> {
+    pub(super) fn camera_scope_pixels(&self) -> Option<&Arc<image::RgbaImage>> {
         let edit = self.filter_edit.as_ref()?;
         edit.camera_scope
-            .as_deref()
-            .or_else(|| edit.original.active_layer()?.raster().map(|p| p.as_ref()))
+            .as_ref()
+            .or_else(|| edit.original.active_layer()?.raster())
     }
 
     pub(super) fn filter_applying(&self) -> bool {

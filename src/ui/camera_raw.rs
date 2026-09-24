@@ -42,6 +42,7 @@ pub(super) struct Edit {
     pub committing: Option<Settings>,
     readout: Option<[f64; 3]>,
     scope: histogram::Scope,
+    scopes: std::cell::RefCell<histogram::Cache>,
     balance: balance::Work,
     balance_id: uuid::Uuid,
 }
@@ -67,6 +68,7 @@ impl Default for Edit {
             committing: None,
             readout: None,
             scope: Default::default(),
+            scopes: Default::default(),
             balance: Default::default(),
             balance_id: uuid::Uuid::new_v4(),
         }
