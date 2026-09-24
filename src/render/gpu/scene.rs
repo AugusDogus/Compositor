@@ -152,9 +152,7 @@ impl Scene {
                     (2, kind, offset)
                 }
             };
-            let blend = crate::blend::Blend::ALL
-                .iter()
-                .position(|b| *b == layer.blend)? as u32;
+            let blend = layer.blend as u32;
             scene.layers.extend([
                 blend,
                 layer

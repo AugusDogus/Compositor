@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[repr(u32)]
 pub enum Blend {
     #[default]
     Normal,
@@ -43,31 +44,32 @@ pub enum Blend {
 }
 
 impl Blend {
+    /// Photoshop menu order; enum discriminants retain the shader ABI.
     pub const ALL: [Self; 24] = [
         Self::Normal,
+        Self::Darken,
         Self::Multiply,
+        Self::ColorBurn,
+        Self::LinearBurn,
+        Self::Lighten,
         Self::Screen,
+        Self::ColorDodge,
+        Self::LinearDodge,
         Self::Overlay,
         Self::SoftLight,
-        Self::Darken,
-        Self::Lighten,
-        Self::Difference,
-        Self::ColorDodge,
-        Self::ColorBurn,
-        Self::Hue,
-        Self::Saturation,
-        Self::Color,
-        Self::Luminosity,
-        Self::LinearBurn,
-        Self::LinearDodge,
         Self::HardLight,
         Self::VividLight,
         Self::LinearLight,
         Self::PinLight,
         Self::HardMix,
+        Self::Difference,
         Self::Exclusion,
         Self::Subtract,
         Self::Divide,
+        Self::Hue,
+        Self::Saturation,
+        Self::Color,
+        Self::Luminosity,
     ];
 
     pub fn label(self) -> &'static str {

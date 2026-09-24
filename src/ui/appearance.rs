@@ -241,7 +241,7 @@ mod tests {
         cx.read(view, |e| {
             assert_eq!(
                 e.preview_document().active_layer().unwrap().blend,
-                Blend::Multiply
+                Blend::Darken
             );
             assert_eq!(e.session().document, original);
             assert!(e.session().undo_label().is_none());
@@ -258,7 +258,7 @@ mod tests {
         cx.read(view, |e| {
             assert_eq!(
                 e.session().document.active_layer().unwrap().blend,
-                Blend::Screen
+                Blend::Multiply
             );
             assert!(e.modal.is_none());
             assert_eq!(e.session().undo_label(), Some("Layer Blend Mode"));
