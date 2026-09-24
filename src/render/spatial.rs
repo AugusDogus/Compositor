@@ -128,7 +128,12 @@ pub(super) fn prepare(
         let image = match a.kind {
             Kind::GaussianBlur => {
                 let radius = (a.blur_radius.unwrap_or(10.) / step[0]) as f32;
-                if accelerated {
+                // At this scale adjacent weights are at most exp(-50), below
+                // 8-bit precision. Preserve the input instead of evaluating an
+                // underflowing kernel or rejecting a valid zoomed-out radius.
+                if radius <= 0.1 {
+                    input
+                } else if accelerated {
                     crate::filters::gaussian_rgba(&input, radius)?
                 } else {
                     crate::native_pixels::unpremultiply(image::imageops::blur(
@@ -280,6 +285,53 @@ mod tests {
         assert!(full[(32, 20)][0] > 0);
         assert_eq!(full[(55, 20)][3], 0);
     }
+    fn minimum_gaussian_document() -> Document {
+        let mut doc = document(Kind::GaussianBlur);
+        if let LayerContent::Adjustment(adjustment) = &mut doc.layers[1].content {
+            adjustment.blur_radius = Some(0.1);
+            adjustment.validate().unwrap();
+        }
+        doc
+    }
+
+    #[test]
+    fn minimum_gaussian_radius_renders_at_half_zoom() {
+        let doc = minimum_gaussian_document();
+        let actual = region(&doc, 32, 24, [0., 0.], [2., 2.]).unwrap();
+        let mut baseline = doc.clone();
+        baseline.layers.pop();
+        let expected = region(&baseline, 32, 24, [0., 0.], [2., 2.]).unwrap();
+        for y in 0..24 {
+            for x in 0..32 {
+                assert_eq!(actual[(x, y)], expected[(x, y)], "({x},{y})");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "Requires a hardware Vulkan adapter"]
+    fn gpu_minimum_gaussian_radius_renders_at_half_zoom() {
+        let doc = minimum_gaussian_document();
+        let expected = region(&doc, 32, 24, [0., 0.], [2., 2.]).unwrap();
+        // Require a hardware engine so a fallback cannot conceal a GPU regression.
+        super::super::gpu::initialize().unwrap();
+        let actual = region_accelerated(
+            &doc,
+            32,
+            24,
+            [0., 0.],
+            [2., 2.],
+            &mut DownsampleCache::default(),
+        )
+        .unwrap();
+        for (actual, expected) in actual.as_raw().iter().zip(expected.as_raw()) {
+            assert!(
+                actual.abs_diff(*expected) <= 1,
+                "GPU {actual}, CPU {expected}"
+            );
+        }
+    }
+
     #[test]
     #[ignore = "Requires a hardware Vulkan adapter"]
     fn gpu_blur_adjustments_match_reference_with_clipping_and_chains() {
