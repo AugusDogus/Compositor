@@ -7,14 +7,14 @@ use compositor::camera_raw::{
 
 #[derive(Clone, Copy)]
 pub(super) enum Binding {
-    Light(&'static Parameter<scalars::Light>),
-    Color(&'static Parameter<scalars::Color>),
-    Effects(&'static Parameter<scalars::Effects>),
-    Curve(&'static Parameter<scalars::Curve>),
-    Detail(&'static Parameter<scalars::Detail>),
-    Optics(&'static Parameter<scalars::Optics>),
-    Geometry(&'static Parameter<scalars::Geometry>),
-    Calibration(&'static Parameter<scalars::Calibration>),
+    Light(&'static Parameter<scalars::Light, scalars::LightParameter>),
+    Color(&'static Parameter<scalars::Color, scalars::ColorParameter>),
+    Effects(&'static Parameter<scalars::Effects, scalars::EffectsParameter>),
+    Curve(&'static Parameter<scalars::Curve, scalars::CurveParameter>),
+    Detail(&'static Parameter<scalars::Detail, scalars::DetailParameter>),
+    Optics(&'static Parameter<scalars::Optics, scalars::OpticsParameter>),
+    Geometry(&'static Parameter<scalars::Geometry, scalars::GeometryParameter>),
+    Calibration(&'static Parameter<scalars::Calibration, scalars::CalibrationParameter>),
     MixerHue(&'static Parameter<f64>, usize),
     MixerSaturation(&'static Parameter<f64>, usize),
     MixerLuminance(&'static Parameter<f64>, usize),
@@ -90,6 +90,7 @@ impl Binding {
 macro_rules! parameters {
     ($name:ident: $ty:ty { $($field:ident: ($label:literal, $default:expr, $min:expr, $max:expr)),* $(,)? }) => {
         const $name: &[Parameter<$ty>] = &[$(Parameter {
+            id: (),
             label: $label,
             min: $min,
             max: $max,
@@ -121,6 +122,7 @@ parameters! { GRADING: ColorGrading {
 } }
 const FAMILY: &[Parameter<f64>] = &[
     Parameter {
+        id: (),
         label: "Hue",
         default: 0.,
         min: -100.,
@@ -129,6 +131,7 @@ const FAMILY: &[Parameter<f64>] = &[
         set: |t, v| *t = v,
     },
     Parameter {
+        id: (),
         label: "Saturation",
         default: 0.,
         min: -100.,
@@ -137,6 +140,7 @@ const FAMILY: &[Parameter<f64>] = &[
         set: |t, v| *t = v,
     },
     Parameter {
+        id: (),
         label: "Luminance",
         default: 0.,
         min: -100.,
@@ -147,6 +151,7 @@ const FAMILY: &[Parameter<f64>] = &[
 ];
 const GUIDE: &[Parameter<Guide>] = &[
     Parameter {
+        id: (),
         label: "Guide start X",
         default: 0.25,
         min: 0.,
@@ -155,6 +160,7 @@ const GUIDE: &[Parameter<Guide>] = &[
         set: |g, v| g.start[0] = v,
     },
     Parameter {
+        id: (),
         label: "Guide start Y",
         default: 0.25,
         min: 0.,
@@ -163,6 +169,7 @@ const GUIDE: &[Parameter<Guide>] = &[
         set: |g, v| g.start[1] = v,
     },
     Parameter {
+        id: (),
         label: "Guide end X",
         default: 0.75,
         min: 0.,
@@ -171,6 +178,7 @@ const GUIDE: &[Parameter<Guide>] = &[
         set: |g, v| g.end[0] = v,
     },
     Parameter {
+        id: (),
         label: "Guide end Y",
         default: 0.25,
         min: 0.,

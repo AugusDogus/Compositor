@@ -129,3 +129,99 @@ fn camera_graphs_render_and_presets_and_wheel_pages_are_interactive() {
     cx.click(window, "camera-grading-three").unwrap();
     assert!(cx.element_bounds(window, "camera-grading-wheel-0").is_ok());
 }
+
+#[test]
+fn curve_and_grading_controls_follow_parameter_identity() {
+    use super::bindings::Binding;
+    use compositor::camera_raw::scalars::CurveParameter;
+    let mut e = editor(Group::Curve);
+    let visible_curve = |e: &Editor| {
+        e.camera_raw
+            .bindings()
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, binding)| {
+                if e.camera_graph_field_visible(index) {
+                    match binding {
+                        Binding::Curve(parameter) => Some(parameter.id),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        visible_curve(&e),
+        vec![
+            CurveParameter::Shadows,
+            CurveParameter::Darks,
+            CurveParameter::Lights,
+            CurveParameter::Highlights
+        ]
+    );
+    e.camera_change(|edit| edit.curve_page = curve::Page::Point);
+    assert_eq!(visible_curve(&e), vec![CurveParameter::RefineSaturation]);
+    e.camera_change(|edit| edit.channel = 1);
+    assert!(visible_curve(&e).is_empty());
+    e.camera_change(|edit| {
+        edit.group = Group::Grading;
+        edit.grading_page = grading::Page::ThreeWay;
+    });
+    for (index, binding) in e.camera_raw.bindings().into_iter().enumerate() {
+        assert_eq!(
+            e.camera_graph_field_visible(index),
+            matches!(binding, Binding::Grading(_))
+        );
+    }
+    e.camera_change(|edit| edit.grading_page = grading::Page::Single);
+    assert!((0..e.camera_raw.bindings().len()).all(|index| e.camera_graph_field_visible(index)));
+}
+
+#[test]
+fn alt_slider_diagnostics_follow_parameter_identity() {
+    use super::bindings::Binding;
+    use crate::ui::{parameter_controls::Scale, scalar_controls::Scalar};
+    use compositor::camera_raw::{
+        Clipping,
+        scalars::{DetailParameter, LightParameter},
+    };
+    let mut e = editor(Group::Light);
+    let mut event = pointer(100., 100., PointerPhase::Down);
+    event.modifiers = Modifiers::ALT;
+    for (id, expected) in [
+        (LightParameter::Exposure, Some(Clipping::Highlights)),
+        (LightParameter::Highlights, Some(Clipping::Highlights)),
+        (LightParameter::Whites, Some(Clipping::Highlights)),
+        (LightParameter::Shadows, Some(Clipping::Shadows)),
+        (LightParameter::Blacks, Some(Clipping::Shadows)),
+        (LightParameter::Contrast, None),
+    ] {
+        let index = e
+            .camera_raw
+            .bindings()
+            .iter()
+            .position(|binding| matches!(binding, Binding::Light(parameter) if parameter.id == id))
+            .unwrap();
+        e.camera_slider_preview(Scalar::Parameter(index, Scale::Linear(0)), &event);
+        assert_eq!(e.camera_raw.preview.clipping, expected, "{id:?}");
+        assert!(!e.camera_raw.preview.sharpen_mask);
+    }
+    e.camera_change(|edit| edit.group = Group::Detail);
+    for (id, expected) in [
+        (DetailParameter::SharpenMasking, true),
+        (DetailParameter::SharpenRadius, false),
+        (DetailParameter::NoiseLuminance, false),
+    ] {
+        let index = e
+            .camera_raw
+            .bindings()
+            .iter()
+            .position(|binding| matches!(binding, Binding::Detail(parameter) if parameter.id == id))
+            .unwrap();
+        e.camera_slider_preview(Scalar::Parameter(index, Scale::Linear(0)), &event);
+        assert_eq!(e.camera_raw.preview.sharpen_mask, expected, "{id:?}");
+        assert!(e.camera_raw.preview.clipping.is_none());
+    }
+}

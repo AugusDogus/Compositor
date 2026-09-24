@@ -1,6 +1,8 @@
 //! Direct manipulation of Camera Raw's parametric dividers and point curves.
+use super::bindings::Binding;
 use super::*;
 use compositor::adjustment::{Channel, CurvePoint};
+use compositor::camera_raw::scalars::CurveParameter;
 use quickgui::{MouseButton, PointerEvent, PointerPhase};
 
 #[derive(Clone, Copy, Default, PartialEq)]
@@ -49,20 +51,27 @@ fn parametric(edit: &Edit, tone: f64) -> f64 {
 }
 impl Editor {
     pub(in crate::ui) fn camera_graph_field_visible(&self, index: usize) -> bool {
-        match self.camera_raw.group {
-            Group::Curve => {
-                if self.camera_raw.curve_page == Page::Parametric {
-                    index < 4
-                } else {
-                    index == 7 && self.camera_raw.channel == 0
+        match self.camera_raw.bindings().get(index) {
+            Some(Binding::Curve(parameter)) => match parameter.id {
+                CurveParameter::Shadows
+                | CurveParameter::Darks
+                | CurveParameter::Lights
+                | CurveParameter::Highlights => self.camera_raw.curve_page == Page::Parametric,
+                CurveParameter::RefineSaturation => {
+                    self.camera_raw.curve_page == Page::Point && self.camera_raw.channel == 0
                 }
+                CurveParameter::ShadowSplit
+                | CurveParameter::DarkSplit
+                | CurveParameter::LightSplit => false,
+            },
+            Some(Binding::Wheel(_, _)) => {
+                self.camera_raw.grading_page != super::grading::Page::ThreeWay
             }
-            Group::Grading if self.camera_raw.grading_page == super::grading::Page::ThreeWay => {
-                index >= 3
-            }
-            _ => true,
+            Some(_) => true,
+            None => false,
         }
     }
+
     pub(super) fn camera_curve_editor(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         let page = self.camera_raw.curve_page;
         let curves = self.camera_raw.settings.curves.clone();

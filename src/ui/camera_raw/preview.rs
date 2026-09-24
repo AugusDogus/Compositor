@@ -1,5 +1,9 @@
+use super::bindings::Binding;
 use super::*;
-use compositor::camera_raw::Clipping;
+use compositor::camera_raw::{
+    Clipping,
+    scalars::{DetailParameter, LightParameter},
+};
 use quickgui::{PointerEvent, PointerPhase};
 impl Editor {
     pub(in crate::ui) fn camera_preview_modifiers(&mut self, modifiers: Modifiers) {
@@ -33,15 +37,20 @@ impl Editor {
             && event.modifiers.contains(Modifiers::ALT)
             && let super::super::scalar_controls::Scalar::Parameter(index, _) = scalar
         {
-            if self.camera_raw.group == Group::Light {
-                options.clipping = match index {
-                    0 | 2 | 4 => Some(Clipping::Highlights),
-                    3 | 5 => Some(Clipping::Shadows),
-                    _ => None,
-                };
-            }
-            if self.camera_raw.group == Group::Detail && index == 3 {
-                options.sharpen_mask = true;
+            match self.camera_raw.bindings().get(index) {
+                Some(Binding::Light(parameter)) => {
+                    options.clipping = match parameter.id {
+                        LightParameter::Exposure
+                        | LightParameter::Highlights
+                        | LightParameter::Whites => Some(Clipping::Highlights),
+                        LightParameter::Shadows | LightParameter::Blacks => Some(Clipping::Shadows),
+                        LightParameter::Contrast => None,
+                    };
+                }
+                Some(Binding::Detail(parameter)) => {
+                    options.sharpen_mask = parameter.id == DetailParameter::SharpenMasking;
+                }
+                _ => {}
             }
         }
         if options != self.camera_raw.preview {
