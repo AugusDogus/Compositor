@@ -9,6 +9,9 @@ use std::{
 };
 use uuid::Uuid;
 
+mod stacks;
+pub(crate) use stacks::stacks;
+
 #[derive(Clone, Copy)]
 pub enum DeleteMode {
     Bake,

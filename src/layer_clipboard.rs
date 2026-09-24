@@ -73,6 +73,50 @@ impl Layers {
 mod tests {
     use super::*;
     #[test]
+    fn pasting_respects_rendered_stacks_across_hidden_layers_and_empty_folders() {
+        use crate::document::{Layer, LayerContent};
+        for folder in [false, true] {
+            let mut target = Document::new(1, 1).unwrap();
+            crate::edits::fill(&mut target, [255, 0, 0, 128], false, false).unwrap();
+            let base = target.active.unwrap();
+            let mut between = Layer::blank("Ignored by renderer", 1, 1);
+            if folder {
+                between.content = LayerContent::Group;
+            } else {
+                between.visible = false;
+            }
+            target.add(between).unwrap();
+            target.add(Layer::blank("Clipped", 1, 1)).unwrap();
+            crate::edits::fill(&mut target, [0, 0, 255, 128], false, false).unwrap();
+            target.active_layer_mut().unwrap().clip_source = Some(base);
+            let before = crate::render::render(&target, 1, 1).unwrap();
+            let clipboard = Layers::capture(&Document::new(1, 1).unwrap()).unwrap();
+            target.select(base, false);
+            clipboard.paste(&mut target).unwrap();
+            assert_eq!(crate::render::render(&target, 1, 1).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn pasting_empty_content_does_not_disable_a_clipped_adjustment() {
+        let mut target = Document::new(8, 8).unwrap();
+        crate::edits::fill(&mut target, [255, 0, 0, 128], false, false).unwrap();
+        let base = target.active.unwrap();
+        let mut invert = crate::document::Layer::blank("Invert", 8, 8);
+        invert.content = crate::document::LayerContent::Adjustment(Box::new(
+            crate::adjustment::Adjustment::new(crate::adjustment::Kind::Invert),
+        ));
+        invert.clip_source = Some(base);
+        target.add(invert).unwrap();
+        let before = crate::render::render(&target, 8, 8).unwrap();
+        assert_eq!(before[(4, 4)], image::Rgba([0, 255, 255, 128]));
+        let clipboard = Layers::capture(&Document::new(8, 8).unwrap()).unwrap();
+        target.select(base, false);
+        clipboard.paste(&mut target).unwrap();
+        assert_eq!(crate::render::render(&target, 8, 8).unwrap(), before);
+    }
+
+    #[test]
     fn paste_above_a_clipping_base_preserves_the_existing_stack() {
         let mut source = Document::new(8, 8).unwrap();
         source.layers[0].name = "Source".into();

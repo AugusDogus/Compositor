@@ -17,22 +17,34 @@ pub(super) fn prepare(
     step: Point,
     accelerated: bool,
 ) -> Result<Surfaces> {
-    fn ordered(doc: &Document, parent: Option<Uuid>, out: &mut Vec<Uuid>) {
+    fn ordered(doc: &Document, state: &RenderState, parent: Option<Uuid>, out: &mut Vec<Uuid>) {
         for layer in doc
             .layers
             .iter()
             .filter(|l| l.parent == parent && l.visible)
         {
+            if state.stacked.contains(&layer.id) {
+                continue;
+            }
             if layer.is_group() {
-                ordered(doc, Some(layer.id), out);
+                ordered(doc, state, Some(layer.id), out);
+            } else if let Some(children) = state.stacks.get(&layer.id) {
+                for index in children {
+                    let child = &doc.layers[*index];
+                    if matches!(&child.content, LayerContent::Adjustment(a) if matches!(a.kind, Kind::GaussianBlur | Kind::MotionBlur))
+                    {
+                        out.push(child.id);
+                    }
+                }
             } else if matches!(&layer.content,LayerContent::Adjustment(a) if matches!(a.kind,Kind::GaussianBlur|Kind::MotionBlur))
             {
                 out.push(layer.id);
             }
         }
     }
+    let mut state = RenderState::new(doc);
     let mut ids = Vec::new();
-    ordered(doc, None, &mut ids);
+    ordered(doc, &state, None, &mut ids);
     if ids.is_empty() {
         return Ok(HashMap::new());
     }
@@ -46,7 +58,6 @@ pub(super) fn prepare(
     ];
     let origin = aligned;
     let step = [spacing; 2];
-    let mut state = RenderState::new(doc);
     // Accumulate halos so chained filters also have complete input at viewport edges.
     let margin: f64 = ids
         .iter()

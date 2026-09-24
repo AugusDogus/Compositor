@@ -158,20 +158,6 @@ struct RenderState {
 
 impl RenderState {
     fn new(doc: &Document) -> Self {
-        fn visit(doc: &Document, parent: Option<Uuid>, out: &mut Vec<usize>) {
-            for (index, layer) in doc
-                .layers
-                .iter()
-                .enumerate()
-                .filter(|(_, l)| l.parent == parent && l.visible)
-            {
-                if layer.is_group() {
-                    visit(doc, Some(layer.id), out);
-                } else {
-                    out.push(index);
-                }
-            }
-        }
         let mut state = Self {
             backgrounds: doc
                 .layers
@@ -183,27 +169,13 @@ impl RenderState {
             surfaces: HashMap::new(),
             before: None,
         };
-        let mut ordered = Vec::new();
-        visit(doc, None, &mut ordered);
-        for (position, index) in ordered.iter().enumerate() {
-            let base = &doc.layers[*index];
-            if base.clip_source.is_some() || matches!(base.content, LayerContent::Adjustment(_)) {
-                continue;
-            }
-            let children: Vec<_> = ordered[position + 1..]
-                .iter()
-                .copied()
-                .take_while(|i| {
-                    let child = &doc.layers[*i];
-                    child.clip_source == Some(base.id) && child.parent == base.parent
-                })
-                .collect();
-            if !children.is_empty() {
-                state
-                    .stacked
-                    .extend(children.iter().map(|i| doc.layers[*i].id));
-                state.stacks.insert(base.id, children);
-            }
+        for stack in crate::clipping::stacks(doc) {
+            let mut children = stack.contiguous;
+            children.extend(stack.adjustments);
+            state
+                .stacked
+                .extend(children.iter().map(|i| doc.layers[*i].id));
+            state.stacks.insert(doc.layers[stack.base].id, children);
         }
         state
     }
@@ -392,6 +364,9 @@ pub fn sample(doc: &Document, point: Point) -> crate::Result<[f64; 4]> {
 
 #[cfg(test)]
 mod sampling_tests;
+
+#[cfg(test)]
+mod clipping_tests;
 
 pub fn region(
     doc: &Document,

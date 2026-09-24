@@ -1,0 +1,72 @@
+//! Shared rendering and insertion boundaries for explicit clipping links.
+use crate::document::{Document, LayerContent};
+use std::collections::HashMap;
+use uuid::Uuid;
+
+pub(crate) struct Stack {
+    pub base: usize,
+    pub contiguous: Vec<usize>,
+    pub adjustments: Vec<usize>,
+}
+
+pub(crate) fn stacks(doc: &Document) -> Vec<Stack> {
+    fn visit(doc: &Document, parent: Option<Uuid>, out: &mut Vec<usize>) {
+        for (index, layer) in doc
+            .layers
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.parent == parent && l.visible)
+        {
+            if layer.is_group() {
+                visit(doc, Some(layer.id), out);
+            } else {
+                out.push(index);
+            }
+        }
+    }
+    let mut ordered = Vec::new();
+    visit(doc, None, &mut ordered);
+    let mut adjustments: HashMap<Uuid, Vec<(usize, usize)>> = HashMap::new();
+    for (position, index) in ordered.iter().copied().enumerate() {
+        let layer = &doc.layers[index];
+        if matches!(layer.content, LayerContent::Adjustment(_))
+            && let Some(base) = layer.clip_source
+        {
+            adjustments.entry(base).or_default().push((position, index));
+        }
+    }
+    let mut stacks = Vec::new();
+    for (position, index) in ordered.iter().copied().enumerate() {
+        let base = &doc.layers[index];
+        if base.clip_source.is_some() || matches!(base.content, LayerContent::Adjustment(_)) {
+            continue;
+        }
+        let contiguous: Vec<_> = ordered[position + 1..]
+            .iter()
+            .copied()
+            .take_while(|i| {
+                let child = &doc.layers[*i];
+                child.clip_source == Some(base.id) && child.parent == base.parent
+            })
+            .collect();
+        // Detached rasters are independent masks. Adjustments have no own pixels
+        // and must still operate on their explicit base, in document order.
+        let end = position + contiguous.len();
+        let detached = adjustments
+            .get(&base.id)
+            .into_iter()
+            .flatten()
+            .filter_map(|(position, index)| {
+                (*position > end && doc.layers[*index].parent == base.parent).then_some(*index)
+            })
+            .collect::<Vec<_>>();
+        if !contiguous.is_empty() || !detached.is_empty() {
+            stacks.push(Stack {
+                base: index,
+                contiguous,
+                adjustments: detached,
+            });
+        }
+    }
+    stacks
+}

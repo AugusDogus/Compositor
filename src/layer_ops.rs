@@ -445,11 +445,14 @@ fn place_with_clipping(
     }
     let roots_set: HashSet<_> = roots.iter().copied().collect();
     doc.layers.retain(|l| !roots_set.contains(&l.id));
-    let insertion = target
+    let mut insertion = target
         .and_then(|id| doc.layers.iter().position(|l| l.id == id))
         .map_or(doc.layers.len(), |i| {
             i + usize::from(matches!(position, Position::Above(_)))
         });
+    if matches!(clipping, ClippingPlacement::PreserveLinks) {
+        insertion = copy_insertion(doc, &layers, insertion, parent, position);
+    }
     doc.layers.splice(insertion..insertion, layers);
     doc.active = if roots.contains(&id) {
         Some(id)
@@ -490,6 +493,35 @@ fn place_with_clipping(
         }
     }
     Ok(())
+}
+
+// Independent copies belong outside the destination clipping stack. Inserting
+// between its base and children would change the original stack's alpha/blends.
+fn copy_insertion(
+    doc: &Document,
+    copies: &[Layer],
+    insertion: usize,
+    parent: Option<Uuid>,
+    position: Position,
+) -> usize {
+    for stack in crate::clipping::stacks(doc) {
+        let base = &doc.layers[stack.base];
+        let Some(last) = stack.contiguous.last().copied() else {
+            continue;
+        };
+        if base.parent == parent
+            && stack.base < insertion
+            && insertion <= last
+            && !copies.iter().all(|l| l.clip_source == Some(base.id))
+        {
+            return if matches!(position, Position::Below(_)) {
+                stack.base
+            } else {
+                last + 1
+            };
+        }
+    }
+    insertion
 }
 
 /// Copies the dragged selection roots and their subtrees, remapping shared internal references.
