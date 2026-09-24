@@ -40,6 +40,7 @@ pub(super) struct State {
     queue: QueueHandle<Self>,
     seats: Vec<Seat>,
     sources: Vec<(CopyPasteSource, Payload)>,
+    revision: Arc<std::sync::atomic::AtomicU64>,
     transfers: Arc<AtomicUsize>,
 }
 
@@ -71,7 +72,11 @@ impl Seat {
 }
 
 impl State {
-    pub fn new(globals: &GlobalList, queue: &QueueHandle<Self>) -> Result<Self> {
+    pub fn new(
+        globals: &GlobalList,
+        queue: &QueueHandle<Self>,
+        revision: Arc<std::sync::atomic::AtomicU64>,
+    ) -> Result<Self> {
         let seat_state = SeatState::new(globals, queue);
         let seats = seat_state.seats().map(|seat| Seat::new(&seat)).collect();
         Ok(Self {
@@ -88,6 +93,7 @@ impl State {
             })?,
             queue: queue.clone(),
             sources: Vec::new(),
+            revision,
             transfers: Arc::new(AtomicUsize::new(0)),
         })
     }
@@ -187,6 +193,8 @@ impl State {
             ));
         }
         let (device, serial) = self.focused_seat()?;
+        self.revision
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         match payload {
             None => device.inner().set_selection(None, serial),
             Some(payload) => {
@@ -371,6 +379,14 @@ impl DataSourceHandler for State {
         }
     }
     fn cancelled(&mut self, _: &Connection, _: &QueueHandle<Self>, source: &WlDataSource) {
+        if self
+            .sources
+            .last()
+            .is_some_and(|(s, _)| s.inner() == source)
+        {
+            self.revision
+                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        }
         self.sources.retain(|(s, _)| s.inner() != source);
     }
     fn accept_mime(

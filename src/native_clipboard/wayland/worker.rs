@@ -11,6 +11,7 @@ pub(super) fn run(
     display: OwnedDisplayHandle,
     commands: channel::Channel<Command>,
     ready: &mpsc::Sender<Result<()>>,
+    revision: Arc<std::sync::atomic::AtomicU64>,
 ) -> Result<()> {
     let RawDisplayHandle::Wayland(raw) = display
         .display_handle()
@@ -30,7 +31,7 @@ pub(super) fn run(
     })?;
     let mut event_loop = EventLoop::<state::State>::try_new()
         .map_err(|e| invalid(format!("Could not create the clipboard event loop: {e}")))?;
-    let mut state = state::State::new(&globals, &event_queue.handle())?;
+    let mut state = state::State::new(&globals, &event_queue.handle(), revision)?;
     event_loop
         .handle()
         .insert_source(commands, |event, _, state| match event {

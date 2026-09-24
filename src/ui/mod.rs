@@ -72,6 +72,7 @@ mod jpeg_export;
 mod jpeg_preferences;
 mod keymap;
 mod layer_cursor;
+mod layer_clipboard;
 mod layer_drag;
 mod layer_editing;
 mod layer_effects;
@@ -343,6 +344,7 @@ pub struct Editor {
     size_menus: size_picker::SizeMenus,
     keyboard_modifiers: Modifiers,
     pixel_clipboard: Option<compositor::clipboard::PixelClipboard>,
+    layer_clipboard: Option<layer_clipboard::Copy>,
     gesture: Option<Gesture>,
     pending_layer_click: Option<uuid::Uuid>,
     window_drag: Option<quickgui::Point>,
@@ -458,6 +460,7 @@ impl Editor {
             size_menus: size_picker::SizeMenus::new(),
             keyboard_modifiers: Modifiers::empty(),
             pixel_clipboard: None,
+            layer_clipboard: None,
             gesture: None,
             pending_layer_click: None,
             pixel_grid_shader: pixel_grid::shader()?,

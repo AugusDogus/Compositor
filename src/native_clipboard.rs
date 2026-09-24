@@ -154,3 +154,9 @@ mod tests {
         );
     }
 }
+
+/// Identifies the current X11 selection owner. Layer copies also compare image
+/// contents, so subsequent writes by the same clipboard manager are detected.
+pub fn x11_owner() -> Result<u32> {
+    x11::owner()
+}

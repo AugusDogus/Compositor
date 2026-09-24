@@ -19,6 +19,7 @@ struct Inner {
     sender: channel::Sender<Command>,
     gate: Mutex<()>,
     worker: Mutex<Option<std::thread::JoinHandle<()>>>,
+    revision: Arc<std::sync::atomic::AtomicU64>,
 }
 
 #[derive(Clone, Copy)]
@@ -54,10 +55,12 @@ impl WaylandClipboard {
         }
         let (sender, receiver) = channel::channel();
         let (ready_tx, ready_rx) = mpsc::channel();
+        let revision = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let worker_revision = revision.clone();
         let worker = std::thread::Builder::new()
             .name("wayland-clipboard".into())
             .spawn(move || {
-                if let Err(error) = worker::run(display, receiver, &ready_tx) {
+                if let Err(error) = worker::run(display, receiver, &ready_tx, worker_revision) {
                     eprintln!("Wayland clipboard worker stopped: {error}");
                     let _ = ready_tx.send(Err(error));
                 }
@@ -66,6 +69,7 @@ impl WaylandClipboard {
             sender,
             gate: Mutex::new(()),
             worker: Mutex::new(Some(worker)),
+            revision,
         }));
         ready_rx
             .recv_timeout(Duration::from_secs(5))
@@ -73,6 +77,10 @@ impl WaylandClipboard {
                 invalid("The Wayland clipboard did not initialize. Restart the editor and retry.")
             })??;
         Ok(Some(clipboard))
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.0.revision.load(std::sync::atomic::Ordering::Acquire)
     }
 
     pub fn read_image(&self) -> Result<Option<Vec<u8>>> {

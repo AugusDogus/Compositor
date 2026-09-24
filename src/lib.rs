@@ -4,6 +4,7 @@ pub mod blend;
 pub mod brush;
 pub mod canvas_size;
 pub mod clipboard;
+pub mod layer_clipboard;
 pub mod clipping;
 mod cmyk;
 pub mod crop;

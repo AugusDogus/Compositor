@@ -212,3 +212,19 @@ impl Reader {
         }
     }
 }
+
+pub(super) fn owner() -> Result<u32> {
+    let (connection, _) = x11rb::connect(None).map_err(error)?;
+    let clipboard = connection
+        .intern_atom(false, b"CLIPBOARD")
+        .map_err(error)?
+        .reply()
+        .map_err(error)?
+        .atom;
+    Ok(connection
+        .get_selection_owner(clipboard)
+        .map_err(error)?
+        .reply()
+        .map_err(error)?
+        .owner)
+}

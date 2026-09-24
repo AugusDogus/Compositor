@@ -35,7 +35,7 @@ impl Editor {
 
     pub(super) fn clipboard_available(&self, action: Action) -> bool {
         match action {
-            Action::Copy => self.can_copy_pixels(),
+            Action::Copy => self.can_copy_pixels() || self.can_copy_layers(),
             Action::CopyMerged => self.can_copy_merged(),
             Action::Cut => self.can_copy_pixels() && self.session().document.selection.is_some(),
             Action::Paste => {
@@ -59,11 +59,25 @@ impl Editor {
                 cx,
             );
         } else {
-            let copied = clipboard::copy(
-                &self.session().document,
-                matches!(action, Action::CopyMerged),
-                self.tools.mask_target,
-            )?;
+            let layers = if matches!(action, Action::Copy) && self.can_copy_layers() {
+                Some(compositor::layer_clipboard::Layers::capture(
+                    &self.session().document,
+                )?)
+            } else {
+                None
+            };
+            let copied = if let Some(layers) = &layers {
+                PixelClipboard {
+                    pixels: Arc::new(layers.pixels()?),
+                    origin: [0., 0.],
+                }
+            } else {
+                clipboard::copy(
+                    &self.session().document,
+                    matches!(action, Action::CopyMerged),
+                    self.tools.mask_target,
+                )?
+            };
             let mut bytes = std::io::Cursor::new(Vec::new());
             image::DynamicImage::ImageRgba8(copied.pixels.as_ref().clone())
                 .write_to(&mut bytes, image::ImageFormat::Png)?;
@@ -75,6 +89,14 @@ impl Editor {
                     "Could not write the clipboard: {e}. Pixels have not been cut."
                 ))
             })?;
+            self.layer_clipboard = None;
+            if let Some(layers) = layers {
+                self.layer_clipboard = Some(super::layer_clipboard::Copy {
+                    layers,
+                    pixels: copied.pixels.clone(),
+                    owner: self.clipboard_owner()?,
+                });
+            }
             self.pixel_clipboard = Some(copied);
             if matches!(action, Action::Cut) && self.can_edit_pixels() {
                 let mask = self.tools.mask_target;
@@ -94,6 +116,15 @@ impl Editor {
         session: uuid::Uuid,
         pixels: image::RgbaImage,
     ) -> Result<()> {
+        let layers = self
+            .layer_clipboard
+            .as_ref()
+            .filter(|clip| clip.pixels.as_ref() == &pixels)
+            .filter(|clip| {
+                self.clipboard_owner()
+                    .is_ok_and(|owner| owner == clip.owner)
+            })
+            .map(|clip| clip.layers.clone());
         let clip_origin = self
             .pixel_clipboard
             .as_ref()
@@ -118,6 +149,9 @@ impl Editor {
                 Ok(doc)
             },
             |doc| {
+                if let Some(layers) = &layers {
+                    return layers.paste(doc);
+                }
                 let origin = clip_origin.unwrap_or([
                     ((doc.width as f64 - pixels.width() as f64) / 2.).floor(),
                     ((doc.height as f64 - pixels.height() as f64) / 2.).floor(),
