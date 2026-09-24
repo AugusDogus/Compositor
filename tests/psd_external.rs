@@ -128,9 +128,28 @@ fn photoshop_cc2019_primitives_stay_editable_in_projects() {
 #[test]
 #[ignore = "downloads external Photoshop artwork via scripts/fetch-psd-fixtures.sh"]
 fn photoshop_cs6_adjustments_preserve_parameters_through_project_and_psd() {
+    fn check_color_adjustments(doc: &Document) {
+        let balance = adjustment(doc, "Color Balance 1");
+        assert_eq!(balance.kind, Kind::ColorBalance);
+        let settings = balance.color_balance_settings.unwrap();
+        assert_eq!(
+            settings.ranges(),
+            [[0.; 3], [16., -21., 33.], [38., 35., 38.]]
+        );
+        assert!(settings.preserve_luminosity);
+        let black_white = adjustment(doc, "Black & White 1");
+        assert_eq!(black_white.kind, Kind::BlackWhite);
+        let settings = black_white.black_white_settings.unwrap();
+        assert_eq!(settings.weights(), [-40., 235., 144., -68., -3., -107.]);
+        assert!(settings.tint);
+        assert!((settings.tint_hue - 201.87917902760956).abs() < 1e-5);
+        assert!((settings.tint_saturation - 66.57671614540657).abs() < 1e-5);
+        assert_eq!(adjustment(doc, "Invert 1").kind, Kind::Invert);
+    }
     let imported = fixture("adjustments.psd");
     let doc = &imported.document;
-    assert_eq!((doc.width, doc.height, doc.layers.len()), (200, 200, 4));
+    assert_eq!((doc.width, doc.height, doc.layers.len()), (200, 200, 7));
+    check_color_adjustments(doc);
     let levels = adjustment(doc, "Levels 1");
     assert_eq!(levels.kind, Kind::Levels);
     assert_eq!(levels.levels.ranges[0].black, 10.);
@@ -163,7 +182,14 @@ fn photoshop_cs6_adjustments_preserve_parameters_through_project_and_psd() {
     );
     let saved = project_roundtrip(doc);
     let exported = psd::decode(&psd::encode(&saved).unwrap()).unwrap().document;
-    for name in ["Levels 1", "Curves 1", "Hue/Saturation 1"] {
+    check_color_adjustments(&exported);
+    for name in [
+        "Levels 1",
+        "Curves 1",
+        "Hue/Saturation 1",
+        "Color Balance 1",
+        "Invert 1",
+    ] {
         assert_eq!(adjustment(doc, name), adjustment(&exported, name));
     }
     assert_eq!(
