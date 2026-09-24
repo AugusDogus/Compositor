@@ -1,5 +1,6 @@
 //! Camera Raw's grouped controls and draft settings. All edits use the filter transaction.
 mod balance;
+mod bindings;
 mod controls;
 mod curve;
 mod fields;
@@ -107,21 +108,17 @@ impl Editor {
         if self.filter_applying() {
             return;
         }
-        // Preserve the current group's draft before switching panels or editing switches.
-        let values = match &self.modal {
+        if !matches!(
+            self.modal,
             Some(Form::Edit {
                 action: Action::CameraRaw,
-                fields,
                 ..
-            }) => fields.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>(),
-            _ => return,
-        };
-        if let Err(error) = self.camera_raw.parse_fields(&values) {
-            if let Some(Form::Edit { error: target, .. }) = &mut self.modal {
-                *target = error.to_string();
-            }
+            })
+        ) {
             return;
         }
+        // Numeric drafts are parsed when their input changes. Commands operate on the
+        // last valid typed settings and replace drafts, so Reset can recover from invalid input.
         change(&mut self.camera_raw);
         self.sync_camera_fields();
     }

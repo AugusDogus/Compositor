@@ -214,3 +214,97 @@ fn camera_remembers_only_successfully_applied_grade() {
     editor.open_camera_raw().unwrap();
     assert_eq!(editor.camera_raw.settings.light.exposure, 1.);
 }
+
+#[test]
+fn reset_group_recovers_from_invalid_numeric_drafts() {
+    use quickgui::{Application, WindowOptions};
+    let mut editor = Editor::with_test_document();
+    compositor::edits::fill(
+        &mut editor.session_mut().document,
+        [80, 100, 120, 255],
+        false,
+        false,
+    )
+    .unwrap();
+    editor.open_camera_raw().unwrap();
+    editor.update_form_field(0, "1.5");
+    editor.camera_change(|edit| edit.group = Group::Color);
+    editor.update_form_field(0, "25");
+    editor.update_form_field(1, "-");
+    assert_eq!(editor.camera_raw.settings.color.temperature, 25.);
+    let (mut cx, view) = Application::new()
+        .font(crate::UI_FONT)
+        .into_test_context(
+            WindowOptions::new("Camera Raw reset").size(1280., 900.),
+            editor,
+        )
+        .unwrap();
+    cx.click(view.window_handle(), "filter-preview").unwrap();
+    cx.click(view.window_handle(), "camera-group-reset")
+        .unwrap();
+    cx.read(view, |editor| {
+        assert_eq!(editor.camera_raw.settings.color, Default::default());
+        assert_eq!(editor.camera_raw.settings.light.exposure, 1.5);
+        let Some(Form::Edit { fields, error, .. }) = &editor.modal else {
+            panic!("Camera Raw form closed")
+        };
+        assert_eq!(fields[1].1, "0");
+        assert!(error.is_empty(), "{error}");
+    })
+    .unwrap();
+}
+
+#[test]
+fn numeric_bindings_preserve_curves_and_address_selected_point_and_guide() {
+    use compositor::{
+        adjustment::CurvePoint,
+        camera_raw::{Guide, PointColor},
+    };
+    let mut edit = Edit::default();
+    edit.settings.curves.channels[2].insert(
+        1,
+        CurvePoint {
+            x: 63.123456789,
+            y: 128.87654321,
+        },
+    );
+    let curves = edit.settings.curves.clone();
+    edit.group = Group::Curve;
+    edit.channel = 2;
+    let mut values: Vec<_> = edit.fields().into_iter().map(|(_, v)| v).collect();
+    assert_eq!(
+        values.len(),
+        8,
+        "Curves must not be serialized into numeric drafts"
+    );
+    values[0] = "20".into();
+    edit.parse_fields(&values).unwrap();
+    assert_eq!(edit.settings.curves, curves);
+    edit.group = Group::Mixer;
+    edit.mixer_page = MixerPage::Points;
+    edit.settings.mixer.points = vec![PointColor::default(), PointColor::default()];
+    edit.point = 1;
+    let mut values: Vec<_> = edit.fields().into_iter().map(|(_, v)| v).collect();
+    values[6] = "50".into();
+    edit.parse_fields(&values).unwrap();
+    assert_eq!(edit.settings.mixer.points[0].hue_range, 30.);
+    assert_eq!(edit.settings.mixer.points[1].hue_range, 50.);
+    edit.group = Group::Geometry;
+    edit.settings.guides = vec![
+        Guide {
+            start: [0.2, 0.3],
+            end: [0.8, 0.3]
+        };
+        2
+    ];
+    let mut values: Vec<_> = edit.fields().into_iter().map(|(_, v)| v).collect();
+    let end = values.len() - 1;
+    values[end] = "0.6".into();
+    edit.parse_fields(&values).unwrap();
+    assert_eq!(edit.settings.guides[0].end[1], 0.3);
+    assert_eq!(edit.settings.guides[1].end[1], 0.6);
+    let before = edit.settings.clone();
+    values[end] = "NaN".into();
+    assert!(edit.parse_fields(&values).is_err());
+    assert_eq!(edit.settings, before);
+}

@@ -1,18 +1,35 @@
 //! Scalar controls, defaults and validated ranges from upstream CameraRaw settings.
 use crate::{Result, invalid};
 
+/// One numeric input's metadata and typed accessors. Text parsing stays at the UI boundary.
+pub struct Parameter<T> {
+    pub label: &'static str,
+    pub default: f64,
+    pub min: f64,
+    pub max: f64,
+    pub get: fn(&T) -> f64,
+    pub set: fn(&mut T, f64),
+}
+impl<T> Parameter<T> {
+    pub fn parse(&self, text: &str) -> Result<f64> {
+        let value = text
+            .parse::<f64>()
+            .map_err(|_| invalid(format!("Enter a number for {}.", self.label)))?;
+        check(value, self.label, self.min, self.max)?;
+        Ok(value)
+    }
+}
 macro_rules! group {
     ($name:ident { $( $field:ident: ($label:literal, $default:expr, $min:expr, $max:expr) ),* $(,)? }) => {
         #[derive(Clone, Debug, PartialEq)]
         pub struct $name { $(pub $field: f64),* }
         impl Default for $name { fn default() -> Self { Self { $($field: $default),* } } }
         impl $name {
-            pub fn ranges() -> Vec<(&'static str, f64, f64)> { vec![$(($label, $min, $max)),*] }
-            pub fn fields(&self) -> Vec<(&'static str, String)> { vec![$(($label, self.$field.to_string())),*] }
-            pub fn parse(values: &[String]) -> Result<Self> {
-                let mut values = values.iter();
-                Ok(Self {$($field: parse_number(values.next(), $label, $min, $max)?),*})
-            }
+            pub const PARAMETERS: &'static [Parameter<Self>] = &[$(Parameter {
+                label: $label, default: $default, min: $min, max: $max,
+                get: |value| value.$field,
+                set: |target, value| target.$field = value,
+            }),*];
             pub fn validate(&self) -> Result<()> { $(check(self.$field, $label, $min, $max)?;)* Ok(()) }
         }
     };
@@ -25,14 +42,6 @@ pub(super) fn check(value: f64, label: &str, min: f64, max: f64) -> Result<()> {
     }
     Ok(())
 }
-pub(super) fn parse_number(value: Option<&String>, label: &str, min: f64, max: f64) -> Result<f64> {
-    let value = value
-        .and_then(|s| s.parse::<f64>().ok())
-        .ok_or_else(|| invalid(format!("Enter a number for {label}.")))?;
-    check(value, label, min, max)?;
-    Ok(value)
-}
-
 group! { Light {
     exposure: ("Exposure", 0., -5., 5.),
     contrast: ("Contrast", 0., -100., 100.),

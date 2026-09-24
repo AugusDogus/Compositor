@@ -1,73 +1,13 @@
 use super::*;
 use crate::ui::{parameter_controls::Scale, scalar_controls::Scalar};
-use compositor::camera_raw::scalars;
-impl Edit {
-    fn parameter(&self, index: usize) -> Option<(&'static str, f64, f64)> {
-        let fields = match self.group {
-            Group::Light => scalars::Light::ranges(),
-            Group::Color => scalars::Color::ranges(),
-            Group::Effects => scalars::Effects::ranges(),
-            Group::Curve => scalars::Curve::ranges(),
-            Group::Detail => scalars::Detail::ranges(),
-            Group::Optics => scalars::Optics::ranges(),
-            Group::Calibration => scalars::Calibration::ranges(),
-            Group::Geometry => {
-                let mut v = scalars::Geometry::ranges();
-                for _ in &self.settings.guides {
-                    v.extend([
-                        ("Guide start X", 0., 1.),
-                        ("Guide start Y", 0., 1.),
-                        ("Guide end X", 0., 1.),
-                        ("Guide end Y", 0., 1.),
-                    ]);
-                }
-                v
-            }
-            Group::Mixer => {
-                if self.mixer_page == MixerPage::Families {
-                    vec![
-                        ("Hue", -100., 100.),
-                        ("Saturation", -100., 100.),
-                        ("Luminance", -100., 100.),
-                    ]
-                } else {
-                    vec![
-                        ("Hue", 0., 360.),
-                        ("Saturation", 0., 1.),
-                        ("Luminance", 0., 1.),
-                        ("Hue shift", -100., 100.),
-                        ("Saturation shift", -100., 100.),
-                        ("Luminance shift", -100., 100.),
-                        ("Hue range", 5., 180.),
-                        ("Saturation range", 0.05, 1.),
-                        ("Luminance range", 0.05, 1.),
-                    ]
-                }
-            }
-            Group::Grading => vec![
-                ("Hue", 0., 360.),
-                ("Saturation", 0., 100.),
-                ("Luminance", -100., 100.),
-                ("Blending", 0., 100.),
-                ("Balance", -100., 100.),
-            ],
-        };
-        fields.get(index).copied()
-    }
-}
 impl Editor {
     pub(super) fn reset_camera_parameter(&mut self, index: usize) {
         if self.filter_applying() {
             return;
         }
-        let mut defaults = Edit {
-            group: self.camera_raw.group,
-            mixer_page: self.camera_raw.mixer_page,
-            ..Default::default()
-        };
-        defaults.settings.mixer.points.push(Default::default());
-        if let Some((_, value)) = defaults.fields().get(index) {
-            self.update_form_field(index, value);
+        if let Some(binding) = self.camera_raw.bindings().get(index) {
+            let (_, _, _, default) = binding.metadata();
+            self.update_form_field(index, &default.to_string());
         }
     }
 
@@ -77,7 +17,7 @@ impl Editor {
         index: usize,
         value: &str,
     ) -> Option<Element> {
-        let (label, min, max) = self.camera_raw.parameter(index)?;
+        let (label, min, max, _) = self.camera_raw.bindings().get(index)?.metadata();
         let decimals = if max <= 5. { 2 } else { 0 };
         let ids = [
             "camera-param-0",
