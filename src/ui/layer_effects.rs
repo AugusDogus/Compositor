@@ -1,5 +1,6 @@
 //! Nondestructive layer effects with one undo entry per confirmed editing session.
 mod controls;
+mod buttons;
 #[cfg(test)]
 mod tests;
 use super::*;
