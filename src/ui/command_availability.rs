@@ -91,6 +91,9 @@ impl Editor {
             }
             Action::FeatherSelection => self.can_modify_selection(),
             Action::AdjustPixels(_) | Action::RemoveBackground => self.can_adjust_colors(),
+            Action::Filter(compositor::filters::Filter::Vignette(_)) => {
+                !self.tools.mask_target && self.can_edit_pixels()
+            }
             Action::Filter(compositor::filters::Filter::ContentFill) => {
                 self.can_content_aware_fill()
             }

@@ -190,10 +190,7 @@ impl Editor {
                 compositor::transform::selection_bounds(doc, self.tools.mask_target).is_some()
             }
             Command::Edit(Action::Filter(compositor::filters::Filter::Vignette(_))) => {
-                !self.tools.mask_target
-                    && layer.is_some_and(|l| {
-                        l.raw.is_none() && matches!(l.content, LayerContent::Raster(_))
-                    })
+                !self.tools.mask_target && self.can_edit_pixels()
             }
             Command::Edit(Action::Filter(compositor::filters::Filter::ContentFill)) => {
                 self.can_content_aware_fill()
@@ -457,5 +454,36 @@ mod pending_tests {
                 .unwrap()
                 .is_disabled()
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn vignette_can_start_on_empty_visible_raster_only() {
+        let mut editor = Editor::with_test_document();
+        let action = Action::Filter(compositor::filters::Filter::Vignette(Default::default()));
+        assert!(
+            editor
+                .session()
+                .document
+                .active_layer()
+                .unwrap()
+                .raster()
+                .is_none()
+        );
+        assert!(editor.action_available(action));
+        assert!(editor.menu_available(Command::Edit(action)));
+        editor.session_mut().document.layers[0].visible = false;
+        assert!(!editor.action_available(action));
+        assert!(!editor.menu_available(Command::Edit(action)));
+        editor.session_mut().document.layers[0].visible = true;
+        editor.tools.mask_target = true;
+        assert!(!editor.action_available(action));
+        editor.tools.mask_target = false;
+        editor.session_mut().document.layers[0].content = compositor::document::LayerContent::Group;
+        assert!(!editor.action_available(action));
     }
 }
