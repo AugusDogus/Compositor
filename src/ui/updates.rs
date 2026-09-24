@@ -2,7 +2,14 @@ use super::*;
 use compositor::update::{AvailableUpdate, Service, Staged};
 use quickgui::UpdateCancellation;
 
+#[derive(Clone, Copy, PartialEq)]
+enum Installation {
+    Executable,
+    AppImage,
+}
+
 pub(super) struct Updates {
+    installation: Installation,
     service: std::result::Result<Service, String>,
     phase: Phase,
     generation: u64,
@@ -59,6 +66,11 @@ impl Default for Updates {
     fn default() -> Self {
         let service = Service::configured().map_err(|e| e.to_string());
         Self {
+            installation: if compositor::update::is_appimage() {
+                Installation::AppImage
+            } else {
+                Installation::Executable
+            },
             service,
             phase: Phase::Idle,
             generation: 0,
@@ -85,6 +97,10 @@ impl Updates {
         if self.service.is_err() || matches!(self.phase, Phase::Running { .. } | Phase::Queued(_)) {
             return;
         }
+        if self.installation == Installation::AppImage {
+            self.phase = Phase::Queued(Work::Check);
+            return;
+        }
         let next = match std::mem::replace(&mut self.phase, Phase::Idle) {
             Phase::Finished(Outcome::Available(update)) => Work::Download(update),
             Phase::Finished(Outcome::Staged(staged)) => Work::Install(staged),
@@ -104,9 +120,6 @@ impl Drop for Updates {
 
 impl Editor {
     pub fn restore_update_preferences(&mut self) {
-        if compositor::update::is_appimage() {
-            return;
-        }
         self.updates.preference = update_preferences::path();
         if let Some(path) = &self.updates.preference {
             match update_preferences::read(path) {
@@ -196,8 +209,8 @@ impl Editor {
             .flex_col()
             .gap(12.)
             .child(text(format!("Compositor {}", env!("CARGO_PKG_VERSION"))));
-        if compositor::update::is_appimage() {
-            return panel
+        if self.updates.installation == Installation::AppImage {
+            panel = panel
                 .child(text("Download the latest AppImage from GitHub Releases. Save your projects and close Compositor before replacing the old AppImage.").wrap())
                 .child(Self::control("Open GitHub Releases").on_click(cx.listener("update-appimage", |this, cx| {
                     let result = cx.open_url(compositor::update::RELEASES_URL)
@@ -249,7 +262,11 @@ impl Editor {
                 }
                 (
                     format!("Version {} is available.", update.version),
-                    Some("Download update"),
+                    Some(if self.updates.installation == Installation::AppImage {
+                        "Check again"
+                    } else {
+                        "Download update"
+                    }),
                 )
             }
             Phase::Finished(Outcome::Staged(staged)) => (
@@ -283,6 +300,34 @@ impl Editor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn appimage_can_check_and_exposes_preferences_without_executable_installation() {
+        let mut editor = Editor::new(Vec::new()).unwrap();
+        editor.updates.installation = Installation::AppImage;
+        editor.updates.advance();
+        assert!(matches!(editor.updates.phase, Phase::Queued(Work::Check)));
+        editor.updates.cancel();
+        let (mut cx, view) = quickgui::Application::new()
+            .into_test_context(
+                quickgui::WindowOptions::new("AppImage updates").size(1280., 900.),
+                editor,
+            )
+            .unwrap();
+        cx.update(view, |e, cx| e.open_updates(cx)).unwrap();
+        assert!(
+            cx.element_bounds(view.window_handle(), "update-appimage")
+                .is_ok()
+        );
+        assert!(
+            cx.element_bounds(view.window_handle(), "update-automatic")
+                .is_ok()
+        );
+        assert!(
+            cx.element_bounds(view.window_handle(), "update-next")
+                .is_ok()
+        );
+    }
 
     #[test]
     fn update_dialog_opens_on_welcome_and_preserves_the_canvas_draft() {
