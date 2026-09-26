@@ -8,6 +8,8 @@ const FRAME_TIME: Duration = Duration::from_millis(120);
 pub(super) struct SelectionOutline {
     selection: Option<Selection>,
     viewport: Viewport,
+    display_step: f64,
+    contours: Option<Arc<[Vec<Point>]>>,
     outline: Option<OutlinePaths>,
     started: Instant,
 }
@@ -45,9 +47,33 @@ impl Editor {
             !same_selection(cache.selection.as_ref(), selection) || cache.viewport != viewport
         }) {
             let selection = selection.cloned();
-            let paths = selection
-                .as_ref()
-                .map_or(Ok(None), |selection| OutlinePaths::new(selection, viewport));
+            let display_step = 2_f64.powf(zoom.max(1. / 4096.).log2().ceil()).min(1.);
+            let contours = if let Some(cache) = &self.selection_outline
+                && same_selection(cache.selection.as_ref(), selection.as_ref())
+                && cache.display_step == display_step
+            {
+                Ok(cache.contours.clone())
+            } else {
+                selection
+                    .as_ref()
+                    .map(|s| {
+                        s.display_contours(display_step)
+                            .map(|points| Arc::from(points.into_owned()))
+                    })
+                    .transpose()
+            };
+            let (contours, paths) = match contours {
+                Ok(contours) => {
+                    let paths = match (&selection, &contours) {
+                        (Some(selection), Some(contours)) => {
+                            OutlinePaths::from_contours(contours, selection.origin, viewport)
+                        }
+                        _ => Ok(None),
+                    };
+                    (contours, paths)
+                }
+                Err(error) => (None, Err(error)),
+            };
             let paths = match paths {
                 Ok(paths) => paths,
                 Err(error) => {
@@ -62,6 +88,8 @@ impl Editor {
             self.selection_outline = Some(SelectionOutline {
                 selection,
                 viewport,
+                display_step,
+                contours,
                 outline: paths,
                 started,
             });

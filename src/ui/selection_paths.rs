@@ -1,5 +1,7 @@
 //! One-point GPU selection strokes, with four-point dashes measured along the path.
-use compositor::{Result, geometry::Point, invalid, selection::Selection};
+#[cfg(test)]
+use compositor::selection::Selection;
+use compositor::{Result, geometry::Point, invalid};
 use quickgui::{Path, PathBuilder, PathStyle, StrokeOptions};
 use std::sync::Arc;
 
@@ -223,11 +225,22 @@ pub(super) struct OutlinePaths {
 }
 
 impl OutlinePaths {
+    #[cfg(test)]
     pub fn new(selection: &Selection, view: Viewport) -> Result<Option<Self>> {
-        let contours: Vec<_> = selection
-            .outline_contours()?
+        Self::from_contours(
+            &selection.display_contours(view.zoom)?,
+            selection.origin,
+            view,
+        )
+    }
+    pub fn from_contours(
+        source: &[Vec<Point>],
+        origin: Point,
+        view: Viewport,
+    ) -> Result<Option<Self>> {
+        let contours: Vec<_> = source
             .iter()
-            .map(|points| visible_parts(points, selection.origin, view))
+            .map(|points| visible_parts(points, origin, view))
             .filter(|parts| !parts.is_empty())
             .collect();
         if contours.is_empty() {
