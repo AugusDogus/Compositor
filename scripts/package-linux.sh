@@ -22,12 +22,21 @@ for file in background_model.py test_background_model.py requirements-inference-
 done
 install -Dm644 packaging/linux/compositor.desktop "$bundle_dir/share/applications/compositor.desktop"
 install -Dm644 Compositor/Assets.xcassets/AppIcon.appiconset/app-icon-256.png "$bundle_dir/share/icons/hicolor/256x256/apps/compositor.png"
-install -Dm644 README.md "$bundle_dir/README.md"
-install -Dm644 docs/linux-port.md "$bundle_dir/docs/linux-port.md"
-install -Dm644 docs/linux-updates.md "$bundle_dir/docs/linux-updates.md"
-for reference in README.md macos-typography.md macos-upstream-workspace.png macos-upstream-new-canvas.png macos-upstream-file-menu.png; do
-    install -Dm644 "docs/references/$reference" "$bundle_dir/docs/references/$reference"
-done
+cat > "$bundle_dir/README.md" <<'EOF'
+# Compositor for Linux
+
+Run `./bin/compositor`. To install the executable and desktop launcher in
+`~/.local`, run `./install.sh`.
+
+This standalone package requires compatible system libraries. Run
+`./setup-background.sh` once to download and prepare the models and runtime for
+background removal and object selection. Setup requires network access and
+Python; the application itself does not use Python. For prerequisites, see the
+[source-build instructions](https://github.com/AugusDogus/Compositor/blob/main/docs/linux-building.md).
+
+For a package with models and runtime dependencies included, download the
+[AppImage](https://github.com/AugusDogus/Compositor/releases/latest).
+EOF
 install -Dm644 LICENSE "$bundle_dir/LICENSE"
 install -Dm644 vendor/quickgui/LICENSE-MIT "$bundle_dir/licenses/quickgui/LICENSE-MIT"
 install -Dm644 vendor/quickgui/LICENSE-APACHE "$bundle_dir/licenses/quickgui/LICENSE-APACHE"

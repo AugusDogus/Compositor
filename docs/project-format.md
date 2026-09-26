@@ -1,40 +1,62 @@
-# Compositor project format, versions 1–8
+# Compositor project format
 
-A `.comp` file is a macOS document package containing `manifest.json` and an `images/` directory of `<layer UUID>.png` assets.
+A `.comp` project is a directory package containing `manifest.json` and embedded PNG assets under `images/`. Linux reads versions **1–10** and writes **version 10**. Transfer the entire directory when moving a project between machines.
 
-The manifest identifies `com.compositor.project`, version `8` for all saves (versions `1`–`8` remain readable), and the sRGB working space. It stores document UUID, pixel dimensions, active layer UUID, and layers in bottom-to-top order. Each layer stores its UUID, name, visibility, transform (origin, size, clockwise rotation, flips, sampling), and optional image filename. Blank layers have no image asset.
+The schema is implemented in [project.rs](../src/project.rs). Tested macOS interoperability and its limits are described in [cross-platform compatibility](macos-compatibility.md).
 
-Embedded PNGs preserve source pixels and transparency; transforms remain separate. Projects survive moving or deleting imported source photos. Saving uses a coordinated atomic package replacement. Unsupported versions, invalid metadata, missing assets, unsafe paths, and oversized data are rejected before replacing the live document.
+## Stored data
 
-Limits: 30,000 pixels per canvas/image side, 100 million total source pixels, 10,000 layers, 4 MiB manifest, 512 MiB per encoded asset. See `src/project.rs` and `src/document.rs` for Linux validation.
+The manifest identifies `com.compositor.project` and the sRGB working space. It stores document and layer UUIDs, canvas dimensions, resolution, active layer, guides and layers in bottom-to-top order. Layers retain visibility, hierarchy, opacity, blend mode, transforms, masks, clipping references and applicable editable text, shape, adjustment or effect settings.
 
-Undo history and viewport are session-only. Opening fits the canvas, restores the active layer, and starts with clean history. Pixel selections are not serialized. Future editable features must extend the schema and round-trip tests. PNG export is a flattened derivative and does not mark project edits saved.
+Assets are named `<LAYER-UUID>.png` and `<LAYER-UUID>.mask.png`, using uppercase UUIDs. Blank layers have no image asset. Image pixels and transforms are stored separately, so moving or deleting an imported source file does not break the project. Masks use grayscale coverage: white reveals and black hides. `maskPlacement` and `maskLinked` retain independent mask placement and linking.
 
-Image Size adds optional `resolution` (pixels/inch, 1–9600). Older manifests without it default to 72. This additive field retains version 1 compatibility. Both PNG and JPEG exports include document resolution metadata. Resampling stores the new layer pixels and bounds; undo retains the prior sources only during the current session.
+Editable text and shapes include cached raster pixels. Text metadata stores content, font name, size, RGB color, alignment, tracking, leading and optional paragraph bounds. Cached pixels preserve the saved appearance without requiring the original font; editing text may render differently on another platform. Effects include stroke, shadow, color overlay, inner shadow, outer glow and inner glow.
 
-Version 2 adds optional `parentID` and `isGroup` on layer records. A group has no image file. Root nodes have no parent; children refer to an existing group. Array order defines bottom-to-top sibling order; renderers traverse each group as a contiguous subtree. Visibility is inherited without changing child flags. Cycles, missing/non-group parents, image-bearing groups, and nesting beyond 64 ancestor levels are rejected. Group ancestors permit room for leaf nodes at the deepest level. Group metadata survives image/canvas resizing and cropping. Older app builds reject version 2 rather than misrender grouped documents. Collapse state is not serialized.
+Undo history, pixel selections, viewport, group collapse state and view preferences are not serialized. Opening starts a new history and fits the canvas. PNG/JPEG exports are flattened derivatives and do not mark project edits as saved.
 
-Version 3 adds optional per-layer `opacity` (finite 0–1) and `blendMode` (Normal, Multiply, Screen, Overlay, Darken, Lighten, Difference, Color Dodge, Color Burn). Missing fields default to full opacity and Normal. Group records allow opacity and require Normal blend mode; opacity multiplies each descendant rather than isolating the group. Effects are applied during compositing and retained as metadata when resizing sources. Files declaring older versions cannot contain non-default appearance values.
+## Version changes
 
-Version 4 adds optional `maskFile` and `maskEnabled` fields to individual layers. Mask filenames must be `<layer UUID>.mask.png` under `images/`; enabled defaults to true when a mask exists. Records without masks omit both fields. Groups cannot carry masks in this version. Files declaring versions 1–3 cannot contain mask metadata.
+| Version | Added schema support |
+| --- | --- |
+| 1 | Canvas, raster layers, transforms and embedded images. Optional `resolution` defaults to 72 pixels/inch. |
+| 2 | Layer hierarchy through `parentID` and `isGroup`. |
+| 3 | Layer `opacity` and `blendMode`. |
+| 4 | Raster layer `maskFile` and `maskEnabled`. |
+| 5 | Clipping references through `maskSourceID`. |
+| 6 | Masks on groups. |
+| 7 | Adjustment layers. The schema also accepts additive editable shape, text and effect metadata. |
+| 8 | Document guides and non-default folder opacity. Older Linux v7 files with folder opacity remain readable. |
+| 9 | Gaussian Blur, Motion Blur and Add Noise adjustment layers. |
+| 10 | Per-character text colors through `text.colorRuns`. |
 
-Masks store 8-bit grayscale coverage without alpha (white reveals, black hides). Their normalized extent matches the image’s local rectangle, so the same layer transform applies to both. A uniform 1×1 mask is valid and avoids allocating full-resolution pixels before painting. Nonuniform mask pixels and a thumbnail are immutable assets shared by history. Image Size resamples them with the image transform; Canvas Size and Crop preserve their pixels. Up to 100 million mask pixels may be stored in addition to the existing 100 million image pixels; per-side and per-file limits also apply to masks. Disabled masks remain embedded and editable but do not affect compositing. Image-versus-mask target selection is session-only and reopens on image pixels.
+Color runs contain `location`, `length`, `red`, `green` and `blue`. Locations and lengths count **UTF-16 code units**, not UTF-8 bytes. Runs must be ordered, non-overlapping and nonempty, and cannot split a surrogate pair. Uncovered text uses the layer's base color.
 
-Version 5 adds optional `maskSourceID`: the UUID of a non-group layer supplying live alpha in document coordinates. It multiplies the target’s alpha alongside its enabled raster mask. Source pixels, transform, opacity, raster mask and upstream live masks contribute coverage; visibility and RGB color do not. Sources remain independent layers. Missing references, self-links, cycles, group endpoints and chains over 256 nodes are rejected. Deletion can bake the live coverage into dependent image pixels (retaining their raster masks) or remove the links, as one undoable operation. Links survive image/canvas resize and crop. Older versions default to no live mask; older app builds reject v5.
+Guides contain `id`, `axis` (`horizontal` or `vertical`) and a finite document-pixel `position`. Guide visibility, locking, grid and snapping are application preferences stored separately from the project.
 
-UI terminology: these alpha links are clipping masks. Option-click assigns the lower sibling’s base or releases the connection. Multiple clipped layers share one base, show indented above it, and release when moved outside the contiguous stack. The underlying `maskSourceID` representation is unchanged.
+Groups are pass-through: group opacity and masks multiply descendant coverage. A clipping reference uses its source's alpha, transform, opacity and masks; source visibility and RGB do not contribute to clipping coverage. Cycles and invalid references are rejected.
 
-Version 6 allows `maskFile` and `maskEnabled` on group records. A folder has no image, so its mask covers the folder's own transform rectangle (the canvas size when the folder was created); Image Size resamples it through that transform, and Canvas Size and Crop preserve its pixels, exactly as for layer masks. Groups are pass-through, so an enabled folder mask multiplies the coverage of every descendant layer, together with that layer's own mask and any enclosing folders' masks; clipping-mask coverage is unaffected. Files declaring versions 1–5 cannot give a group a mask, and older app builds reject v6.
+## Validation and saving
 
+Linux validates metadata, hierarchy, asset names and allocation limits before replacing the open document. Unknown manifest fields, unsupported versions, missing assets and unsafe paths are rejected. Saves stage a complete package before atomic directory replacement.
 
-Version 7 adds adjustment layers. It also carries additive shape, editable text and effect metadata used by macOS 1.1.6. Text stores content, font name, size, RGB color, alignment, tracking, leading and optional paragraph width and height. A cached PNG retains its appearance if a font is unavailable. Effects store editable stroke, shadow, color overlay, inner shadow and outer glow settings. Outer Glow uses the additive `outerGlow` record from macOS 1.2.0, containing size, RGB color, opacity and optional enabled visibility. Shapes include rectangles, ellipses and lines with width and normalized endpoints. Linux preserves these fields and cached source pixels; pixel edits rasterize editable text/shape metadata when necessary.
+| Limit | Linux value |
+| --- | --- |
+| Canvas or image side | 30,000 pixels |
+| One materialized raster surface | 200 million pixels |
+| Combined document image and mask pixels | Physical RAM bytes ÷ 16, clamped to 200–800 million pixels |
+| Layers | 10,000 |
+| Ancestor depth | 64 |
+| Guides | 1,000, with positions within ±1,000,000 pixels |
+| Manifest | 4 MiB |
+| Each encoded image or mask asset | 512 MiB |
+| Resolution | 1–9,600 pixels/inch |
 
-Version 8 adds document `guides`, an array of `{ "id": "UUID", "axis": "horizontal" | "vertical", "position": number }`, and permits folder opacity below 100%. Positions are document pixels. At most 1,000 guides are accepted, with unique IDs and finite positions within ±1,000,000. Nonempty guides or non-default folder opacity require v8 when saving. Visibility, locking, grid and snapping preferences are session-only. All current saves use v8. Older Linux v7 files containing folder opacity remain readable and upgrade to v8 on their next save.
-
-PSD is an interchange format, not the native project format. Unsupported editable content is reported and rasterized during conversion; saving `.comp` preserves Linux's editable metadata.
+Sparse canvas dimensions are independent of the materialized-pixel budget. The document budget defaults to 200 million pixels if physical RAM cannot be determined. Other implementations may impose different limits.
 
 ## Linux RAW extension
 
-Editable RAW layers keep cached PNGs in the ordinary v8 manifest. An optional `linux-raw.json` sidecar uses version 1 and contains layer UUIDs, source UUIDs and validated camera metadata/development settings. Source UUIDs map exclusively to `raw/<UUID>.raw` inside the package. Sources shared by duplicated layers are written once and loaded into shared memory; their development settings remain independent. Unique sources have a combined 512 MiB limit, and sidecar metadata has a 4 MiB limit.
+RAW layers retain their developed PNG in the ordinary manifest. The optional `linux-raw.json` sidecar (version 1) stores layer/source UUIDs, camera metadata and development settings. Source bytes reside in `raw/<source-UUID>.raw`. Duplicated layers can share one source while retaining independent development settings.
 
-The loader rejects missing layers, duplicate records, invalid settings, nonregular/outside-package sources and excessive allocations. Saves stage source bytes and metadata with the rest of the project before the atomic directory replacement. Other readers can display the cached PNGs, but a save by an application unaware of this Linux extension may discard RAW editability.
+Unique RAW sources share a 512 MiB limit; the sidecar has a 4 MiB limit. The loader validates references, settings and source paths. RAW data is staged with the rest of the package during saving.
+
+The upstream macOS writer preserves the developed pixels but discards this extension when resaving. Keep a Linux copy to retain RAW editability. See [RAW editing](linux-raw.md).

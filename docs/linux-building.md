@@ -40,7 +40,7 @@ cargo clippy --locked --all-targets --no-deps -- -D warnings
 cargo test --locked -- --test-threads=4
 ```
 
-Hardware-specific and external-fixture tests are explicitly ignored in the ordinary suite. They require a GPU, inference models or the documented image fixtures. See [implementation and verification](linux-port.md#verification).
+Hardware-specific and external-fixture tests are explicitly ignored in the ordinary suite. They require a GPU, inference models or the documented image fixtures. See [contributor test instructions](linux-port.md#verification).
 
 For distributable builds, follow [AppImage builds and releases](linux-releases.md).
 
@@ -54,9 +54,4 @@ LibRaw provides native high-precision decoding for X-Trans and other cameras out
 
 To replace LibRaw in an AppImage, extract it and replace `usr/lib/libraw.so*` with an ABI-compatible build. [LibRaw source and license details](../licenses/LibRaw-NOTICE.txt) accompany the application.
 
-Validate the CC0 Fujifilm X-Pro1 fixture with:
-
-```sh
-scripts/fetch-raw-fixtures-extra.sh
-cargo test --lib raw::libraw::tests::real_xtrans -- --ignored
-```
+For camera fixture checks, see [image-format tests](linux-port.md#inference-and-image-formats).
