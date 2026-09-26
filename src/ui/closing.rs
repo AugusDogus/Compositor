@@ -34,6 +34,13 @@ impl Editor {
             cx.invalidate();
             return;
         }
+        if matches!(self.modal, Some(Form::Text(_)))
+            && let Err(error) = self.apply_text()
+        {
+            self.show_error(alerts::Operation::Save, format!("The text draft could not be committed: {error}. Your draft is preserved. Correct it before closing."));
+            cx.invalidate();
+            return;
+        }
         if !self.can_switch_projects() {
             return;
         }
@@ -300,5 +307,29 @@ mod tests {
             cx.click(window, "discard-close").unwrap();
         }
         assert!(!cx.is_window_open(window));
+    }
+    #[test]
+    fn closing_while_editing_text_commits_the_draft_before_prompting() {
+        let mut e = Editor::with_test_document();
+        e.begin_text([20., 20.], [20., 20.], true).unwrap();
+        if let Some(Form::Text(draft)) = &mut e.modal {
+            draft.style.content = "Keep this text".into();
+        }
+        let (mut cx, view) = Application::new()
+            .into_test_context(WindowOptions::new("Close text draft").size(1280., 850.), e)
+            .unwrap();
+        assert!(!cx.simulate_close_requested(view.window_handle()).unwrap());
+        cx.read(view, |e| {
+            assert!(matches!(e.modal, Some(Form::Close)));
+            assert!(e.session().document.layers.iter().any(|layer| {
+                layer
+                    .text
+                    .as_ref()
+                    .is_some_and(|text| text.content == "Keep this text")
+            }));
+        })
+        .unwrap();
+        cx.click(view.window_handle(), "form-cancel").unwrap();
+        assert!(cx.is_window_open(view.window_handle()));
     }
 }

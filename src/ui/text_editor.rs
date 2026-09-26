@@ -259,7 +259,7 @@ impl Editor {
         Ok(document)
     }
 
-    fn apply_text(&mut self) -> Result<()> {
+    pub(super) fn apply_text(&mut self) -> Result<()> {
         let Some(Form::Text(draft)) = &self.modal else {
             return Ok(());
         };
@@ -317,6 +317,12 @@ impl Editor {
             cx.prevent_default();
             return;
         };
+        if matches!(&key, Key::Character(letter) if letter.eq_ignore_ascii_case("w"))
+            && modifiers == Modifiers::CONTROL {
+            cx.prevent_default();
+            self.request_close(CloseIntent::Tab(self.tabs[self.current].id), cx);
+            return;
+        }
         if let Key::Character(letter) = &key
             && (modifiers - Modifiers::SHIFT) == Modifiers::CONTROL
             && (letter.eq_ignore_ascii_case("z") || letter.eq_ignore_ascii_case("y"))
