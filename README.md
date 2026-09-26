@@ -29,20 +29,23 @@ chmod +x Compositor-0.5.0-x86_64.AppImage
 
 ## Features and parity
 
-Targets feature parity with **Compositor for macOS 1.2.9**. Xuan is compared at `7fd0ee1` (0.2.2).
+Development targets feature parity with **Compositor for macOS 1.3.3**, including the latest ASCII rendering update (`2309a85`). Xuan is compared at `7fd0ee1` (0.2.2). The download above is the published v0.5.0 release.
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
-| Feature | [Compositor<br>(macOS&nbsp;1.2.9)](https://github.com/robbietilton/Compositor) | This fork (v0.5.0) | [Xuan](https://github.com/silverling/xuan) |
+| Feature | [Compositor<br>(macOS&nbsp;1.3.3)](https://github.com/robbietilton/Compositor) | This fork (development) | [Xuan](https://github.com/silverling/xuan) |
 | --- | :---: | :---: | :---: |
 | Layers, groups and masks | ✅ | ✅ | ✅ |
 | Blend modes and adjustment layers | ✅ 24 modes | ✅ 24 modes | ✅ 13 modes |
 | Brushes, clone, healing and content-aware fill | ✅ | ✅ | ✅ |
 | Brush stroke smoothing | ✅ | ✅ | ✅ |
+| Tablet pressure, tilt and eraser tip | ❌ | ⚠️ Wayland/X11[^tablet] | ✅ |
 | Gradients, rectangle and ellipse shapes | ✅ | ✅ | ✅ |
 | Non-destructive transforms, perspective and snapping | ✅ | ✅ | ✅ |
 | Marquee, lasso and magic-wand selections | ✅ | ✅ | ✅ |
 | Color adjustments and filters | ✅ | ✅ | ✅ |
+| Dither, halftone and ASCII filters | ✅ | ✅ | ❌ |
+| Numeric label dragging and colored adjustment tracks | ✅ | ✅ | ❌ |
 | Crop, canvas and image resizing | ✅ | ✅ | ✅ |
 | Image Trim | ✅ | ✅ | ❌ |
 | Camera Raw Filter | ✅ | ✅ | ❌ |
@@ -53,9 +56,11 @@ Targets feature parity with **Compositor for macOS 1.2.9**. Xuan is compared at 
 | Original `.comp` projects | ✅ Read/write | ⚠️ Read/write[^projects] | ⚠️ Import only[^projects] |
 | ICC color conversion | ✅ | ✅ | ❌ |
 | HEIC import | ✅ | ✅ Bundled | ✅ Bundled |
+| SVG import | ✅ Rasterized | ✅ Rasterized | ❌ |
 | PNG/JPEG export | ✅ | ✅ | ✅ |
 | TIFF/WebP export | ❌ | ✅ | ✅ |
 | Editable text | ✅ | ✅ | ✅ |
+| Per-character text colors | ✅ | ✅ | ❌ |
 | Camera RAW development | ✅ | ✅[^raw] | ⚠️ Nikon/Canon[^raw] |
 | Stroke, drop shadow, color overlay and inner shadow | ✅ | ✅ | ❌ |
 | Outer Glow and Inner Glow | ✅ | ✅ | ❌ |
@@ -71,14 +76,19 @@ Targets feature parity with **Compositor for macOS 1.2.9**. Xuan is compared at 
 | Select Subject | ✅ | ✅ BiRefNet[^objects] | ❌ |
 | Rulers, guides and layout grid | ✅ | ✅ | ❌ |
 | Open from Clipboard | ❌ | ✅ | ❌ |
+| Open Recent and external project reload | ✅ | ✅ | ❌ |
+| Continue editing during project saves | ✅ | ✅ | ❌ |
+| Autosave and crash recovery | ❌ | ✅[^recovery] | ❌ |
 
 [^background]: This fork bundles BiRefNet, SAM 3.1 and native inference libraries for offline use, with no Python setup. NVIDIA and CPU inference are tested; AMD hardware is unverified. Background-removal results differ from Apple's Vision model. Xuan's border-color matte is intended for simple backgrounds.
-[^projects]: This fork reads `.comp` v1–9 and writes v9, preserving editable text and all six effects. Real macOS round trips remain unverified. Xuan imports `.comp` and saves `.xuan`.
-[^upstream-psd]: macOS 1.2.9 imports 8-bit RGB PSD/PSB with supported shapes, simple text and adjustments. Unsupported text and smart objects become pixels; Photoshop effects are discarded and unsupported conversions are reported. No PSD export.
+[^projects]: Development reads `.comp` v1–10 and writes v10, preserving per-character text colors and all six effects. Real macOS round trips remain unverified. Xuan imports `.comp` and saves `.xuan`.
+[^upstream-psd]: macOS 1.3.3 imports 8-bit RGB PSD/PSB with supported shapes, simple text and adjustments. Unsupported text and smart objects become pixels; Photoshop effects are discarded and unsupported conversions are reported. No PSD export.
 [^psd]: 8-bit RGB/grayscale PSD/PSB import; PSD export. Imports editable primitives and supported point/paragraph text; imports/exports Levels, Curves, Hue/Saturation, Black & White, Color Balance and Invert. Shape/text exports are rasterized. Unsupported text and smart objects use cached pixels; unsupported conversions are reported. Tested with Photoshop-created files; reopening exports in Photoshop remains unverified.
 [^objects]: Object Selection uses SAM 3.1; Select Subject uses BiRefNet. Click an object or draw a box around it. Tab switches Wand/Object; Edge adjusts the detected boundary, and Anti-alias smooths its outline. Ambiguous boundaries may need selection corrections.
 [^raw]: Camera coverage depends on the bundled decoders; Foveon X3F is unsupported. Xuan supports Nikon NEF/NRW and Canon CR2/CR3/CRW. Editable development, local masks and direct 16-bit sRGB TIFF output; the compositor and ordinary TIFF/WebP exports remain 8-bit. This fork embeds the original source and settings in a Linux extension inside `.comp` packages.
 [^filters]: Xuan provides editable Gaussian Blur, Motion Blur and Noise filter layers, plus vignette through Lens Correction. Its attached filter stacks differ from macOS adjustment layers.
+[^tablet]: Native pen input and brush dynamics are implemented for Wayland and X11. Physical tablet hardware is not yet verified.
+[^recovery]: Recovery snapshots are saved every 30 seconds while editing. They preserve committed document changes, not undo history or unfinished dialog edits. Changes since the last completed snapshot can be lost after a crash.
 
 [Comparison sources and detailed feature status](docs/linux-features.md)
 

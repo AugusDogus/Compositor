@@ -1,6 +1,26 @@
 # Linux feature status
 
-Linux v0.5.0 targets [Compositor for macOS 1.2.9 (`01e8e52`)](https://github.com/robbietilton/Compositor/tree/01e8e5228af84229923b3a0dc66b40498a3e2dc1), checked September 23, 2026.
+Development targets [Compositor for macOS 1.3.3 and its latest ASCII rendering update (`2309a85`)](https://github.com/robbietilton/Compositor/tree/2309a85601824465aac5ebc1f45c4b8b9f78a5c1), checked September 26, 2026. The published Linux v0.5.0 release targets macOS 1.2.9; the additions below are not in that release.
+
+## Added since Linux v0.5.0
+
+| Feature | Linux behavior |
+| --- | --- |
+| Project v10 and text colors | Reads v1–10 and writes v10. Selected characters retain independent colors, including Unicode text, picker previews and text editing undo/redo. |
+| Dither | Atkinson, Floyd-Steinberg, Bayer 2/4/8, halftone dots/lines/diamonds, Mac patterns and ASCII. Pixel size/shape, palettes and style controls with preview and undo. |
+| SVG import | Rasterizes SVG, including text and embedded images, with bounded rendering memory. |
+| Open Recent | Persistent recent-project list, missing-file filtering and Clear Menu. |
+| External project changes | Detects changed packages, reloads clean documents and offers a separate copy when local edits exist. Competing saves preserve both versions. |
+| Background saves | Saves a revision snapshot while editing continues. Later edits remain unsaved; close/quit waits for the requested save. |
+| Large PSD/PSB layers | Crops oversized layers to the canvas before allocating decoded pixel storage when the full layer exceeds the memory budget. |
+| Adjustment controls | Colored Black & White, Color Balance and Hue/Saturation tracks, individual double-click resets and numeric label dragging. |
+| Tablet input | Native Wayland tablet-v2 and X11 XInput2 pressure, tilt and eraser-tip input, with brush dynamics. Physical hardware verification remains outstanding. |
+| Crash recovery | Saves recovery snapshots every 30 seconds and restores interrupted sessions at startup. Active-instance locks prevent recovering a document still open elsewhere; corrupt backups are preserved for inspection. |
+| Editing fixes | Correct mask thumbnail backgrounds, painting beyond existing mask bounds, clearer selection outlines when zoomed out, preserved sampling focus and safe closing with unfinished text or edits made during a save. |
+
+Recovery preserves committed document contents, not undo history or unfinished dialog edits. Changes since the last completed snapshot can be lost after a crash.
+
+Source: [upstream changes since 1.2.9](https://github.com/robbietilton/Compositor/compare/01e8e5228af84229923b3a0dc66b40498a3e2dc1...2309a85601824465aac5ebc1f45c4b8b9f78a5c1). Tablet input and crash recovery are additional Linux features.
 
 ## Added from macOS 1.2.1–1.2.9
 
@@ -33,7 +53,8 @@ Source: [upstream changes since the previous comparison](https://github.com/robb
 
 ## Compatibility and platform differences
 
-- **Projects:** reads schema versions 1 through 9 and writes version 9 `.comp` directory packages. Editable text, all six layer effects, line shapes, Soft Light and folder opacity are preserved. Unknown project fields are rejected where the schema requires it. Opening Linux-saved projects in the real macOS app remains unverified. See [project I/O](../src/project.rs) and [compatibility tests](../tests/project_compatibility.rs).
+- **Projects:** reads schema versions 1 through 10 and writes version 10 `.comp` directory packages. Per-character text colors, all six layer effects, line shapes, Soft Light and folder opacity are preserved. Unknown project fields are rejected where the schema requires it. Opening Linux-saved projects in the real macOS app remains unverified. See [project I/O](../src/project.rs) and [compatibility tests](../tests/project_compatibility.rs).
+- **Text colors:** unusually dense color runs beyond the editor's 4,096 highlight-span budget use a neutral textarea display with a notice. The raster preview and saved text retain their colors.
 - **Background removal:** full BiRefNet Dynamic replaces Apple's proprietary Vision model. Basic/Advanced refinement, editable masks, selection handling and undo are implemented. One AppImage bundles native ONNX Runtime, the WebGPU/Vulkan plugin and both GPU/CPU models. Compatible NVIDIA and AMD Vulkan GPUs need FP16 shader support; no compatible adapter selects CPU. NVIDIA and CPU paths have been tested, physical AMD hardware has not. GPU execution failures report an error rather than silently rerunning on CPU.
 - **Rendering:** large brushes, compositing and preview reduction have GPU paths with CPU fallbacks. Tests compare those paths with the Rust CPU reference; they do not establish identical macOS pixels or performance. Individual surfaces are limited to 200 million pixels; total raster storage scales from 200 to 800 million pixels with system memory. Sparse canvases support up to 30,000 pixels per side.
 - **Desktop:** Wayland and X11, Ctrl/Alt shortcuts, portal file dialogs and native clipboard integration. Linux window styling differs from AppKit. AppImage updates open GitHub Releases; they do not use Sparkle or replace the mounted executable.
@@ -51,20 +72,24 @@ Bloom approximates Apple's proprietary Core Image filter with Gaussian radiance 
 
 | Area | This fork | Xuan |
 | --- | --- | --- |
-| Project format | Reads/writes original `.comp` v9 packages | Imports `.comp` v1–7; saves `.xuan` |
+| Project format | Reads v1–10; writes original `.comp` v10 packages | Imports `.comp` v1–7; saves `.xuan` |
 | Background removal | Bundled offline BiRefNet neural segmentation | Border-color matte for simple backgrounds |
 | Object selection | SAM 3.1 point/box prompts | Not implemented |
 | Imported color profiles | Little CMS conversion to sRGB | Raster ICC profiles are not converted or preserved |
 | Layer rendering | 24 blends and six layer effects | 13 blends; attached filter/mask stacks and standalone mask layers |
 | Camera RAW | Broader formats through Rawler/LibRaw | Nikon NEF/NRW and Canon CR2/CR3/CRW |
 | HEIC import | Bundled libheif decoder | Bundled pure Rust decoder |
-| Stroke smoothing | Mouse brush/eraser smoothing | Mouse/pen smoothing; tablet pressure, tilt and eraser-tip support |
+| Stroke smoothing | Mouse/pen smoothing; pressure, tilt and eraser tip (hardware unverified) | Mouse/pen smoothing; tablet pressure, tilt and eraser-tip support |
 | Platforms | Linux AppImage | Linux AppImage, DEB, RPM, archive; Windows ZIP |
 
 Sources: [README](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/README.md), [user guide](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/docs/USAGE.md), [blend modes](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/src/blend.rs), [document model](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/src/document.rs), and [filters](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/src/effects.rs).
 
 ## Verification
 
-The integrated ordinary suite passes 825 tests, with 33 hardware or external-fixture tests opt-in. Strict Clippy and the optimized Ubuntu 24.04 build pass. The AppImage payload check verifies bundled dependencies and successfully develops a real Fujifilm X-Pro1 file using its bundled LibRaw. NVIDIA Vulkan checks cover all 24 blend modes, new adjustment layers, chained blurs, Inner Glow and Camera Raw geometry against CPU references. Native X11 checks cover Camera Raw preview, curves, grading, Apply and Undo. Real macOS/Photoshop application round trips and physical AMD GPU testing remain unverified.
+The integrated suite passes 875 tests, with 34 hardware or external-fixture tests opt-in. Formatting and strict all-target Clippy pass.
+
+Development verification covers v10 text colors, save/reload conflicts, recovery, SVG limits, cropped PSD/PSB decoding, numeric controls, masks and tablet brush dynamics. Native X11 checks include SVG import, Dither/ASCII preview, Apply/Undo and restoring a recovery snapshot after an intentional crash. Vulkan brush checks compare pressure/tilt coverage against CPU references. Physical tablet, AMD GPU and real macOS/Photoshop application round trips remain unverified.
+
+The v0.5.0 release also passed AppImage payload checks, real Fujifilm X-Pro1 development through bundled LibRaw, NVIDIA rendering comparisons for all 24 blend modes, adjustment layers, chained blurs, Inner Glow and Camera Raw geometry, and native X11 Camera Raw interaction checks. Those unchanged paths were not all rerun for this development update.
 
 The inference models are unchanged from v0.4.0. See [model selection and measured results](object-selection-models.md) for inference quality, timing and reproducible checks.
