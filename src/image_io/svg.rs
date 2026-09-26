@@ -25,15 +25,36 @@ pub(super) fn read(path: &Path) -> Result<RgbaImage> {
 }
 
 fn decode(bytes: &[u8]) -> Result<RgbaImage> {
+    let mut fonts = resvg::usvg::fontdb::Database::new();
+    fonts.load_system_fonts();
+    decode_with_fonts(bytes, fonts)
+}
+
+fn decode_with_fonts(bytes: &[u8], mut fonts: resvg::usvg::fontdb::Database) -> Result<RgbaImage> {
+    use resvg::usvg::fontdb::{Family, Query};
+    fonts.load_font_data(include_bytes!("../../assets/fonts/InterVariable.ttf").to_vec());
+    // usvg uses the generic serif family when a requested font is unavailable.
+    // Fontconfig can name a family that is not installed, even with other fonts present.
+    if fonts
+        .query(&Query {
+            families: &[Family::Serif],
+            ..Default::default()
+        })
+        .is_none()
+    {
+        fonts.set_serif_family("Inter Variable");
+    }
     let external = Arc::new(AtomicBool::new(false));
     let found_external = external.clone();
-    let mut options = resvg::usvg::Options::default();
+    let mut options = resvg::usvg::Options {
+        fontdb: Arc::new(fonts),
+        ..Default::default()
+    };
     // Imported artwork must not read arbitrary files referenced by an SVG.
     options.image_href_resolver.resolve_string = Box::new(move |_, _| {
         found_external.store(true, Ordering::Relaxed);
         None
     });
-    options.fontdb_mut().load_system_fonts();
     let tree = resvg::usvg::Tree::from_data(bytes, &options).map_err(|error| {
         invalid(format!(
             "Could not read SVG: {error}. Repair the file or export a PNG."
@@ -115,6 +136,20 @@ mod tests {
         let image = decode(br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 30"><text x="2" y="22" font-size="20">Hello</text></svg>"#).unwrap();
         assert_eq!(image.dimensions(), (80, 30));
         assert!(image.pixels().filter(|p| p[3] > 0).count() > 30);
+    }
+    #[test]
+    fn text_remains_visible_without_system_fonts() {
+        for family in ["", "serif", "sans-serif", "monospace", "Unavailable Font"] {
+            let svg = format!(
+                r#"<svg xmlns="http://www.w3.org/2000/svg" width="80" height="30"><text x="2" y="22" font-size="20" font-family="{family}">Hello</text></svg>"#
+            );
+            let image =
+                decode_with_fonts(svg.as_bytes(), resvg::usvg::fontdb::Database::new()).unwrap();
+            assert!(
+                image.pixels().filter(|p| p[3] > 0).count() > 30,
+                "text disappeared for font family {family:?}"
+            );
+        }
     }
     #[test]
     fn oversized_and_external_documents_are_rejected() {
