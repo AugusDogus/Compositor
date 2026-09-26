@@ -146,6 +146,14 @@ impl Editor {
                 .on_action(action)
                 .on_action(cx.action_listener(
                     "application-menu-popup",
+                    |this, recent: &super::super::recent_projects::InvokeRecent, cx| {
+                        this.menus.close();
+                        cx.focus(quickgui::FocusHandle::new("workspace"));
+                        this.invoke_recent(recent.0.clone(), cx);
+                    },
+                ))
+                .on_action(cx.action_listener(
+                    "application-menu-popup",
                     |this, direction: &Horizontal, cx| {
                         if direction.0 {
                             let index = this.menus.popup.active_index();

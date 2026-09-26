@@ -112,6 +112,7 @@ mod project_tab;
 mod project_tools;
 mod psd_conversion;
 mod raw_develop;
+mod recent_projects;
 mod rename;
 mod sample_ring;
 #[cfg(test)]
@@ -394,6 +395,7 @@ pub struct Editor {
     job: Option<jobs::Job>,
     file_job: Option<file_jobs::FileJob>,
     saves: project_saving::Saves,
+    recent_projects: recent_projects::RecentProjects,
     psd_conversion: Option<psd_conversion::Conversion>,
     layout_drag: Option<layout_guides::Drag>,
     clipboard_job: Option<clipboard_jobs::Job>,
@@ -515,6 +517,7 @@ impl Editor {
             job: None,
             file_job: None,
             saves: project_saving::Saves::default(),
+            recent_projects: recent_projects::RecentProjects::load(),
             psd_conversion: None,
             layout_drag: None,
             clipboard_job: None,

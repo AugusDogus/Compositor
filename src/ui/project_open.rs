@@ -76,6 +76,9 @@ impl Editor {
                         )
                     })?,
                 OpenedProject::Loaded { document, path } => {
+                    if let Some(path) = &path {
+                        self.remember_project(path.clone());
+                    }
                     // Two aliases in one request can load together. Resolve them
                     // against the tabs appended earlier in this same batch.
                     if let Some(index) = path.as_ref().and_then(|path| {

@@ -84,6 +84,7 @@ impl Editor {
             })?;
         session.mark_saved_revision(path.clone(), revision);
         let dirty = session.dirty();
+        self.remember_project(path);
         self.status = if dirty {
             "Saved. Newer edits are still unsaved."
         } else {

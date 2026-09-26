@@ -3,13 +3,43 @@ use compositor::document::LayerContent;
 
 impl Editor {
     pub(in crate::ui) fn build_menu(&self, index: usize) -> PopoverMenu {
+        if index == 20 {
+            let paths = self.recent_projects.existing();
+            let mut items: Vec<_> = paths
+                .iter()
+                .enumerate()
+                .map(|(item, path)| {
+                    quickgui::PopoverMenuItem::action(
+                        format!("recent-{item}"),
+                        path.file_stem().unwrap_or_default().to_string_lossy(),
+                        super::super::recent_projects::InvokeRecent(Some(path.clone())),
+                    )
+                    .close_on_activate(false)
+                })
+                .collect();
+            items.push(PopoverMenuItem::separator());
+            items.push(
+                PopoverMenuItem::action(
+                    "recent-clear",
+                    "Clear Menu",
+                    super::super::recent_projects::InvokeRecent(None),
+                )
+                .close_on_activate(false),
+            );
+            return PopoverMenu::new(items).expect("Recent project items have unique identifiers");
+        }
         let items = entries(index).into_iter().enumerate().map(|(item, entry)| {
             let id = format!("menu-command-{index}-{item}");
             match entry {
                 Entry::Separator => PopoverMenuItem::separator(),
                 Entry::Submenu(label, child) => {
-                    PopoverMenuItem::submenu(id, label, self.build_menu(child))
-                        .disabled(!self.can_edit_layers())
+                    PopoverMenuItem::submenu(id, label, self.build_menu(child)).disabled(!if child
+                        == 20
+                    {
+                        self.can_switch_projects()
+                    } else {
+                        self.can_edit_layers()
+                    })
                 }
                 Entry::Item(label, shortcut, command) => {
                     let invoke = Invoke { menu: index, item };

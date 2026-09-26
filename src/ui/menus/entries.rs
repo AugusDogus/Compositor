@@ -8,6 +8,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
         0 => vec![
             command("New Canvas…", "Ctrl+N", Action::New),
             command("Open Project…", "Ctrl+O", Action::Open),
+            Entry::Submenu("Open Recent", 20),
             command("Open PSD…", "", Action::OpenPsd),
             command("Open RAW…", "", Action::OpenRaw),
             command("Open from Clipboard", "", Action::OpenClipboard),
