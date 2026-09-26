@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: appimage-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' && github.ref != 'refs/heads/main' }}
 
 env:
   CARGO_TERM_COLOR: always
