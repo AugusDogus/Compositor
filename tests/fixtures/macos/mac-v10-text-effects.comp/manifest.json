@@ -1,0 +1,118 @@
+{
+  "activeLayerID" : "E6D25307-3821-4ABE-956A-33282EE68D08",
+  "colorSpace" : "sRGB",
+  "documentID" : "D893C2D5-4A22-4B32-8F09-C6FF6C7E3012",
+  "format" : "com.compositor.project",
+  "guides" : [
+    {
+      "axis" : "vertical",
+      "id" : "5AF7270F-F6D6-4302-8FF9-9592A0ACCAAC",
+      "position" : 12.5
+    }
+  ],
+  "height" : 64,
+  "layers" : [
+    {
+      "effects" : {
+        "colorOverlay" : {
+          "blue" : 0,
+          "green" : 0,
+          "opacity" : 1,
+          "red" : 0
+        },
+        "innerGlow" : {
+          "blue" : 1,
+          "green" : 1,
+          "opacity" : 0.75,
+          "red" : 1,
+          "size" : 10
+        },
+        "innerShadow" : {
+          "angle" : 90,
+          "blue" : 0,
+          "blur" : 10,
+          "distance" : 10,
+          "green" : 0,
+          "opacity" : 0.5,
+          "red" : 0
+        },
+        "outerGlow" : {
+          "blue" : 1,
+          "green" : 1,
+          "opacity" : 0.75,
+          "red" : 1,
+          "size" : 20
+        },
+        "shadow" : {
+          "angle" : 90,
+          "blue" : 0,
+          "blur" : 20,
+          "distance" : 20,
+          "green" : 0,
+          "opacity" : 0.5,
+          "red" : 0
+        },
+        "stroke" : {
+          "blue" : 0,
+          "green" : 0,
+          "inside" : false,
+          "opacity" : 1,
+          "red" : 0,
+          "size" : 4
+        }
+      },
+      "id" : "E6D25307-3821-4ABE-956A-33282EE68D08",
+      "imageFile" : "E6D25307-3821-4ABE-956A-33282EE68D08.png",
+      "isVisible" : true,
+      "name" : "Mac-created pixels",
+      "text" : {
+        "alignment" : "Left",
+        "blue" : 0,
+        "boxSize" : [
+          240,
+          72
+        ],
+        "colorRuns" : [
+          {
+            "blue" : 0,
+            "green" : 0,
+            "length" : 2,
+            "location" : 4,
+            "red" : 1
+          },
+          {
+            "blue" : 1,
+            "green" : 0.5,
+            "length" : 1,
+            "location" : 7,
+            "red" : 0
+          }
+        ],
+        "content" : "Mac 🙂 中 é",
+        "fontName" : "Helvetica",
+        "fontSize" : 24,
+        "green" : 0,
+        "leading" : 0,
+        "red" : 0,
+        "tracking" : 0
+      },
+      "transform" : {
+        "flipX" : true,
+        "flipY" : false,
+        "origin" : [
+          3.5,
+          -2
+        ],
+        "rotation" : 17,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          48
+        ]
+      }
+    }
+  ],
+  "resolution" : 144,
+  "version" : 10,
+  "width" : 96
+}
