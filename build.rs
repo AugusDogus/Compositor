@@ -10,6 +10,7 @@ fn main() {
         "LensPixels",
         "NoisePixels",
         "WandPixels",
+        "DitherPixels",
     ] {
         let source = format!("{root}/{name}.c");
         build.file(&source);

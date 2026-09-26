@@ -55,6 +55,7 @@ enum Purpose {
     GradientMap { original: GradientMap },
     CanvasExtension { form: Box<Form> },
     JpegBackground { form: Box<Form> },
+    Dither { form: Box<Form>, index: usize },
 }
 
 #[derive(Clone)]
@@ -85,6 +86,35 @@ impl Picker {
 }
 
 impl Editor {
+    pub(super) fn open_dither_color_picker(&mut self, index: usize) {
+        let Some(
+            form @ Form::Edit {
+                action: Action::Dither,
+                ..
+            },
+        ) = self.modal.clone()
+        else {
+            return;
+        };
+        if !matches!(index, 11 | 12) {
+            return;
+        }
+        let Form::Edit { fields, .. } = &form else {
+            return;
+        };
+        let Some(rgb) = fields
+            .get(index)
+            .and_then(|(_, value)| parse_hex(value).ok())
+        else {
+            return;
+        };
+        let mut picker = Picker::new(rgb, [255; 4]);
+        picker.purpose = Purpose::Dither {
+            form: Box::new(form),
+            index,
+        };
+        self.modal = Some(Form::Color(Box::new(picker)));
+    }
     pub(super) fn open_text_color_picker(&mut self) {
         let Some(form @ Form::Text(_)) = self.modal.clone() else {
             return;
@@ -239,6 +269,16 @@ impl Editor {
             }
             return Ok(());
         }
+        if let Purpose::Dither { form, index } = &picker.purpose {
+            let original = form.clone();
+            let index = *index;
+            let [r, g, b, _] = picker.colors[0].hsb.rgb();
+            let picker_form = self.modal.take();
+            self.modal = Some(*original);
+            self.update_form_field(index, &format!("#{r:02X}{g:02X}{b:02X}"));
+            self.modal = picker_form;
+            return Ok(());
+        }
         if let Purpose::LayerEffect { form } = &picker.purpose {
             let original_form = form.clone();
             let color = picker.colors[0].hsb.rgb();
@@ -300,6 +340,15 @@ impl Editor {
                         edit.set_color(color);
                     }
                 });
+            }
+            Purpose::Dither { form, index } => {
+                let [r, g, b, _] = chosen;
+                self.modal = Some(*form);
+                if apply {
+                    self.update_form_field(index, &format!("#{r:02X}{g:02X}{b:02X}"));
+                } else {
+                    self.refresh_filter();
+                }
             }
             Purpose::JpegBackground { form } => {
                 let [r, g, b, _] = picker.colors[0].hsb.rgb();

@@ -41,6 +41,7 @@ mod cursor_art;
 mod curves;
 mod dimensions;
 mod dropdown;
+mod dither_controls;
 #[cfg(test)]
 mod duplicate_tests;
 mod external_open;
@@ -318,6 +319,7 @@ pub enum Action {
     EditAdjustment,
     CloseTab,
     Filter(compositor::filters::Filter),
+    Dither,
     RemoveBackground,
     Copy,
     CopyMerged,
@@ -350,6 +352,7 @@ pub struct Editor {
     panel_positions: floating_panel::PanelPositions,
     panel_activation: panel_activation::Activation,
     size_menus: size_picker::SizeMenus,
+    dither_menus: dither_controls::Menus,
     keyboard_modifiers: Modifiers,
     pixel_clipboard: Option<compositor::clipboard::PixelClipboard>,
     layer_clipboard: Option<layer_clipboard::Copy>,
@@ -472,6 +475,7 @@ impl Editor {
             panel_positions: floating_panel::PanelPositions::default(),
             panel_activation: panel_activation::Activation::default(),
             size_menus: size_picker::SizeMenus::new(),
+            dither_menus: dither_controls::Menus::new(),
             keyboard_modifiers: Modifiers::empty(),
             pixel_clipboard: None,
             layer_clipboard: None,

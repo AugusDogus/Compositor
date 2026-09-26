@@ -20,6 +20,10 @@ pub(super) enum Job {
         settings: Box<compositor::camera_raw::Settings>,
         source: Box<Document>,
     },
+    Dither {
+        settings: Box<compositor::filters::dither::Settings>,
+        source: Box<Document>,
+    },
     Filter {
         filter: Filter,
         source: Box<Document>,
@@ -73,6 +77,7 @@ impl Job {
                 Completion::Pixels(super::adjustment_layers::title(settings.kind))
             }
             Self::CameraRaw { .. } => Completion::CameraRaw,
+            Self::Dither { .. } => Completion::Pixels("Dither"),
             Self::Filter { filter, .. } => Completion::Pixels(Editor::filter_fields(*filter).0),
             Self::RemoveBackground { .. } => Completion::BackgroundMask,
         }
@@ -122,6 +127,20 @@ impl Job {
                     .cloned()
                     .ok_or_else(|| invalid("The Camera Raw layer is missing."))?;
                 compositor::camera_raw::apply(&mut source, &settings)?;
+                if let Some(prepared) = source.layer(original.id) {
+                    super::layer_preview::overlay(&mut document, &original, prepared, false);
+                }
+            }
+            Job::Dither {
+                settings,
+                mut source,
+            } => {
+                refresh_source_mask(&mut source, &document)?;
+                let original = source
+                    .active_layer()
+                    .cloned()
+                    .ok_or_else(|| invalid("The layer being dithered is missing."))?;
+                compositor::filters::apply_dither(&mut source, *settings)?;
                 if let Some(prepared) = source.layer(original.id) {
                     super::layer_preview::overlay(&mut document, &original, prepared, false);
                 }

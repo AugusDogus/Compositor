@@ -13,6 +13,7 @@ enum Work {
 #[derive(Clone, PartialEq)]
 enum Settings {
     Pixels(Filter),
+    Dither(Box<compositor::filters::dither::Settings>),
     CameraRaw(
         Arc<compositor::camera_raw::Settings>,
         compositor::camera_raw::Preview,
@@ -63,6 +64,11 @@ impl Editor {
         ))
     }
 
+    pub(super) fn open_dither(&mut self) -> Result<()> {
+        let settings = compositor::filters::dither::Settings::default();
+        self.dither_menus.sync(settings);
+        self.begin_filter(Settings::Dither(Box::new(settings)))
+    }
     pub(super) fn open_filter(&mut self, filter: Filter) -> Result<()> {
         self.begin_filter(Settings::Pixels(filter))
     }
@@ -227,6 +233,7 @@ impl Editor {
         });
         self.open_form(match settings {
             Settings::Pixels(filter) => Action::Filter(filter),
+            Settings::Dither(_) => Action::Dither,
             Settings::CameraRaw(_, _) => Action::CameraRaw,
             Settings::Background(_) => Action::RemoveBackground,
         });
@@ -326,6 +333,9 @@ impl Editor {
         };
         let values = fields.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
         let result = match action {
+            Action::Dither => {
+                super::dither_controls::values(&values).map(|s| Settings::Dither(Box::new(s)))
+            }
             Action::Filter(filter) => Self::filter_values(*filter, &values).map(Settings::Pixels),
             Action::RemoveBackground => self.background_values(&values).map(Settings::Background),
             Action::CameraRaw => self
@@ -398,6 +408,9 @@ impl Editor {
                         } else {
                             compositor::camera_raw::preview(&mut document, &settings, options)?;
                         }
+                    }
+                    Settings::Dither(settings) => {
+                        compositor::filters::apply_dither(&mut document, *settings)?
                     }
                     Settings::Pixels(filter) => {
                         compositor::filters::apply(&mut document, filter, mask)?

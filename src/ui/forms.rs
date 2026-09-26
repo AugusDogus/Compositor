@@ -92,6 +92,7 @@ impl Editor {
                 )],
             ),
             Action::Filter(filter) => Self::filter_fields(filter),
+            Action::Dither => super::dither_controls::fields(Default::default()),
             Action::CameraRaw => ("Camera Raw Filter", self.camera_raw.fields()),
             Action::RemoveBackground => (
                 "Remove Background",
@@ -256,7 +257,10 @@ impl Editor {
         let filter_sheet = matches!(
             form,
             Form::Edit {
-                action: Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground,
+                action: Action::CameraRaw
+                    | Action::Filter(_)
+                    | Action::Dither
+                    | Action::RemoveBackground,
                 ..
             }
         ) || (panel_kind.is_some()
@@ -351,7 +355,10 @@ impl Editor {
             } => {
                 let filter_sheet = matches!(
                     action,
-                    Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground
+                    Action::CameraRaw
+                        | Action::Filter(_)
+                        | Action::Dither
+                        | Action::RemoveBackground
                 );
                 if size_sheet {
                     contents = contents.child(self.size_dialog_view(cx, action, &fields));
@@ -608,6 +615,19 @@ impl Editor {
                 let (source, _) = self.filter_source()?;
                 self.begin_filter_commit();
                 self.queue(jobs::Job::CameraRaw {
+                    settings: Box::new(settings),
+                    source,
+                });
+            }
+            Action::Dither => {
+                if !self.filter_source_is_current() {
+                    self.cancel_filter();
+                    return Ok(());
+                }
+                let settings = super::dither_controls::values(&values)?;
+                let (source, _) = self.filter_source()?;
+                self.begin_filter_commit();
+                self.queue(jobs::Job::Dither {
                     settings: Box::new(settings),
                     source,
                 });

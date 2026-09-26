@@ -137,6 +137,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                     tones: [40., 60., 30.],
                 }),
             ),
+            command("Dither…", "", Action::Dither),
             command("Camera Raw Filter…", "", Action::CameraRaw),
             command("Remove Background…", "", Action::RemoveBackground),
         ],

@@ -22,6 +22,8 @@ impl Editor {
             Purpose::ForegroundText { .. } => "Color Picker (Foreground Color)",
             Purpose::CanvasExtension { .. } => "Canvas extension color",
             Purpose::JpegBackground { .. } => "JPEG background color",
+            Purpose::Dither { index: 11, .. } => "Dither dark color",
+            Purpose::Dither { .. } => "Dither light color",
             Purpose::Palette if matches!(picker.target, Target::Background) => {
                 "Color Picker (Background Color)"
             }

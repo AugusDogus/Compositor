@@ -1,3 +1,4 @@
+pub mod dither;
 pub mod finishing;
 pub(crate) mod motion;
 pub use finishing::Vignette;
@@ -67,7 +68,21 @@ pub fn heal(
     )
 }
 
+enum Operation {
+    Pixels(Filter),
+    Dither(Box<dither::Settings>),
+}
 pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()> {
+    apply_operation(doc, Operation::Pixels(filter), mask_target)
+}
+pub fn apply_dither(doc: &mut Document, settings: dither::Settings) -> Result<()> {
+    apply_operation(doc, Operation::Dither(Box::new(settings)), false)
+}
+fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) -> Result<()> {
+    let filter = match &operation {
+        Operation::Pixels(filter) => Some(*filter),
+        Operation::Dither(_) => None,
+    };
     let selection = doc.selection.clone();
     let canvas = (doc.width, doc.height);
     let layer = doc
@@ -78,7 +93,7 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
             .mask
             .as_mut()
             .ok_or_else(|| invalid("Select a layer mask to blur."))?;
-        let Filter::Gaussian { radius } = filter else {
+        let Some(Filter::Gaussian { radius }) = filter else {
             return Err(invalid(
                 "Only Gaussian Blur applies to a mask. Switch to image pixels for this filter.",
             ));
@@ -102,14 +117,14 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
     }
     layer.require_rasterized()?;
     let mut expanded = layer.clone();
-    if matches!(filter, Filter::ContentFill) {
+    if matches!(filter, Some(Filter::ContentFill)) {
         let bounds = selection
             .as_ref()
             .and_then(|s| s.bounds())
             .ok_or_else(|| invalid("Make a nonempty selection around the area to fill first."))?;
         crate::raster_extent::expand(&mut expanded, bounds)?;
     }
-    let fills_clear = matches!(filter, Filter::Vignette(_))
+    let fills_clear = matches!(filter, Some(Filter::Vignette(_)))
         && matches!(expanded.content, LayerContent::Raster(None));
     if fills_clear {
         validate_size(canvas.0, canvas.1)?;
@@ -122,13 +137,13 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
         .clone();
     let original_transform = expanded.transform;
     let padding = match filter {
-        Filter::Gaussian { radius } => {
+        Some(Filter::Gaussian { radius }) => {
             if !(0.1..=250.).contains(&radius) {
                 return Err(invalid("Blur radius must be 0.1 to 250."));
             }
             (radius * 3.).ceil() as u32
         }
-        Filter::Motion { distance, angle } => {
+        Some(Filter::Motion { distance, angle }) => {
             if !(1. ..=2000.).contains(&distance) || !(-90. ..=90.).contains(&angle) {
                 return Err(invalid(
                     "Motion blur distance must be 1 to 2000 and angle -90 to 90.",
@@ -144,38 +159,41 @@ pub fn apply(doc: &mut Document, filter: Filter, mask_target: bool) -> Result<()
         (original.as_ref().clone(), original_transform)
     };
     let (w, h) = source.dimensions();
-    let mut result = match filter {
-        Filter::Gaussian { radius } => native_pixels::unpremultiply(image::imageops::blur(
-            &native_pixels::premultiply(&source),
-            radius as f32,
-        )),
-        Filter::Motion { distance, angle } => motion::apply(&source, distance, angle),
-        Filter::Noise {
-            amount,
-            gaussian,
-            monochromatic,
-            seed,
-        } => native_pixels::noise(&source, amount, gaussian, monochromatic, seed)?,
-        Filter::Lens { distortion } => native_pixels::lens(&source, distortion)?,
-        Filter::Vignette(settings) => finishing::vignette(&source, settings, fills_clear)?,
-        Filter::Bloom { amount, radius } => finishing::bloom(&source, amount, radius)?,
-        Filter::TonalContrast {
-            amount,
-            radius,
-            tones,
-        } => finishing::tonal(&source, amount, radius, tones)?,
-        Filter::ContentFill => {
-            let selection = selection
-                .as_ref()
-                .ok_or_else(|| invalid("Make a selection around the area to fill first."))?;
-            let mask = GrayImage::from_fn(w, h, |x, y| {
-                Luma([(selection.coverage(
-                    transform.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
-                ) * 255.)
-                    .round() as u8])
-            });
-            native_pixels::fill(&source, &mask)?
-        }
+    let mut result = match operation {
+        Operation::Dither(settings) => dither::apply(&source, *settings)?,
+        Operation::Pixels(filter) => match filter {
+            Filter::Gaussian { radius } => native_pixels::unpremultiply(image::imageops::blur(
+                &native_pixels::premultiply(&source),
+                radius as f32,
+            )),
+            Filter::Motion { distance, angle } => motion::apply(&source, distance, angle),
+            Filter::Noise {
+                amount,
+                gaussian,
+                monochromatic,
+                seed,
+            } => native_pixels::noise(&source, amount, gaussian, monochromatic, seed)?,
+            Filter::Lens { distortion } => native_pixels::lens(&source, distortion)?,
+            Filter::Vignette(settings) => finishing::vignette(&source, settings, fills_clear)?,
+            Filter::Bloom { amount, radius } => finishing::bloom(&source, amount, radius)?,
+            Filter::TonalContrast {
+                amount,
+                radius,
+                tones,
+            } => finishing::tonal(&source, amount, radius, tones)?,
+            Filter::ContentFill => {
+                let selection = selection
+                    .as_ref()
+                    .ok_or_else(|| invalid("Make a selection around the area to fill first."))?;
+                let mask = GrayImage::from_fn(w, h, |x, y| {
+                    Luma([(selection.coverage(
+                        transform.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
+                    ) * 255.)
+                        .round() as u8])
+                });
+                native_pixels::fill(&source, &mask)?
+            }
+        },
     };
     if let Some(selection) = selection {
         for (x, y, p) in result.enumerate_pixels_mut() {

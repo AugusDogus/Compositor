@@ -171,6 +171,9 @@ impl Editor {
         action: Action,
         fields: &[(&'static str, String)],
     ) -> Element {
+        if matches!(action, Action::Dither) {
+            return self.dither_fields(cx, fields);
+        }
         let kind = self.adjustment_edit.as_ref().map(|e| e.settings.kind);
         if kind == Some(Kind::Levels) {
             return self.levels_fields_view(cx, fields);

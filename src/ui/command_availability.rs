@@ -97,7 +97,7 @@ impl Editor {
             Action::Filter(compositor::filters::Filter::ContentFill) => {
                 self.can_content_aware_fill()
             }
-            Action::CameraRaw | Action::Filter(_) => self.can_adjust_colors(),
+            Action::CameraRaw | Action::Filter(_) | Action::Dither => self.can_adjust_colors(),
             Action::InvertPixels => self.can_invert(),
             Action::Fill | Action::FillBackground => self.can_edit_pixels(),
             Action::Clear => self.can_edit_pixels() && self.session().document.selection.is_some(),

@@ -229,6 +229,7 @@ impl Editor {
                 Action::CameraRaw
                 | Action::AdjustPixels(_)
                 | Action::Filter(_)
+                | Action::Dither
                 | Action::RemoveBackground,
             ) => self.can_adjust_colors(),
             Command::Edit(Action::Raise | Action::Lower) => layer.is_some_and(|active| {

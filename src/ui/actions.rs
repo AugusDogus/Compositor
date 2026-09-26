@@ -72,7 +72,10 @@ impl Editor {
             if matches!(action, Action::AdjustPixels(kind) if kind != Kind::HueSaturation)
                 || matches!(
                     action,
-                    Action::CameraRaw | Action::Filter(_) | Action::RemoveBackground
+                    Action::CameraRaw
+                        | Action::Filter(_)
+                        | Action::Dither
+                        | Action::RemoveBackground
                 )
             {
                 self.tools.polygon = None;
@@ -126,6 +129,7 @@ impl Editor {
                 result
             }
             Action::Filter(filter) => self.open_filter(filter),
+            Action::Dither => self.open_dither(),
             Action::CameraRaw => self.open_camera_raw(),
             Action::RemoveBackground => self.open_background(),
             Action::AdjustPixels(kind) => self.open_pixel_adjustment(kind),
@@ -450,6 +454,7 @@ impl Editor {
                 | Action::Adjustment(_)
                 | Action::EditAdjustment
                 | Action::Filter(_)
+                | Action::Dither
                 | Action::RemoveBackground
         ) && self.floating_panel_kind().is_some()
         {
