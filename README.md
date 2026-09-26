@@ -29,7 +29,7 @@ chmod +x Compositor-0.5.0-x86_64.AppImage
 
 ## Features and parity
 
-Development targets feature parity with **Compositor for macOS 1.3.3**. The table compares development with Xuan 0.2.2; the download above is the published v0.5.0 release. [Changes since v0.5.0](docs/linux-features.md#unreleased-features).
+The table compares this fork's development branch with **Compositor for macOS 1.3.3** and Xuan 0.2.2. The download is **v0.5.0**; see [what's changed since that release](docs/linux-features.md#unreleased-features).
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
@@ -80,15 +80,15 @@ Development targets feature parity with **Compositor for macOS 1.3.3**. The tabl
 | Continue editing during project saves | ✅ | ✅ | ❌ |
 | Autosave and crash recovery | ❌ | ✅[^recovery] | ❌ |
 
-[^background]: This fork bundles BiRefNet, SAM 3.1 and native inference libraries for offline use, with no Python setup. NVIDIA and CPU inference are tested; AMD hardware is unverified. Background-removal results differ from Apple's Vision model. Xuan's border-color matte is intended for simple backgrounds.
-[^projects]: Development reads `.comp` v1–10 and writes v10, preserving per-character text colors and all six effects. [15 round trips through upstream Swift on a Mac passed](docs/macos-compatibility.md); full-app testing remains unverified. Mac saves discard this fork's embedded RAW source/settings. Xuan imports `.comp` and saves `.xuan`.
-[^upstream-psd]: macOS 1.3.3 imports 8-bit RGB PSD/PSB with supported shapes, simple text and adjustments. Unsupported text and smart objects become pixels; Photoshop effects are discarded and unsupported conversions are reported. No PSD export.
-[^psd]: 8-bit RGB/grayscale PSD/PSB import; PSD export. Imports editable primitives and supported point/paragraph text; imports/exports Levels, Curves, Hue/Saturation, Black & White, Color Balance and Invert. Shape/text exports are rasterized. Unsupported text and smart objects use cached pixels; unsupported conversions are reported. Tested with Photoshop-created files; reopening exports in Photoshop remains unverified.
-[^objects]: Object Selection uses SAM 3.1; Select Subject uses BiRefNet. Click an object or draw a box around it. Tab switches Wand/Object; Edge adjusts the detected boundary, and Anti-alias smooths its outline. Ambiguous boundaries may need selection corrections.
-[^raw]: Camera coverage depends on the bundled decoders; Foveon X3F is unsupported. Xuan supports Nikon NEF/NRW and Canon CR2/CR3/CRW. Editable development, local masks and direct 16-bit sRGB TIFF output; the compositor and ordinary TIFF/WebP exports remain 8-bit. This fork embeds the original source and settings in a Linux extension inside `.comp` packages.
-[^filters]: Xuan provides editable Gaussian Blur, Motion Blur and Noise filter layers, plus vignette through Lens Correction. Its attached filter stacks differ from macOS adjustment layers.
-[^tablet]: Native pen input and brush dynamics are implemented for Wayland and X11. Physical tablet hardware is not yet verified.
-[^recovery]: Recovery snapshots are saved every 30 seconds while editing. They preserve committed document changes, not undo history or unfinished dialog edits. Changes since the last completed snapshot can be lost after a crash.
+[^background]: The AppImage includes offline models; no Python setup. NVIDIA and CPU inference are tested; AMD hardware is not. BiRefNet results differ from Apple Vision. Xuan's matte is intended for simple backgrounds.
+[^projects]: Reads v1–10; writes v10. [Mac file-format tests passed](docs/macos-compatibility.md); full-app compatibility is unverified. Mac saves discard embedded RAW sources and settings. Xuan imports `.comp` but saves `.xuan`.
+[^upstream-psd]: 8-bit RGB only. Unsupported text and smart objects become pixels; Photoshop effects are discarded. Conversions are reported.
+[^psd]: 8-bit RGB or grayscale only. Unsupported text and smart objects use saved pixels; text and shapes become pixels on export. Photoshop export round trips are unverified. [Format support](docs/linux-features.md#file-compatibility).
+[^objects]: SAM 3.1 selects objects; BiRefNet selects subjects. Boundaries may need manual correction. [Model details](docs/object-selection-models.md).
+[^raw]: RAW Develop exports 16-bit TIFF; ordinary editing and export use 8-bit color. Foveon X3F is unsupported. [Camera support and limits](docs/linux-raw.md).
+[^filters]: Xuan uses attached filter stacks and offers vignette through Lens Correction.
+[^tablet]: Physical tablet hardware is untested.
+[^recovery]: Snapshots run every 30 seconds. Undo history and unfinished dialog edits are excluded; changes since the last completed snapshot can be lost.
 
 [Comparison sources and detailed feature status](docs/linux-features.md)
 

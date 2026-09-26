@@ -27,13 +27,14 @@ Recovery preserves committed document contents, not undo history or unfinished d
 - **Camera RAW:** original camera data and development settings stay editable in Linux projects. Saving through the upstream Mac writer discards this Linux extension while preserving the developed pixels. Keep the original Linux package for redevelopment. Camera support depends on the bundled decoders; Foveon X3F is unsupported. See [RAW workflow and limits](linux-raw.md).
 - **PSD/PSB import:** accepts 8-bit RGB and grayscale files. Supported primitives and simple point/paragraph text remain editable. Unsupported text, smart objects and some vector content use cached pixels. Missing fonts and unsupported styles or transforms are reported. CMYK and non-8-bit files are unsupported.
 - **PSD export:** rasterizes text and shapes, preserves supported adjustment layers, masks and clipping, and reports conversions. Imports have been tested with Photoshop-created files; reopening exports in Photoshop remains unverified.
+- **PSD adjustments:** import and export preserve Levels, Curves, Hue/Saturation, Black & White, Color Balance and Invert as editable adjustment layers.
 - **Color and precision:** imported raster ICC profiles are converted to sRGB. The compositor and ordinary exports use 8-bit color. RAW Develop can export the developed image directly as 16-bit sRGB TIFF.
 
 ## Editing and platform limits
 
 Camera Raw Filter adjusts existing image pixels. [Camera RAW Develop](linux-raw.md) works from the original sensor data and preserves editable development settings. They are separate workflows.
 
-Background Removal and Select Subject use BiRefNet; Object Selection uses SAM 3.1 with click or box prompts. The AppImage bundles the models and native inference libraries for offline use, with no Python setup. Ambiguous object boundaries may need manual correction.
+Background Removal and Select Subject use BiRefNet; Object Selection uses SAM 3.1 with click or box prompts. Tab switches between Wand and Object Selection; Edge adjusts the detected boundary, and Anti-alias smooths its outline. The AppImage bundles the models and native inference libraries for offline use, with no Python setup. Ambiguous object boundaries may need manual correction.
 
 NVIDIA and AMD Vulkan GPUs need FP16 support for inference. CPU inference is selected when no compatible GPU is available; GPU execution failures report an error. NVIDIA and CPU paths have been tested, but physical AMD hardware remains unverified.
 
@@ -47,6 +48,6 @@ Linux supports Wayland and X11, Ctrl/Alt shortcuts, portal file dialogs and nati
 
 The README comparison was checked September 26, 2026 against [upstream `2309a85`](https://github.com/robbietilton/Compositor/tree/2309a85601824465aac5ebc1f45c4b8b9f78a5c1) (macOS 1.3.3 with its ASCII update) and [Xuan `7fd0ee1`](https://github.com/silverling/xuan/tree/7fd0ee19344c83b586346395a38c9468897c40ec) (0.2.2). Xuan coverage is based on source and documentation, not a hands-on benchmark.
 
-Xuan imports `.comp` v1–7 and saves its own `.xuan` format. Its attached filter stacks and standalone mask layers differ from Compositor's adjustment layers. Xuan also distributes Linux DEB/RPM packages and a Windows ZIP; this fork distributes a Linux AppImage.
+Xuan imports `.comp` v1–7 and saves its own `.xuan` format. Its attached filter stacks and standalone mask layers differ from Compositor's adjustment layers. Its RAW support covers Nikon NEF/NRW and Canon CR2/CR3/CRW. Xuan also distributes Linux DEB/RPM packages and a Windows ZIP; this fork distributes a Linux AppImage.
 
 Xuan sources: [README](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/README.md), [user guide](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/docs/USAGE.md), [blend modes](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/src/blend.rs), [document model](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/src/document.rs), and [filters](https://github.com/silverling/xuan/blob/7fd0ee19344c83b586346395a38c9468897c40ec/src/effects.rs).
