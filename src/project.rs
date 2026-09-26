@@ -18,6 +18,8 @@ use uuid::Uuid;
 
 const MANIFEST_LIMIT: u64 = 4 * 1024 * 1024;
 mod raw;
+mod watch;
+pub use watch::{Fingerprint, fingerprint, load_verified, save_if_unchanged};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -266,6 +268,14 @@ pub fn load(path: &Path) -> Result<Document> {
 }
 
 pub fn save(document: &Document, path: &Path) -> Result<()> {
+    save_checked(document, path, |_| Ok(())).map(|_| ())
+}
+
+fn save_checked(
+    document: &Document,
+    path: &Path,
+    verify: impl Fn(&Path) -> Result<()>,
+) -> Result<Fingerprint> {
     document.validate()?;
     if path
         .extension()
@@ -355,6 +365,9 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
     metadata.sync_all()?;
     File::open(staged.path().join("images"))?.sync_all()?;
     File::open(staged.path())?.sync_all()?;
+    let saved_fingerprint = fingerprint(staged.path())?
+        .ok_or_else(|| invalid("The staged project disappeared before saving."))?;
+    verify(path)?;
     if path.exists() {
         // Linux atomically exchanges complete directories. The old package is removed only after success.
         rustix::fs::renameat_with(
@@ -365,11 +378,28 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
             rustix::fs::RenameFlags::EXCHANGE,
         )
         .map_err(std::io::Error::from)?;
+        // An unrelated writer can race the last preflight check. Never delete
+        // that writer's version when cleaning up the exchanged package.
+        if let Err(error) = verify(staged.path()) {
+            let preserved = staged.keep();
+            return Err(invalid(format!(
+                "The project changed during the atomic save: {error} Your snapshot was saved to {}. The competing external version is preserved at {}. Open both copies before saving again.",
+                path.display(),
+                preserved.display()
+            )));
+        }
     } else {
-        fs::rename(staged.path(), path)?;
+        rustix::fs::renameat_with(
+            rustix::fs::CWD,
+            staged.path(),
+            rustix::fs::CWD,
+            path,
+            rustix::fs::RenameFlags::NOREPLACE,
+        )
+        .map_err(std::io::Error::from)?;
     }
     File::open(parent)?.sync_all()?;
-    Ok(())
+    Ok(saved_fingerprint)
 }
 
 pub fn with_extension(mut path: PathBuf) -> PathBuf {

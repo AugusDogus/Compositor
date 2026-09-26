@@ -44,6 +44,7 @@ mod dropdown;
 #[cfg(test)]
 mod duplicate_tests;
 mod external_open;
+mod external_projects;
 mod file_dialogs;
 mod file_drop;
 mod file_jobs;
@@ -396,6 +397,7 @@ pub struct Editor {
     file_job: Option<file_jobs::FileJob>,
     saves: project_saving::Saves,
     recent_projects: recent_projects::RecentProjects,
+    external_projects: external_projects::ExternalProjects,
     psd_conversion: Option<psd_conversion::Conversion>,
     layout_drag: Option<layout_guides::Drag>,
     clipboard_job: Option<clipboard_jobs::Job>,
@@ -429,7 +431,7 @@ impl Editor {
                     tab.session()
                         .is_some_and(|s| s.path.as_ref() == Some(&path))
                 }) {
-                    tabs.push(Session::new(project::load(&path)?, Some(path)).into());
+                    tabs.push(Session::open(path)?.into());
                 }
             } else {
                 let layer = image_io::import(&path)?;
@@ -518,6 +520,7 @@ impl Editor {
             file_job: None,
             saves: project_saving::Saves::default(),
             recent_projects: recent_projects::RecentProjects::load(),
+            external_projects: external_projects::ExternalProjects::default(),
             psd_conversion: None,
             layout_drag: None,
             clipboard_job: None,
@@ -732,6 +735,7 @@ impl View for Editor {
         self.start_job(cx);
         self.start_file_job(cx);
         self.start_save_job(cx);
+        self.monitor_projects(cx);
         self.start_clipboard_job(cx);
         self.start_update_job(cx);
         self.sync_raw_input(cx);
@@ -745,6 +749,7 @@ impl View for Editor {
             self.form_overlays(cx, workspace)
         };
         let root = root
+            .children(self.external_project_view(cx))
             .children(self.psd_conversion_view(cx))
             .children(self.error_view(cx))
             .relative()

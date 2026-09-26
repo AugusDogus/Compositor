@@ -16,6 +16,7 @@ pub struct Session {
     pub id: Uuid,
     pub document: Document,
     pub path: Option<PathBuf>,
+    pub disk_fingerprint: Option<crate::project::Fingerprint>,
     pub zoom: f64,
     pub backing_scale: f64,
     pub pan: Point,
@@ -37,6 +38,7 @@ impl Session {
             id: Uuid::new_v4(),
             revision,
             saved_revision: path.as_ref().map(|_| revision),
+            disk_fingerprint: None,
             document,
             path,
             zoom: 1.,
@@ -49,6 +51,12 @@ impl Session {
             pending: None,
             creation: None,
         }
+    }
+    pub fn open(path: PathBuf) -> Result<Self> {
+        let (document, fingerprint) = crate::project::load_verified(&path)?;
+        let mut session = Self::new(document, Some(path));
+        session.disk_fingerprint = Some(fingerprint);
+        Ok(session)
     }
     pub fn created(document: Document, label: &str) -> Result<Self> {
         document.validate()?;

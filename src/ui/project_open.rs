@@ -8,6 +8,7 @@ pub(super) enum OpenedProject {
     Loaded {
         document: Box<Document>,
         path: Option<PathBuf>,
+        fingerprint: Option<project::Fingerprint>,
     },
 }
 
@@ -23,8 +24,10 @@ impl OpenedProject {
             return Ok(Self::Existing(*id));
         }
         if path.is_dir() {
+            let (document, fingerprint) = project::load_verified(&path)?;
             return Ok(Self::Loaded {
-                document: Box::new(project::load(&path)?),
+                document: Box::new(document),
+                fingerprint: Some(fingerprint),
                 path: Some(path),
             });
         }
@@ -44,6 +47,7 @@ impl OpenedProject {
         Ok(Self::Loaded {
             document: Box::new(doc),
             path: None,
+            fingerprint: None,
         })
     }
 }
@@ -55,6 +59,7 @@ impl Editor {
                 OpenedProject::Psd(imported) => OpenedProject::Loaded {
                     document: Box::new(imported.document),
                     path: None,
+                    fingerprint: None,
                 },
                 project => project,
             };
@@ -75,10 +80,16 @@ impl Editor {
                             "The project tab closed while opening its file. Open the file again.",
                         )
                     })?,
-                OpenedProject::Loaded { document, path } => {
+                OpenedProject::Loaded {
+                    document,
+                    path,
+                    fingerprint,
+                } => {
                     if let Some(path) = &path {
                         self.remember_project(path.clone());
                     }
+                    let mut loaded = Session::new(*document, path.clone());
+                    loaded.disk_fingerprint = fingerprint;
                     // Two aliases in one request can load together. Resolve them
                     // against the tabs appended earlier in this same batch.
                     if let Some(index) = path.as_ref().and_then(|path| {
@@ -90,13 +101,13 @@ impl Editor {
                         index
                     } else {
                         if self.tabs.len() == 1 && !self.has_document() {
-                            self.tabs[0] = Session::new(*document, path).into();
+                            self.tabs[0] = loaded.into();
                             let toggles = tool_defaults::Toggles::capture(&self.tools);
                             self.tools = project_tools::ProjectTools::default();
                             toggles.apply(&mut self.tools);
                             0
                         } else {
-                            self.tabs.push(Session::new(*document, path).into());
+                            self.tabs.push(loaded.into());
                             self.tabs.len() - 1
                         }
                     }

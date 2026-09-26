@@ -36,16 +36,31 @@ impl Editor {
         if self.saves.running {
             return;
         }
-        let Some(job) = self.saves.queue.pop_front() else {
+        let Some(mut job) = self.saves.queue.pop_front() else {
             return;
         };
+        if let FileJob::Save {
+            session,
+            path,
+            expected,
+            ..
+        } = &mut job
+            && let Some(current) = self
+                .tabs
+                .iter()
+                .find(|tab| tab.id == *session)
+                .and_then(ProjectTab::session)
+            && current.path.as_ref() == Some(path)
+        {
+            *expected = current.disk_fingerprint.clone();
+        }
         self.saves.running = true;
         let launched = cx.spawn_background(move || job.run(&[]), |this, result, cx| {
             this.saves.running = false;
             let result = result.map_err(|e| invalid(format!("Save worker failed: {e}. Your edits are preserved. Save again to retry.")))
                 .and_then(|result| result)
                 .and_then(|completed| match completed {
-                    Completed::Saved { session, revision, path } => this.finish_save(session, revision, path, cx),
+                    Completed::Saved { session, revision, fingerprint, path } => this.finish_save(session, revision, fingerprint, path, cx),
                     _ => Err(invalid("The save worker returned an unexpected result. Your edits are preserved.")),
                 });
             if result.is_err() {
@@ -68,6 +83,7 @@ impl Editor {
         &mut self,
         id: Uuid,
         revision: Uuid,
+        fingerprint: project::Fingerprint,
         path: PathBuf,
         cx: &mut EventContext,
     ) -> Result<()> {
@@ -82,6 +98,7 @@ impl Editor {
                     path.display()
                 ))
             })?;
+        session.disk_fingerprint = Some(fingerprint);
         session.mark_saved_revision(path.clone(), revision);
         let dirty = session.dirty();
         self.remember_project(path);
@@ -141,13 +158,15 @@ mod tests {
             let Completed::Saved {
                 session,
                 revision,
+                fingerprint,
                 path,
             } = job.run(&[]).unwrap()
             else {
                 panic!()
             };
             e.saves.running = false;
-            e.finish_save(session, revision, path.clone(), cx).unwrap();
+            e.finish_save(session, revision, fingerprint, path.clone(), cx)
+                .unwrap();
             assert!(e.session().dirty());
             assert_eq!(project::load(&path).unwrap().resolution, 72.);
             assert!(matches!(e.modal, Some(Form::Close)));
@@ -166,6 +185,7 @@ mod tests {
             e.queue_save(FileJob::Save {
                 session: e.session().id,
                 revision: e.session().revision(),
+                expected: None,
                 document: e.session().document.clone(),
                 path: destination,
             });

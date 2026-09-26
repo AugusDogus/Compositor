@@ -13,6 +13,7 @@ pub(super) enum FileJob {
     Save {
         session: Uuid,
         revision: Uuid,
+        expected: Option<project::Fingerprint>,
         document: Document,
         path: PathBuf,
     },
@@ -48,6 +49,7 @@ pub(super) enum Completed {
     Saved {
         session: Uuid,
         revision: Uuid,
+        fingerprint: project::Fingerprint,
         path: PathBuf,
     },
     Exported {
@@ -146,13 +148,15 @@ impl FileJob {
             Self::Save {
                 session,
                 revision,
+                expected,
                 document,
                 path,
             } => {
-                project::save(&document, &path)?;
+                let fingerprint = project::save_if_unchanged(&document, &path, expected.as_ref())?;
                 Ok(Completed::Saved {
                     session,
                     revision,
+                    fingerprint,
                     path: path.canonicalize()?,
                 })
             }
@@ -351,9 +355,10 @@ impl Editor {
             Completed::Saved {
                 session,
                 revision,
+                fingerprint,
                 path,
             } => {
-                self.finish_save(session, revision, path, cx)?;
+                self.finish_save(session, revision, fingerprint, path, cx)?;
             }
             Completed::Exported { path, jpeg_quality } => {
                 self.status = format!(
@@ -624,6 +629,7 @@ mod tests {
             FileJob::Save {
                 session,
                 revision: Uuid::new_v4(),
+                expected: None,
                 document: document.clone(),
                 path: path.clone()
             }

@@ -207,9 +207,21 @@ impl Editor {
     }
 
     pub(super) fn save_to(&mut self, path: PathBuf, cx: &mut EventContext) {
+        let expected = if self.session().path.as_ref() == Some(&path) {
+            self.session().disk_fingerprint.clone()
+        } else {
+            match project::fingerprint(&path) {
+                Ok(value) => value,
+                Err(error) => {
+                    self.operation_result(alerts::Operation::Save, Err(error), cx);
+                    return;
+                }
+            }
+        };
         self.queue_file(super::file_jobs::FileJob::Save {
             session: self.session().id,
             revision: self.session().revision(),
+            expected,
             document: self.session().committed_document().clone(),
             path,
         });
