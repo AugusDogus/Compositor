@@ -46,6 +46,8 @@ fn decode(bytes: &[u8]) -> Result<RgbaImage> {
     }
     let size = tree.size().to_int_size();
     validate_size(size.width(), size.height())?;
+    let mut budget = 768_u64 * 1024 * 1024;
+    validate_resources(tree.root(), &mut budget, 0)?;
     let mut pixmap =
         resvg::tiny_skia::Pixmap::new(size.width(), size.height()).ok_or_else(|| {
             invalid("Not enough memory to rasterize this SVG. Export it at a smaller size.")
@@ -58,6 +60,44 @@ fn decode(bytes: &[u8]) -> Result<RgbaImage> {
     let pixels = RgbaImage::from_raw(size.width(), size.height(), pixmap.take())
         .ok_or_else(|| invalid("SVG renderer returned an invalid pixel buffer."))?;
     Ok(native_pixels::unpremultiply(pixels))
+}
+
+// Raster decoders and isolated/filter groups allocate independently of the viewport.
+// Bound their aggregate working surfaces before handing the tree to the renderer.
+fn validate_resources(group: &resvg::usvg::Group, remaining: &mut u64, depth: usize) -> Result<()> {
+    let too_large = || {
+        invalid(
+            "SVG rendering exceeds the 768 MiB working-memory limit. Simplify groups and embedded images or export a smaller PNG.",
+        )
+    };
+    if depth > 128 {
+        return Err(too_large());
+    }
+    let bounds = group.abs_layer_bounding_box();
+    let area = f64::from(bounds.width()).ceil() * f64::from(bounds.height()).ceil();
+    if !area.is_finite() || area * 32. > *remaining as f64 {
+        return Err(too_large());
+    }
+    *remaining -= (area * 32.) as u64;
+    for node in group.children() {
+        if let resvg::usvg::Node::Image(image) = node {
+            let size = image.size().to_int_size();
+            validate_size(size.width(), size.height())?;
+            let bytes = u64::from(size.width()) * u64::from(size.height()) * 8;
+            *remaining = remaining.checked_sub(bytes).ok_or_else(too_large)?;
+        }
+        if let resvg::usvg::Node::Group(child) = node {
+            validate_resources(child, remaining, depth + 1)?;
+        }
+        let mut result = Ok(());
+        node.subroots(|child| {
+            if result.is_ok() {
+                result = validate_resources(child, remaining, depth + 1);
+            }
+        });
+        result?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -78,6 +118,7 @@ mod tests {
     }
     #[test]
     fn oversized_and_external_documents_are_rejected() {
+        assert!(decode(br#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><g opacity="0.5"><rect width="100000" height="100000"/></g></svg>"#).is_err());
         assert!(
             decode(br#"<svg xmlns="http://www.w3.org/2000/svg" width="100000" height="100000"/>"#)
                 .is_err()
