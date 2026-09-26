@@ -126,10 +126,17 @@ impl Editor {
             .gap(5.)
             .w(80.)
             .child(
-                text(label.to_owned())
-                    .text_size(10.)
-                    .line_height(13.)
-                    .text_color(Color::rgb8(181, 181, 181)),
+                self.scrub_label(
+                    cx,
+                    format!("levels-label-{index}"),
+                    Scalar::Field(index),
+                    if index == 1 { (0.01, 9.99) } else { (0., 255.) },
+                    if index == 1 { 0.01 } else { 1. },
+                    text(label.to_owned())
+                        .text_size(10.)
+                        .line_height(13.)
+                        .text_color(Color::rgb8(181, 181, 181)),
+                ),
             )
             .child(self.form_input(cx, index, &displayed).text_right().w_full())
     }
@@ -334,11 +341,19 @@ impl Editor {
                 "adjustment-value-1",
                 "adjustment-value-2",
             ][index];
+            let label = self.scrub_label(
+                cx,
+                format!("adjustment-reset-label-{index}"),
+                Scalar::Field(index),
+                range,
+                1.,
+                text(short_label).text_size(13.).line_height(16.).w(76.),
+            );
             div()
                 .flex_row()
                 .gap(10.)
                 .items_center()
-                .child(self.resettable_adjustment_label(cx, index, text(short_label).text_size(13.).line_height(16.).w(76.)))
+                .child(self.resettable_adjustment_label(cx, index, label))
                 .child(self.scalar_slider(
                     cx,
                     slider_id,

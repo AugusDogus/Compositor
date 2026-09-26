@@ -132,7 +132,14 @@ impl Editor {
                             .flex_row()
                             .items_center()
                             .gap(6.)
-                            .child(text("Opacity").text_size(10.).line_height(13.).w(38.))
+                            .child(self.scrub_label(
+                                cx,
+                                "layer-opacity-label",
+                                super::scalar_controls::Scalar::LayerOpacity,
+                                (0., 100.),
+                                1.,
+                                text("Opacity").text_size(10.).line_height(13.).w(38.),
+                            ))
                             .child(
                                 self.layer_opacity_slider(cx)
                                     .disabled(!self.can_edit_opacity()),

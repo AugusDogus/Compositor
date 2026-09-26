@@ -31,10 +31,16 @@ pub(super) enum Scalar {
     Field(usize),
     Parameter(usize, super::parameter_controls::Scale),
     JpegQuality,
+    TextNumber(usize),
+    PickerChannel(usize),
+    TransformNumber(usize),
 }
 impl Scalar {
-    fn value(self, editor: &Editor) -> f64 {
+    pub(super) fn value(self, editor: &Editor) -> f64 {
         match self {
+            Self::TextNumber(index) => editor.text_number_value(index),
+            Self::PickerChannel(index) => editor.picker_channel_value(index),
+            Self::TransformNumber(index) => editor.transform_number_value(index),
             Self::Effect(p) => match &editor.modal {
                 Some(Form::Effects(e)) => e.number(p),
                 _ => 0.,
@@ -71,8 +77,14 @@ impl Scalar {
             },
         }
     }
-    fn set(self, editor: &mut Editor, value: f64) -> Result<()> {
+    pub(super) fn set(self, editor: &mut Editor, value: f64) -> Result<()> {
         match self {
+            Self::TextNumber(index) => editor.set_text_number(index, value),
+            Self::PickerChannel(index) => {
+                editor.picker_input(Some(index), &value.round().to_string());
+                editor.preview_picker()?;
+            }
+            Self::TransformNumber(index) => editor.set_transform_number(index, value)?,
             Self::Effect(p) => editor.change_effect(|e| e.set_number(p, value)),
             Self::BrushSize => editor.tools.brush.diameter = value,
             Self::BrushSmoothing => editor.tools.brush_smoothing = value.clamp(0., 100.),
@@ -308,8 +320,13 @@ impl Editor {
         let colored = self.adjustment_slider_track(scalar);
         let track = div().absolute().left(0.).top(9.).w(width).h(6.).rounded(3.);
         let track = if let Some(track_colors) = &colored {
-            track.bg_linear_gradient(quickgui::GradientDirection::ToRight, track_colors.colors.clone())
-        } else { track.bg(Color::rgb8(83, 83, 83)) };
+            track.bg_linear_gradient(
+                quickgui::GradientDirection::ToRight,
+                track_colors.colors.clone(),
+            )
+        } else {
+            track.bg(Color::rgb8(83, 83, 83))
+        };
         let mut control = slider
             .root_with(div().w(width).h(24.).relative().flex_shrink_0())
             .accessibility_label(label)
@@ -317,9 +334,16 @@ impl Editor {
             .on_pointer(pointer)
             .on_key_down(key)
             .child(track)
-            .children(colored.is_none().then(|| div().absolute().left(0.).top(9.)
-                .w(THUMB_SIZE / 2. + (width - THUMB_SIZE) * state.fraction(0))
-                .h(6.).rounded(3.).bg(Color::rgb8(0, 122, 255))))
+            .children(colored.is_none().then(|| {
+                div()
+                    .absolute()
+                    .left(0.)
+                    .top(9.)
+                    .w(THUMB_SIZE / 2. + (width - THUMB_SIZE) * state.fraction(0))
+                    .h(6.)
+                    .rounded(3.)
+                    .bg(Color::rgb8(0, 122, 255))
+            }))
             .child(
                 div()
                     .id(slider.thumb_id(0))
@@ -333,14 +357,16 @@ impl Editor {
                     .bg(Color::rgb8(216, 216, 216)),
             );
         if let Some(track) = colored {
-            control = control.tooltip("Double-click to reset").on_mouse_down(quickgui::MouseButton::Left,
+            control = control.tooltip("Double-click to reset").on_mouse_down(
+                quickgui::MouseButton::Left,
                 cx.mouse_down_listener(id, move |this, event, cx| {
                     if event.click_count == 2 {
                         this.update_form_field(track.index, &track.reset.to_string());
                         cx.prevent_default();
                         this.changed(cx);
                     }
-                }));
+                }),
+            );
         }
         control
     }
@@ -509,7 +535,7 @@ mod tests {
             window,
             id,
             quickgui::PointerEvent {
-            tablet: None,
+                tablet: None,
                 phase: PointerPhase::Cancel,
                 ..down
             },

@@ -50,6 +50,23 @@ fn format_value(value: f64) -> String {
     }
 }
 impl Editor {
+    pub(super) fn transform_number_value(&self, index: usize) -> f64 {
+        let Some(bounds) = self.header_transform_bounds() else {
+            return 0.;
+        };
+        let numbers = self.transform_edit.as_ref().map_or_else(
+            || values(bounds, self.header_transform_pixel_size(bounds)),
+            |edit| edit.values.clone(),
+        );
+        numbers
+            .get(index)
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0.)
+    }
+    pub(super) fn set_transform_number(&mut self, index: usize, value: f64) -> Result<()> {
+        self.header_transform_input(index, &value.to_string())
+    }
+
     fn can_edit_transform_numbers(&self) -> bool {
         !self.pending
             && self.gesture.is_none()

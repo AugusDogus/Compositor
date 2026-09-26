@@ -294,7 +294,18 @@ impl Editor {
                     .flex_row()
                     .items_center()
                     .gap(8.)
-                    .child(text(label).w(14.).text_size(13.).line_height(16.))
+                    .child(if index < 3 {
+                        self.scrub_label(
+                            cx,
+                            format!("picker-channel-label-{index}"),
+                            super::super::scalar_controls::Scalar::PickerChannel(index),
+                            (0., 255.),
+                            1.,
+                            text(label).w(14.).text_size(13.).line_height(16.),
+                        )
+                    } else {
+                        text(label).w(14.).text_size(13.).line_height(16.)
+                    })
                     .child(input),
             );
         }

@@ -7,8 +7,8 @@ impl Editor {
     pub(super) fn object_edge_control(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         div().flex_row().items_center().gap(6.).flex_shrink_0()
             .tooltip("Adjust each detected object before adding or subtracting it: positive contracts, negative expands")
-            .child(Self::tool_header_control("Edge"))
-            .child(Self::unit_suffix(self.brush_value(cx, "object-edge-offset", Scalar::ObjectEdge, (-10., 10.)).text_right().w(40.), "px"))
+            .child(self.scrub_label(cx,"object-edge-label",Scalar::ObjectEdge,(-10.,10.),1.,Self::tool_header_control("Edge")))
+            .child(self.scrub_unit_suffix(self.brush_value(cx, "object-edge-offset", Scalar::ObjectEdge, (-10., 10.)).text_right().w(40.),"px",cx,"scrub-unit-objectedge",Scalar::ObjectEdge,(-10.,10.)))
     }
     pub(super) fn displayed_selection_mode(&self) -> SelectionMode {
         if let Some(draft) = &self.tools.polygon {
@@ -65,12 +65,18 @@ impl Editor {
                         this.operation_result(alerts::Operation::Paint, result, cx);
                     },
                 )))
-                .child(Self::unit_suffix(
-                    self.brush_value(cx, id, scalar, (1., 500.))
-                        .text_right()
-                        .w(40.),
-                    "px",
-                ));
+                .child(
+                    self.scrub_unit_suffix(
+                        self.brush_value(cx, id, scalar, (1., 500.))
+                            .text_right()
+                            .w(40.),
+                        "px",
+                        cx,
+                        format!("scrub-unit-{id}"),
+                        scalar,
+                        (1., 500.),
+                    ),
+                );
             if disabled {
                 control.disable_subtree();
                 control = control.opacity(0.45);
@@ -89,17 +95,23 @@ impl Editor {
                     this.operation_result(alerts::Operation::Paint, result, cx);
                 },
             )))
-            .child(Self::unit_suffix(
-                self.brush_value(
+            .child(
+                self.scrub_unit_suffix(
+                    self.brush_value(
+                        cx,
+                        "selection-feather-amount",
+                        Scalar::SelectionFeather,
+                        (1., 250.),
+                    )
+                    .text_right()
+                    .w(40.),
+                    "px",
                     cx,
-                    "selection-feather-amount",
+                    "scrub-unit-selectionfeather",
                     Scalar::SelectionFeather,
                     (1., 250.),
-                )
-                .text_right()
-                .w(40.),
-                "px",
-            ));
+                ),
+            );
         if !self.can_modify_selection() {
             feather.disable_subtree();
             feather = feather.opacity(0.45);

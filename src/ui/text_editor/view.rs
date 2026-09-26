@@ -13,7 +13,19 @@ impl Editor {
             .gap(5.)
             .flex_1()
             .min_w(0.)
-            .child(text(label).text_size(12.))
+            .child(self.scrub_label(
+                cx,
+                format!("text-number-label-{index}"),
+                super::super::scalar_controls::Scalar::TextNumber(index),
+                match index {
+                    0 => (1., 2000.),
+                    1 => (-100., 1000.),
+                    2 => (0., 5000.),
+                    _ => (16., 30000.),
+                },
+                1.,
+                text(label).text_size(12.),
+            ))
             .child(
                 Self::text_field(draft.numbers[index].clone())
                     .id(format!("text-number-{index}"))

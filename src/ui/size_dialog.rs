@@ -60,6 +60,89 @@ impl Editor {
             )),
         }
     }
+    fn size_scrub_bounds(&self, index: usize, fields: &[(&str, String)]) -> ((f64, f64), f64) {
+        use super::image_size::ImageSizing;
+        let doc = &self.session().document;
+        let original = f64::from(if index == 0 { doc.width } else { doc.height });
+        let image = matches!(
+            &self.modal,
+            Some(Form::Edit {
+                action: Action::ImageSize,
+                ..
+            })
+        );
+        let resolution = if image {
+            fields
+                .get(2)
+                .and_then(|(_, v)| v.parse::<f64>().ok())
+                .filter(|v| (1. ..=9600.).contains(v))
+                .unwrap_or(doc.resolution)
+        } else {
+            doc.resolution
+        };
+        let sizing = if image {
+            self.image_sizing
+        } else {
+            match fields.get(4).map(|(_, v)| v.as_str()) {
+                Some("percent") => ImageSizing::Percent,
+                Some("inches") => ImageSizing::Inches,
+                Some("cm") => ImageSizing::Centimeters,
+                _ => ImageSizing::Pixels,
+            }
+        };
+        if !sizing.resamples() {
+            let multiplier = if matches!(sizing, ImageSizing::PrintCentimeters) {
+                2.54
+            } else {
+                1.
+            };
+            return (
+                (original * multiplier / 9600., original * multiplier),
+                0.01 * multiplier,
+            );
+        }
+        let unit = match sizing {
+            ImageSizing::Percent => 100. / original,
+            ImageSizing::Inches => 1. / resolution,
+            ImageSizing::Centimeters => 2.54 / resolution,
+            _ => 1.,
+        };
+        let relative = !image && fields.get(5).is_some_and(|(_, v)| v == "1");
+        let offset = if relative { original } else { 0. };
+        let action = if image {
+            Action::ImageSize
+        } else {
+            Action::CanvasSize
+        };
+        let size = self
+            .size_result(action, fields)
+            .unwrap_or([doc.width, doc.height]);
+        let dimension = f64::from(size[index]);
+        let other = f64::from(size[1 - index]);
+        let locked = self.dimension_link.as_ref().is_some_and(|link| link.locked);
+        let limit = if image {
+            compositor::document::MAX_SURFACE_PIXELS as f64
+        } else {
+            30_000. * 30_000.
+        };
+        let max = if locked {
+            (limit * dimension / other)
+                .sqrt()
+                .min(30000. * dimension / other)
+                .min(30000.)
+        } else {
+            (limit / other).min(30000.)
+        };
+        let min = if locked {
+            (dimension / other).max(1.)
+        } else {
+            1.
+        };
+        (
+            ((min - offset) * unit, (max.max(min) - offset) * unit),
+            unit,
+        )
+    }
     fn size_dimensions(
         &self,
         cx: &mut ViewContext<'_, Self>,
@@ -68,13 +151,26 @@ impl Editor {
     ) -> Element {
         let mut controls = div().flex_col().gap(16.);
         for (index, label) in ["Width", "Height"].into_iter().enumerate() {
-            controls = controls.child(row(
-                label,
-                self.size_number_input(cx, index, &fields[index].1, 3)
-                    .flex_1()
-                    .min_w(0.),
-                label_width,
-            ));
+            let (range, step) = self.size_scrub_bounds(index, fields);
+            controls = controls.child(
+                div()
+                    .flex_row()
+                    .items_center()
+                    .gap(10.)
+                    .child(self.scrub_label(
+                        cx,
+                        format!("size-label-{index}"),
+                        super::scalar_controls::Scalar::Field(index),
+                        range,
+                        step,
+                        text(label).text_size(13.).line_height(16.).w(label_width),
+                    ))
+                    .child(
+                        self.size_number_input(cx, index, &fields[index].1, 3)
+                            .flex_1()
+                            .min_w(0.),
+                    ),
+            );
         }
         controls
     }
@@ -174,10 +270,17 @@ impl Editor {
                     .items_center()
                     .gap(8.)
                     .child(
-                        text("Resolution")
-                            .text_size(13.)
-                            .line_height(16.)
-                            .flex_shrink_0(),
+                        self.scrub_label(
+                            cx,
+                            "size-resolution-label",
+                            super::scalar_controls::Scalar::Field(2),
+                            (1., 9600.),
+                            1.,
+                            text("Resolution")
+                                .text_size(13.)
+                                .line_height(16.)
+                                .flex_shrink_0(),
+                        ),
                     )
                     .child(
                         self.size_number_input(cx, 2, &fields[2].1, 3)

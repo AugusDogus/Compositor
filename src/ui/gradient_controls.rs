@@ -126,7 +126,14 @@ impl Editor {
                     },
                 )),
             )
-            .child(text("Opacity").text_size(12.).line_height(15.))
+            .child(self.scrub_label(
+                cx,
+                "gradient-opacity-label",
+                super::scalar_controls::Scalar::GradientOpacity,
+                (1., 100.),
+                1.,
+                text("Opacity").text_size(12.).line_height(15.),
+            ))
             .child(
                 self.scalar_slider(
                     cx,

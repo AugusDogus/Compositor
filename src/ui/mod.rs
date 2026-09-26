@@ -124,6 +124,7 @@ mod rename;
 mod sample_ring;
 #[cfg(test)]
 mod saved_state_tests;
+mod numeric_scrub;
 mod scalar_controls;
 mod selection_controls;
 mod selection_draft;
@@ -388,6 +389,7 @@ pub struct Editor {
     blend_picker: appearance::BlendPicker,
     opacity_draft: Option<layer_opacity::OpacityDraft>,
     slider_drag: Option<scalar_controls::SliderDrag>,
+    numeric_scrub: Option<numeric_scrub::Drag>,
     adjustment_edit: Option<adjustments::AdjustmentEdit>,
     filter_edit: Option<filter_preview::FilterEdit>,
     camera_raw: camera_raw::Edit,
@@ -518,6 +520,7 @@ impl Editor {
             blend_picker: appearance::BlendPicker::new()?,
             opacity_draft: None,
             slider_drag: None,
+            numeric_scrub: None,
             adjustment_edit: None,
             filter_edit: None,
             camera_raw: Default::default(),

@@ -172,10 +172,23 @@ impl Editor {
                     })
                     .flex_shrink_0()
                     .child(
-                        text(label)
-                            .text_size(10.)
-                            .line_height(13.)
-                            .text_color(Color::rgb8(165, 165, 165)),
+                        self.scrub_label(
+                            cx,
+                            format!("transform-label-{index}"),
+                            super::super::scalar_controls::Scalar::TransformNumber(index),
+                            match index {
+                                2 | 3 => (1., 30000.),
+                                4 => (0.01, 100000.),
+                                5 => (-180., 180.),
+                                _ => (-1_000_000., 1_000_000.),
+                            },
+                            1.,
+                            text(label)
+                                .text_size(10.)
+                                .line_height(13.)
+                                .text_color(Color::rgb8(165, 165, 165)),
+                        )
+                        .disabled(disabled),
                     )
                     .child(field)
                     .child(if index == 4 {

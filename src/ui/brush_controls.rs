@@ -22,13 +22,33 @@ impl Editor {
             .items_center()
             .gap(12.)
             .flex_shrink_0()
-            .child(text("Size").text_size(12.).line_height(15.))
-            .child(Self::unit_suffix(
-                self.brush_value(cx, "brush-size", Scalar::BrushSize, (1., 2000.))
-                    .w(48.),
-                "px",
+            .child(self.scrub_label(
+                cx,
+                "brush-size-label",
+                Scalar::BrushSize,
+                (1., 2000.),
+                1.,
+                text("Size").text_size(12.).line_height(15.),
             ))
-            .child(text("Hardness").text_size(12.).line_height(15.))
+            .child(
+                self.scrub_unit_suffix(
+                    self.brush_value(cx, "brush-size", Scalar::BrushSize, (1., 2000.))
+                        .w(48.),
+                    "px",
+                    cx,
+                    "scrub-unit-brushsize",
+                    Scalar::BrushSize,
+                    (1., 2000.),
+                ),
+            )
+            .child(self.scrub_label(
+                cx,
+                "brush-hardness-label",
+                Scalar::BrushHardness,
+                (0., 100.),
+                1.,
+                text("Hardness").text_size(12.).line_height(15.),
+            ))
             .child(self.scalar_slider(
                 cx,
                 "brush-hardness-slider",
@@ -37,21 +57,34 @@ impl Editor {
                 (0., 100.),
                 100.,
             ))
-            .child(Self::unit_suffix(
-                self.brush_value(cx, "brush-hardness", Scalar::BrushHardness, (0., 100.))
-                    .w(42.),
-                "%",
-            ))
             .child(
-                text(
-                    if matches!(self.tools.tool, Tool::Blur | Tool::Smudge | Tool::Liquify) {
-                        "Strength"
-                    } else {
-                        "Opacity"
-                    },
-                )
-                .text_size(12.)
-                .line_height(15.),
+                self.scrub_unit_suffix(
+                    self.brush_value(cx, "brush-hardness", Scalar::BrushHardness, (0., 100.))
+                        .w(42.),
+                    "%",
+                    cx,
+                    "scrub-unit-brushhardness",
+                    Scalar::BrushHardness,
+                    (0., 100.),
+                ),
+            )
+            .child(
+                self.scrub_label(
+                    cx,
+                    "brush-opacity-label",
+                    Scalar::BrushOpacity,
+                    (1., 100.),
+                    1.,
+                    text(
+                        if matches!(self.tools.tool, Tool::Blur | Tool::Smudge | Tool::Liquify) {
+                            "Strength"
+                        } else {
+                            "Opacity"
+                        },
+                    )
+                    .text_size(12.)
+                    .line_height(15.),
+                ),
             )
             .child(
                 self.scalar_slider(
@@ -64,15 +97,21 @@ impl Editor {
                 )
                 .tooltip("Press 1–9 for 10–90%, 0 for 100%"),
             )
-            .child(Self::unit_suffix(
-                self.brush_value(cx, "brush-opacity", Scalar::BrushOpacity, (1., 100.))
-                    .tooltip("Press 1–9 for 10–90%, 0 for 100%")
-                    .w(42.),
-                "%",
-            ));
+            .child(
+                self.scrub_unit_suffix(
+                    self.brush_value(cx, "brush-opacity", Scalar::BrushOpacity, (1., 100.))
+                        .tooltip("Press 1–9 for 10–90%, 0 for 100%")
+                        .w(42.),
+                    "%",
+                    cx,
+                    "scrub-unit-brushopacity",
+                    Scalar::BrushOpacity,
+                    (1., 100.),
+                ),
+            );
         if matches!(self.tools.tool, Tool::Brush | Tool::Erase) {
             row = row
-                .child(text("Smoothing").text_size(12.).line_height(15.))
+                .child(self.scrub_label(cx,"brush-smoothing-label",Scalar::BrushSmoothing,(0.,100.),1.,text("Smoothing").text_size(12.).line_height(15.)))
                 .child(self.scalar_slider(
                     cx,
                     "brush-smoothing-slider",
@@ -167,7 +206,7 @@ impl Editor {
         if self.tools.tool == Tool::Wand {
             controls = controls
                 .child(div().flex_row().items_center().gap(6.).flex_shrink_0()
-                    .child(text("Tolerance").text_size(12.).line_height(15.))
+                    .child(self.scrub_label(cx,"wand-tolerance-label",Scalar::WandTolerance,(0.,255.),1.,text("Tolerance").text_size(12.).line_height(15.)))
                     .child(self.brush_value(cx, "wand-tolerance", Scalar::WandTolerance, (0., 255.))
                         .text_right())
                     .tooltip("How far each color channel (0–255) can differ from the clicked color and still be selected"))

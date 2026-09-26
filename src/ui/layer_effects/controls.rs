@@ -119,7 +119,14 @@ impl Editor {
             .flex_row()
             .items_center()
             .gap(10.)
-            .child(text(label).w(100.).text_size(12.))
+            .child(self.scrub_label(
+                cx,
+                format!("effect-label-{label}"),
+                super::scalar_controls::Scalar::Effect(parameter),
+                range,
+                1.,
+                text(label).w(100.).text_size(12.),
+            ))
             .child(self.scalar_slider(
                 cx,
                 match parameter {

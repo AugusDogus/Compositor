@@ -43,7 +43,14 @@ impl Editor {
                     .tooltip(
                         "Round the rectangle's corners by this many pixels; 0 keeps them square",
                     )
-                    .child(text("Radius").text_size(12.).line_height(15.))
+                    .child(self.scrub_label(
+                        cx,
+                        "shape-radius-label",
+                        Scalar::ShapeRadius,
+                        (0., 5000.),
+                        1.,
+                        text("Radius").text_size(12.).line_height(15.),
+                    ))
                     .child(self.scalar_slider(
                         cx,
                         "shape-radius-slider",
@@ -52,12 +59,18 @@ impl Editor {
                         (0., 200.),
                         100.,
                     ))
-                    .child(Self::unit_suffix(
-                        self.brush_value(cx, "shape-radius", Scalar::ShapeRadius, (0., 5000.))
-                            .text_right()
-                            .w(48.),
-                        "px",
-                    )),
+                    .child(
+                        self.scrub_unit_suffix(
+                            self.brush_value(cx, "shape-radius", Scalar::ShapeRadius, (0., 5000.))
+                                .text_right()
+                                .w(48.),
+                            "px",
+                            cx,
+                            "scrub-unit-shaperadius",
+                            Scalar::ShapeRadius,
+                            (0., 5000.),
+                        ),
+                    ),
             );
         }
         if self.tools.shape_kind == ShapeKind::Line {
@@ -66,17 +79,30 @@ impl Editor {
                     .flex_row()
                     .items_center()
                     .gap(6.)
-                    .child(text("Width").text_size(12.))
-                    .child(Self::unit_suffix(
-                        self.brush_value(
+                    .child(self.scrub_label(
+                        cx,
+                        "shape-width-label",
+                        Scalar::ShapeLineWidth,
+                        (1., 5000.),
+                        1.,
+                        text("Width").text_size(12.),
+                    ))
+                    .child(
+                        self.scrub_unit_suffix(
+                            self.brush_value(
+                                cx,
+                                "shape-line-width",
+                                Scalar::ShapeLineWidth,
+                                (1., 5000.),
+                            )
+                            .w(56.),
+                            "px",
                             cx,
-                            "shape-line-width",
+                            "scrub-unit-shapelinewidth",
                             Scalar::ShapeLineWidth,
                             (1., 5000.),
-                        )
-                        .w(56.),
-                        "px",
-                    )),
+                        ),
+                    ),
             );
         }
         row.child(self.header_foreground(cx, palette_controls::ForegroundStyle::Shape))

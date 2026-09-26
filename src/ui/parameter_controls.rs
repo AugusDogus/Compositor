@@ -172,11 +172,19 @@ impl Editor {
             parameter.scale.position(parameter.range.0),
             parameter.scale.position(parameter.range.1),
         );
+        let label = self.scrub_label(
+            cx,
+            format!("adjustment-reset-label-{index}"),
+            Scalar::Field(index),
+            parameter.range,
+            10_f64.powi(-(parameter.scale.decimal_places() as i32)),
+            parameter.label_view(label_width),
+        );
         let mut row = div()
             .flex_row()
             .items_center()
             .gap(10.)
-            .child(self.resettable_adjustment_label(cx, index, parameter.label_view(label_width)))
+            .child(self.resettable_adjustment_label(cx, index, label))
             .child(self.scalar_slider(
                 cx,
                 id,

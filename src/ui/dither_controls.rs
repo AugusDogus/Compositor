@@ -154,17 +154,21 @@ fn trigger(label: &'static str) -> Element {
         .child(Icon::PopupChevron.element(14.))
 }
 fn row(label: &'static str, child: Element) -> Element {
+    row_with_label(
+        text(label)
+            .text_size(13.)
+            .line_height(16.)
+            .w(84.)
+            .flex_shrink_0(),
+        child,
+    )
+}
+fn row_with_label(label: Element, child: Element) -> Element {
     div()
         .flex_row()
         .items_center()
         .gap(10.)
-        .child(
-            text(label)
-                .text_size(13.)
-                .line_height(16.)
-                .w(84.)
-                .flex_shrink_0(),
-        )
+        .child(label)
         .child(child)
 }
 impl Editor {
@@ -240,8 +244,19 @@ impl Editor {
                 8 => "dither-density",
                 _ => "dither-contrast",
             };
-            rows = rows.child(row(
-                label,
+            rows = rows.child(row_with_label(
+                self.scrub_label(
+                    cx,
+                    format!("dither-label-{index}"),
+                    Scalar::Field(index),
+                    range,
+                    1.,
+                    text(label)
+                        .text_size(13.)
+                        .line_height(16.)
+                        .w(84.)
+                        .flex_shrink_0(),
+                ),
                 div()
                     .flex_row()
                     .items_center()

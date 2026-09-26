@@ -72,6 +72,25 @@ impl Draft {
 }
 
 impl Editor {
+    pub(super) fn text_number_value(&self, index: usize) -> f64 {
+        match &self.modal {
+            Some(Form::Text(draft)) => draft
+                .numbers
+                .get(index)
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.),
+            _ => 0.,
+        }
+    }
+    pub(super) fn set_text_number(&mut self, index: usize, value: f64) {
+        if let Some(Form::Text(draft)) = &mut self.modal
+            && let Some(number) = draft.numbers.get_mut(index)
+        {
+            *number = value.to_string();
+            draft.error.clear();
+        }
+    }
+
     pub(super) fn begin_text(&mut self, start: Point, end: Point, force_new: bool) -> Result<()> {
         if !self.can_edit_layers() {
             return Ok(());
@@ -318,7 +337,8 @@ impl Editor {
             return;
         };
         if matches!(&key, Key::Character(letter) if letter.eq_ignore_ascii_case("w"))
-            && modifiers == Modifiers::CONTROL {
+            && modifiers == Modifiers::CONTROL
+        {
             cx.prevent_default();
             self.request_close(CloseIntent::Tab(self.tabs[self.current].id), cx);
             return;

@@ -2,6 +2,19 @@
 use super::*;
 
 impl Editor {
+    pub(in crate::ui) fn picker_channel_value(&self, index: usize) -> f64 {
+        match &self.modal {
+            Some(Form::Color(picker)) => picker
+                .current()
+                .hsb
+                .rgb()
+                .get(index)
+                .copied()
+                .map_or(0., f64::from),
+            _ => 0.,
+        }
+    }
+
     pub(in crate::ui) fn sync_picker_input(&mut self, cx: &ViewContext<'_, Self>) {
         let hex_focused = cx.is_focused(quickgui::FocusHandle::new(51_003_u64));
         let commit_hex = self.picker_mut().is_some_and(|picker| {
@@ -39,7 +52,7 @@ impl Editor {
         }
     }
 
-    pub(super) fn picker_input(&mut self, channel: Option<usize>, value: &str) {
+    pub(in crate::ui) fn picker_input(&mut self, channel: Option<usize>, value: &str) {
         if channel.is_some() {
             self.commit_picker_hex();
         }

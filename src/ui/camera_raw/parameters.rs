@@ -60,13 +60,20 @@ impl Editor {
                 .items_center()
                 .gap(8.)
                 .child(
-                    text(label)
-                        .text_size(12.)
-                        .line_height(15.)
-                        .w(128.)
-                        .flex_shrink_0()
-                        .wrap()
-                        .on_mouse_down(quickgui::MouseButton::Left, label_reset),
+                    self.scrub_label(
+                        cx,
+                        format!("camera-reset-{index}"),
+                        Scalar::Parameter(index, Scale::Linear(decimals)),
+                        (min, max),
+                        10_f64.powi(-i32::from(decimals)),
+                        text(label)
+                            .text_size(12.)
+                            .line_height(15.)
+                            .w(128.)
+                            .flex_shrink_0()
+                            .wrap()
+                            .on_mouse_down(quickgui::MouseButton::Left, label_reset),
+                    ),
                 )
                 .child(
                     self.scalar_slider(
