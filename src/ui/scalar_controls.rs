@@ -36,6 +36,29 @@ pub(super) enum Scalar {
     TransformNumber(usize),
 }
 impl Scalar {
+    pub(super) fn can_edit(self, editor: &Editor) -> bool {
+        !matches!(self, Self::LayerOpacity) || editor.can_edit_opacity()
+    }
+
+    pub(super) fn begin_edit(self, editor: &mut Editor) -> Result<()> {
+        if matches!(self, Self::LayerOpacity) {
+            editor.finish_pending_edits()?;
+            editor.session_mut().begin("Layer Opacity")?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn end_edit(self, editor: &mut Editor, cancel: bool) -> Result<()> {
+        if matches!(self, Self::LayerOpacity) {
+            if cancel {
+                editor.session_mut().cancel();
+            } else {
+                editor.session_mut().commit()?;
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn value(self, editor: &Editor) -> f64 {
         match self {
             Self::TextNumber(index) => editor.text_number_value(index),
@@ -200,15 +223,11 @@ impl Editor {
             if !travel.is_finite() || travel <= 0. {
                 return;
             }
-            let layer = matches!(scalar, Scalar::LayerOpacity);
-            if layer && event.phase == PointerPhase::Down {
-                if !this.can_edit_opacity() {
+            if event.phase == PointerPhase::Down {
+                if !scalar.can_edit(this) {
                     return;
                 }
-                let result = this
-                    .finish_pending_edits()
-                    .and_then(|()| this.session_mut().begin("Layer Opacity"));
-                if let Err(error) = result {
+                if let Err(error) = scalar.begin_edit(this) {
                     this.result(Err(error), cx);
                     return;
                 }
@@ -250,18 +269,15 @@ impl Editor {
                     this.status = error.to_string();
                 }
             }
-            if layer && change.committed {
-                if event.phase == PointerPhase::Cancel {
-                    this.session_mut().cancel();
-                } else {
-                    let result = this.session_mut().commit();
-                    this.result(result, cx);
-                }
+            if change.committed
+                && let Err(error) = scalar.end_edit(this, event.phase == PointerPhase::Cancel)
+            {
+                this.status = error.to_string();
             }
             this.changed(cx);
         });
         let key = cx.key_down_listener(id, move |this, event, cx| {
-            if matches!(scalar, Scalar::LayerOpacity) && !this.can_edit_opacity() {
+            if !scalar.can_edit(this) {
                 return;
             }
             let forward = matches!(event.key, Key::ArrowUp | Key::ArrowRight);
@@ -300,8 +316,7 @@ impl Editor {
                     state.step_active(if forward { 1. } else { -1. });
                 }
             }
-            let layer = matches!(scalar, Scalar::LayerOpacity);
-            if layer && let Err(error) = this.session_mut().begin("Layer Opacity") {
+            if let Err(error) = scalar.begin_edit(this) {
                 this.result(Err(error), cx);
                 return;
             }
@@ -309,9 +324,8 @@ impl Editor {
             if let Err(error) = result {
                 this.status = error.to_string();
             }
-            if layer {
-                let result = this.session_mut().commit();
-                this.result(result, cx);
+            if let Err(error) = scalar.end_edit(this, false) {
+                this.status = error.to_string();
             }
             cx.prevent_default();
             cx.stop_propagation();

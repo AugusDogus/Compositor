@@ -50,7 +50,7 @@ impl Editor {
                     if event.button != MouseButton::Left
                         || this.filter_applying()
                         || this.pending
-                        || (matches!(scalar, Scalar::LayerOpacity) && !this.can_edit_opacity())
+                        || !scalar.can_edit(this)
                     {
                         return;
                     }
@@ -72,15 +72,10 @@ impl Editor {
                 let (start, active) = (drag.start, drag.active);
                 let delta = f64::from(event.position.x - event.origin.x);
                 if !active && delta.abs() >= 1. && event.phase != PointerPhase::Cancel {
-                    if matches!(scalar, Scalar::LayerOpacity) {
-                        let result = this
-                            .finish_pending_edits()
-                            .and_then(|()| this.session_mut().begin("Layer Opacity"));
-                        if let Err(error) = result {
-                            this.numeric_scrub = None;
-                            this.result(Err(error), cx);
-                            return;
-                        }
+                    if let Err(error) = scalar.begin_edit(this) {
+                        this.numeric_scrub = None;
+                        this.result(Err(error), cx);
+                        return;
                     }
                     if let Some(drag) = &mut this.numeric_scrub {
                         drag.active = true;
@@ -101,13 +96,11 @@ impl Editor {
                 }
                 if matches!(event.phase, PointerPhase::Up | PointerPhase::Cancel) {
                     this.numeric_scrub = None;
-                    if active && matches!(scalar, Scalar::LayerOpacity) {
-                        if event.phase == PointerPhase::Cancel {
-                            this.session_mut().cancel();
-                        } else {
-                            let result = this.session_mut().commit();
-                            this.result(result, cx);
-                        }
+                    if active
+                        && let Err(error) =
+                            scalar.end_edit(this, event.phase == PointerPhase::Cancel)
+                    {
+                        this.status = error.to_string();
                     }
                 }
                 if active {
