@@ -2,6 +2,7 @@ mod about;
 mod actions;
 mod adjustment_channel;
 mod adjustment_fields;
+mod adjustment_tracks;
 mod adjustment_histogram;
 mod adjustment_layers;
 mod adjustment_preview;

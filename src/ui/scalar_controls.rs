@@ -305,32 +305,21 @@ impl Editor {
             cx.stop_propagation();
             this.changed(cx);
         });
-        slider
+        let colored = self.adjustment_slider_track(scalar);
+        let track = div().absolute().left(0.).top(9.).w(width).h(6.).rounded(3.);
+        let track = if let Some(track_colors) = &colored {
+            track.bg_linear_gradient(quickgui::GradientDirection::ToRight, track_colors.colors.clone())
+        } else { track.bg(Color::rgb8(83, 83, 83)) };
+        let mut control = slider
             .root_with(div().w(width).h(24.).relative().flex_shrink_0())
             .accessibility_label(label)
             .group()
             .on_pointer(pointer)
             .on_key_down(key)
-            .child(
-                div()
-                    .absolute()
-                    .left(0.)
-                    .top(9.)
-                    .w(width)
-                    .h(6.)
-                    .rounded(3.)
-                    .bg(Color::rgb8(83, 83, 83)),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(0.)
-                    .top(9.)
-                    .w(THUMB_SIZE / 2. + (width - THUMB_SIZE) * state.fraction(0))
-                    .h(6.)
-                    .rounded(3.)
-                    .bg(Color::rgb8(0, 122, 255)),
-            )
+            .child(track)
+            .children(colored.is_none().then(|| div().absolute().left(0.).top(9.)
+                .w(THUMB_SIZE / 2. + (width - THUMB_SIZE) * state.fraction(0))
+                .h(6.).rounded(3.).bg(Color::rgb8(0, 122, 255))))
             .child(
                 div()
                     .id(slider.thumb_id(0))
@@ -342,7 +331,18 @@ impl Editor {
                     .rounded(8.)
                     .group_focus(super::controls::focus_outline)
                     .bg(Color::rgb8(216, 216, 216)),
-            )
+            );
+        if let Some(track) = colored {
+            control = control.tooltip("Double-click to reset").on_mouse_down(quickgui::MouseButton::Left,
+                cx.mouse_down_listener(id, move |this, event, cx| {
+                    if event.click_count == 2 {
+                        this.update_form_field(track.index, &track.reset.to_string());
+                        cx.prevent_default();
+                        this.changed(cx);
+                    }
+                }));
+        }
+        control
     }
     pub(super) fn layer_opacity_slider(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         self.scalar_slider(

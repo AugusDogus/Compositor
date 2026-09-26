@@ -148,7 +148,7 @@ impl Editor {
         let parameter = Parameter::for_field(action, kind, index)?;
         let label_width = match (action, kind, index) {
             (Action::Filter(Filter::Lens { .. }), _, _) => 116.,
-            (_, Some(Kind::Grain), 2) => 72.,
+            (_, Some(Kind::Grain), _) => 72.,
             (_, Some(Kind::ColorBalance), _) => 172.,
             (_, Some(Kind::BlackWhite), _) => 100.,
             _ => 60.,
@@ -176,7 +176,7 @@ impl Editor {
             .flex_row()
             .items_center()
             .gap(10.)
-            .child(parameter.label_view(label_width))
+            .child(self.resettable_adjustment_label(cx, index, parameter.label_view(label_width)))
             .child(self.scalar_slider(
                 cx,
                 id,

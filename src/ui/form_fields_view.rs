@@ -338,7 +338,7 @@ impl Editor {
                 .flex_row()
                 .gap(10.)
                 .items_center()
-                .child(text(short_label).text_size(13.).line_height(16.).w(76.))
+                .child(self.resettable_adjustment_label(cx, index, text(short_label).text_size(13.).line_height(16.).w(76.)))
                 .child(self.scalar_slider(
                     cx,
                     slider_id,
