@@ -3878,8 +3878,6 @@ dependencies = [
 [[package]]
 name = "quickgui-winit"
 version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "939b10cda677d10b1d1444368c487e716cb759f39f3b922783b1babe07a3bc78"
 dependencies = [
  "ahash",
  "android-activity",

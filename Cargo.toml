@@ -52,6 +52,7 @@ cc = "1"
 
 [patch.crates-io]
 quickgui = { path = "vendor/quickgui" }
+quickgui-winit = { path = "vendor/quickgui-winit" }
 
 [dev-dependencies]
 x11-clipboard = "=0.9.3"

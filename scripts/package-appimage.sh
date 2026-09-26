@@ -46,6 +46,7 @@ install -Dm644 assets/icons/LICENSE "$app_dir/usr/share/licenses/compositor/Luci
 for notice in licenses/*; do
     install -Dm644 "$notice" "$app_dir/usr/share/licenses/compositor/$(basename "$notice")"
 done
+install -Dm644 vendor/quickgui-winit/LICENSE "$app_dir/usr/share/licenses/compositor/quickgui-winit/LICENSE"
 for notice in LICENSE-MIT LICENSE-APACHE THIRD_PARTY_NOTICES.md; do
     install -Dm644 "vendor/quickgui/$notice" "$app_dir/usr/share/licenses/compositor/quickgui/$notice"
 done
