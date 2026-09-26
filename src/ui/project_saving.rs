@@ -12,6 +12,7 @@ pub(super) struct Saves {
     pub(super) queue: VecDeque<FileJob>,
     running: bool,
     pub close: Option<CloseIntent>,
+    resume_close: Option<Uuid>,
 }
 impl Saves {
     pub fn busy(&self) -> bool {
@@ -109,20 +110,66 @@ impl Editor {
         }
         .into();
         if !self.saves.busy() {
-            if let Some(progress) = self.close_intent.take() {
-                if dirty {
-                    // Editing can continue after clicking Save in a close prompt.
-                    // Ask about those newer edits instead of silently discarding them.
-                    self.close_intent = Some(progress);
-                    self.modal = Some(Form::confirm_close());
-                } else {
-                    self.finish_close(progress, cx);
-                }
+            if self.close_intent.is_some() {
+                self.saves.resume_close = Some(id);
+                self.resume_saved_close(cx);
             } else if let Some(intent) = self.saves.close.take() {
                 self.request_close(intent, cx);
             }
         }
         Ok(())
+    }
+    /// A completed snapshot cannot acknowledge a gesture or draft that has not
+    /// entered history yet. Wait for its UI boundary before reconsidering close.
+    pub(super) fn resume_saved_close(&mut self, cx: &mut EventContext) {
+        let Some(id) = self.saves.resume_close else {
+            return;
+        };
+        if self.close_intent.is_none() {
+            self.saves.resume_close = None;
+            return;
+        }
+        if self.saves.busy()
+            || self.recovery.busy()
+            || self.pending
+            || self.gesture.is_some()
+            || self.rename.is_some()
+            || self.layout_drag.is_some()
+            || self.develop.is_some()
+            || self.psd_conversion.is_some()
+            || !self.errors.is_empty()
+            || self.pending_gradient.is_some()
+            || self.pending_pixels.is_some()
+            || self.transform_edit.is_some()
+            || self.tools.pending_crop.is_some()
+            || self.slider_drag.is_some()
+            || self.numeric_scrub.is_some()
+            || !matches!(self.modal, None | Some(Form::Blend))
+        {
+            return;
+        }
+        if let Err(error) = self.finish_pending_edits() {
+            self.saves.resume_close = None;
+            self.cancel_close();
+            self.show_error(alerts::Operation::Save, format!("The saved snapshot is safe, but a newer edit could not be committed: {error}. Your project remains open. Resolve the edit before closing."));
+            return;
+        }
+        let Some(tab) = self.tabs.iter().find(|tab| tab.id == id) else {
+            self.saves.resume_close = None;
+            self.cancel_close();
+            return;
+        };
+        if tab.session().is_some_and(Session::has_pending_edit) {
+            return;
+        }
+        let needs_save = tab.needs_save();
+        self.saves.resume_close = None;
+        if needs_save {
+            self.modal = Some(Form::confirm_close());
+            cx.invalidate();
+        } else if let Some(progress) = self.close_intent.take() {
+            self.finish_close(progress, cx);
+        }
     }
 }
 
@@ -193,3 +240,7 @@ mod tests {
         assert_eq!(e.saves.queue.len(), 2);
     }
 }
+
+#[cfg(test)]
+#[path = "project_saving_pending_tests.rs"]
+mod pending_tests;

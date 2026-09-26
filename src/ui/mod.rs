@@ -573,6 +573,7 @@ impl Editor {
     fn changed(&mut self, cx: &mut EventContext) {
         self.save_tool_defaults();
         self.revision = self.revision.wrapping_add(1);
+        self.resume_saved_close(cx);
         cx.invalidate();
     }
     fn result(&mut self, result: Result<()>, cx: &mut EventContext) {

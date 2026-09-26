@@ -128,6 +128,7 @@ impl Editor {
                 Err(error) => this.status = format!("Recovery worker failed: {error}. Your open edits are preserved. Save manually."),
             }
             if let Some(intent) = this.recovery.close.take() { this.request_close(intent, cx); }
+            this.resume_saved_close(cx);
             cx.invalidate();
         });
         if let Err(error) = result {
