@@ -201,14 +201,26 @@ impl Editor {
                     cx.invalidate();
                 },
             )));
-        Some(self.mount_form(
-            cx,
-            dialog,
-            contents.child(buttons),
-            400.,
-            "External project changes",
-            None,
-        ))
+        let dismiss = cx.dismiss_listener(dialog.popover_id(), |this, cx| {
+            this.external_projects.changes.pop_front();
+            cx.invalidate();
+        });
+        Some(
+            dialog
+                .root()
+                .flex_row()
+                .items_center()
+                .justify_center()
+                .child(dialog.backdrop().bg(Color::TRANSPARENT))
+                .child(
+                    dialog
+                        .popup_with(contents.child(buttons))
+                        .on_dismiss(dismiss)
+                        .on_key_down(cx.key_down_listener(dialog.popover_id(), |_, _, cx| {
+                            cx.stop_propagation()
+                        })),
+                ),
+        )
     }
 }
 
@@ -303,6 +315,37 @@ mod tests {
             assert!(e.tabs[1].session().unwrap().path.is_none());
             assert!(e.tabs[0].dirty());
             assert!(e.tabs[1].dirty());
+        })
+        .unwrap();
+    }
+    #[test]
+    fn escape_dismisses_external_change_without_discarding_local_edits() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Conflict.comp");
+        project::save(&Document::new(3, 2).unwrap(), &path).unwrap();
+        let mut e = Editor::new(vec![path.clone()]).unwrap();
+        let mut external = e.session().document.clone();
+        external.resolution = 144.;
+        let update = change(&e, path, external);
+        e.session_mut()
+            .edit("Local", |doc| {
+                doc.resolution = 300.;
+                Ok(())
+            })
+            .unwrap();
+        e.receive_external_change(update);
+        let (mut cx, view) = quickgui::Application::new()
+            .into_test_context(
+                quickgui::WindowOptions::new("Dismiss conflict").size(1280., 850.),
+                e,
+            )
+            .unwrap();
+        cx.simulate_keystrokes(view.window_handle(), "escape")
+            .unwrap();
+        cx.read(view, |e| {
+            assert!(e.external_projects.changes.is_empty());
+            assert_eq!(e.session().document.resolution, 300.);
+            assert!(e.session().dirty());
         })
         .unwrap();
     }
