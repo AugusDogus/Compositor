@@ -7,8 +7,8 @@
 Make the downloaded file executable, then run it. Substitute its filename below:
 
 ```sh
-chmod +x Compositor-0.5.0-x86_64.AppImage
-./Compositor-0.5.0-x86_64.AppImage
+chmod +x Compositor-0.6.0-x86_64.AppImage
+./Compositor-0.6.0-x86_64.AppImage
 ```
 
 If FUSE is unavailable, add `--appimage-extract-and-run`. [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and icon to your application menu.
@@ -42,6 +42,8 @@ Packaging prepares the models and native inference libraries automatically. Pyth
 ## Publish a release
 
 The [Linux workflow](../.github/workflows/linux-release.yml) runs on pull requests, pushes to `main`, version tags and manual dispatch. It checks formatting, Clippy and tests, builds the AppImage, and checks the payload with CPU inference and a real X-Trans RAW fixture. Ordinary runs upload a `compositor-linux-x86_64` Actions artifact; version tags publish a GitHub release in this repository.
+
+New pushes do not cancel running `main` or release-tag builds. Pull-request builds can be superseded by newer commits.
 
 1. Update the package version in `Cargo.toml` and refresh `Cargo.lock` with `cargo check`.
 2. Commit and push to `main`, then wait for validation to pass.

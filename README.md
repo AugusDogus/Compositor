@@ -12,8 +12,8 @@ A layered image editor for Linux, built with Rust and [QuickGUI](https://github.
 **[Download AppImage (x86_64)](https://github.com/AugusDogus/Compositor/releases/latest)**
 
 ```sh
-chmod +x Compositor-0.5.0-x86_64.AppImage
-./Compositor-0.5.0-x86_64.AppImage
+chmod +x Compositor-0.6.0-x86_64.AppImage
+./Compositor-0.6.0-x86_64.AppImage
 ```
 
 ## Requirements
@@ -29,11 +29,11 @@ chmod +x Compositor-0.5.0-x86_64.AppImage
 
 ## Features and parity
 
-The table compares this fork's development branch with **Compositor for macOS 1.3.3** and Xuan 0.2.2. The download is **v0.5.0**; see [what's changed since that release](docs/linux-features.md#unreleased-features).
+Compositor for Linux **v0.6.0** targets feature parity with **Compositor for macOS 1.3.3**. The table compares it with Xuan 0.2.2. [What's new](docs/releases/v0.6.0.md).
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
-| Feature | [Compositor<br>(macOS&nbsp;1.3.3)](https://github.com/robbietilton/Compositor) | This fork (development) | [Xuan](https://github.com/silverling/xuan) |
+| Feature | [Compositor<br>(macOS&nbsp;1.3.3)](https://github.com/robbietilton/Compositor) | This fork (v0.6.0) | [Xuan](https://github.com/silverling/xuan) |
 | --- | :---: | :---: | :---: |
 | Layers, groups and masks | ✅ | ✅ | ✅ |
 | Blend modes and adjustment layers | ✅ 24 modes | ✅ 24 modes | ✅ 13 modes |
