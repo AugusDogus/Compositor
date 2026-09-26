@@ -1,5 +1,5 @@
-mod feather;
 mod display;
+mod feather;
 
 use crate::{
     Result,

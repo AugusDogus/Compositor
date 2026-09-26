@@ -2,10 +2,10 @@ mod about;
 mod actions;
 mod adjustment_channel;
 mod adjustment_fields;
-mod adjustment_tracks;
 mod adjustment_histogram;
 mod adjustment_layers;
 mod adjustment_preview;
+mod adjustment_tracks;
 mod adjustments;
 #[cfg(test)]
 mod alert_tests;
@@ -16,8 +16,6 @@ mod background_controls;
 mod brush_controls;
 mod brush_cursor;
 mod brush_smoothing;
-#[cfg(test)]
-mod tablet_tests;
 mod brush_tip;
 mod byte_count;
 mod camera_raw;
@@ -43,8 +41,8 @@ mod crop_picker;
 mod cursor_art;
 mod curves;
 mod dimensions;
-mod dropdown;
 mod dither_controls;
+mod dropdown;
 #[cfg(test)]
 mod duplicate_tests;
 mod external_open;
@@ -98,6 +96,7 @@ mod navigation_header;
 mod new_canvas;
 mod nudge;
 mod numeric_fields;
+mod numeric_scrub;
 #[cfg(test)]
 mod object_selection_tests;
 mod palette;
@@ -111,6 +110,7 @@ mod pixel_grid;
 #[cfg(test)]
 mod pixel_operations_tests;
 mod project_open;
+mod project_recovery;
 mod project_saving;
 mod project_sheets;
 mod project_tab;
@@ -119,12 +119,10 @@ mod psd_conversion;
 mod raw_develop;
 mod recent_projects;
 mod recovery_store;
-mod project_recovery;
 mod rename;
 mod sample_ring;
 #[cfg(test)]
 mod saved_state_tests;
-mod numeric_scrub;
 mod scalar_controls;
 mod selection_controls;
 mod selection_draft;
@@ -147,6 +145,8 @@ mod snap_guides;
 mod status_bar;
 mod surfaces;
 mod tab_strip;
+#[cfg(test)]
+mod tablet_tests;
 #[cfg(test)]
 mod tests;
 mod text_editor;
@@ -461,7 +461,9 @@ impl Editor {
         }
         let mut recent_projects = recent_projects::RecentProjects::load();
         for path in tabs.iter().filter_map(|tab| tab.session()?.path.clone()) {
-            if let Err(error) = recent_projects.remember(path) { eprintln!("Could not remember project: {error}"); }
+            if let Err(error) = recent_projects.remember(path) {
+                eprintln!("Could not remember project: {error}");
+            }
         }
         Ok(Self {
             wayland_clipboard: None,

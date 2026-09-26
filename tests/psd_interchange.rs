@@ -183,7 +183,10 @@ fn forged_oversized_bounds_with_undersized_channel_data_are_rejected() {
     bytes[offset + 8..offset + 12].copy_from_slice(&30_000u32.to_be_bytes());
     bytes[offset + 12..offset + 16].copy_from_slice(&30_000u32.to_be_bytes());
     let error = psd::decode(&bytes).err().unwrap().to_string();
-    assert!(error.contains("truncated") || error.contains("scanline"), "{error}");
+    assert!(
+        error.contains("truncated") || error.contains("scanline"),
+        "{error}"
+    );
 }
 
 #[test]

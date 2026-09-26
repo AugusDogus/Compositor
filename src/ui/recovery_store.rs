@@ -88,10 +88,12 @@ impl Store {
                 let path = package.path();
                 match project::load_verified(&path) {
                     Ok((document, _)) => {
-                        let name = File::open(path.join("recovery.json")).ok().and_then(|file| {
-                            let mut bytes = Vec::new();
-                            file.take(65537).read_to_end(&mut bytes).ok().map(|_| bytes)
-                        })
+                        let name = File::open(path.join("recovery.json"))
+                            .ok()
+                            .and_then(|file| {
+                                let mut bytes = Vec::new();
+                                file.take(65537).read_to_end(&mut bytes).ok().map(|_| bytes)
+                            })
                             .filter(|bytes| bytes.len() <= 65536)
                             .and_then(|bytes| serde_json::from_slice::<Label>(&bytes).ok())
                             .map(|label| label.name)
