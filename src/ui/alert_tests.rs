@@ -68,11 +68,11 @@ fn failed_save_alert_keeps_hue_draft_and_consumes_only_its_own_dismissal() {
         cx.read(view, |e| {
             let failure = e.errors.front().unwrap();
             assert_eq!(failure.operation, Operation::Save);
-            assert!(
-                failure
-                    .message
-                    .starts_with("Could not start the file operation:")
-            );
+            assert!(failure.message.starts_with("Could not start saving:"));
+            assert!(failure.message.contains("Your edits are preserved."));
+            assert!(failure.message.contains("Save again to retry."));
+            assert!(!e.saves.busy());
+            assert!(!e.pending);
             assert!(!e.can_start_project_operation());
             assert!(!e.can_switch_projects());
             assert!(!e.action_available(Action::InvertPixels));
