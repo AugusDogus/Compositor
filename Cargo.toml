@@ -39,7 +39,7 @@ zune-core = "0.5.3"
 zune-jpeg = "0.5.15"
 tiff = "0.11.3"
 tiny-skia = { version = "0.11.4", default-features = false, features = ["std", "simd"] }
-resvg = { version = "=0.46.0", default-features = false }
+resvg = { version = "=0.46.0", default-features = false, features = ["text", "system-fonts", "raster-images"] }
 i_overlay = "=8.1.2"
 ag-psd = "=0.3.0"
 

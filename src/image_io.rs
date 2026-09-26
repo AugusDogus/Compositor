@@ -1,3 +1,4 @@
+mod svg;
 use crate::{
     Result,
     document::{Document, Layer, LayerContent, validate_size},
@@ -17,6 +18,12 @@ pub fn read_image(path: &Path) -> Result<RgbaImage> {
         return Err(invalid(
             "Image must be a regular file no larger than 512 MiB.",
         ));
+    }
+    if path
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("svg"))
+    {
+        return svg::read(path);
     }
     decode_image(|| Ok(BufReader::new(File::open(path)?)))
 }
