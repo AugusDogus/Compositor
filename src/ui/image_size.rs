@@ -12,6 +12,13 @@ pub(super) enum ImageSizing {
     PrintCentimeters,
 }
 
+/// Image resizing allocates pixels; canvas resizing may retain sparse, transparent space.
+#[derive(Clone, Copy)]
+pub(super) enum ScrubTarget {
+    Image,
+    Canvas { relative: bool },
+}
+
 impl ImageSizing {
     pub fn resamples(self) -> bool {
         !matches!(self, Self::PrintInches | Self::PrintCentimeters)
@@ -28,6 +35,56 @@ impl ImageSizing {
 
     fn displayed(self, pixels: f64, original: u32, resolution: f64) -> f64 {
         pixels / self.pixels(1., original, resolution)
+    }
+
+    /// `current` contains the edited axis followed by its perpendicular axis, in pixels.
+    /// Ranges and sensitivity are returned in the same units as the adjacent number field.
+    pub fn scrub_bounds(
+        self,
+        original: u32,
+        current: [u32; 2],
+        resolution: f64,
+        locked: bool,
+        target: ScrubTarget,
+    ) -> ((f64, f64), f64) {
+        if !self.resamples() {
+            return (
+                (
+                    self.displayed(f64::from(original), original, 9600.),
+                    self.displayed(f64::from(original), original, 1.),
+                ),
+                self.displayed(0.01, original, 1.),
+            );
+        }
+        let [dimension, other] = current.map(f64::from);
+        let limit = match target {
+            ScrubTarget::Image => compositor::document::MAX_SURFACE_PIXELS as f64,
+            ScrubTarget::Canvas { .. } => 30_000. * 30_000.,
+        };
+        let max = if locked {
+            (limit * dimension / other)
+                .sqrt()
+                .min(30_000. * dimension / other)
+                .min(30_000.)
+        } else {
+            (limit / other).min(30_000.)
+        };
+        let min = if locked {
+            (dimension / other).max(1.)
+        } else {
+            1.
+        };
+        let offset = match target {
+            ScrubTarget::Canvas { relative: true } => f64::from(original),
+            _ => 0.,
+        };
+        (
+            (
+                self.displayed(min - offset, original, resolution),
+                self.displayed(max.max(min) - offset, original, resolution),
+            ),
+            self.displayed(1., original, resolution),
+        )
     }
 
     pub fn dimensions(
@@ -212,6 +269,62 @@ mod tests {
                 fields.iter().map(|(_, value)| value.clone()).collect()
             }
             _ => panic!("Expected Image Size fields"),
+        }
+    }
+
+    #[test]
+    fn scrub_bounds_preserve_pixel_steps_and_respect_locked_surface_limits_in_every_unit() {
+        for sizing in [
+            ImageSizing::Pixels,
+            ImageSizing::Percent,
+            ImageSizing::Inches,
+            ImageSizing::Centimeters,
+        ] {
+            let ((min, max), step) =
+                sizing.scrub_bounds(200, [200, 100], 100., true, ScrubTarget::Image);
+            assert!((sizing.pixels(step, 200, 100.) - 1.).abs() < 1e-10);
+            assert_eq!(
+                sizing
+                    .dimensions([min, min / 2.], [200, 200], 100.)
+                    .unwrap(),
+                [2, 1]
+            );
+            assert_eq!(
+                sizing
+                    .dimensions([max, max / 2.], [200, 200], 100.)
+                    .unwrap(),
+                [20_000, 10_000]
+            );
+        }
+    }
+
+    #[test]
+    fn canvas_scrub_allows_sparse_dimensions_and_print_scrub_limits_resolution() {
+        let bounds = ImageSizing::Percent.scrub_bounds(
+            200,
+            [200, 100],
+            100.,
+            false,
+            ScrubTarget::Canvas { relative: true },
+        );
+        assert_eq!(bounds, ((-99.5, 14_900.), 0.5));
+        assert_eq!(
+            ImageSizing::Pixels
+                .scrub_bounds(
+                    30_000,
+                    [30_000, 30_000],
+                    72.,
+                    false,
+                    ScrubTarget::Canvas { relative: false }
+                )
+                .0,
+            (1., 30_000.)
+        );
+        for sizing in [ImageSizing::PrintInches, ImageSizing::PrintCentimeters] {
+            let ((min, max), _) =
+                sizing.scrub_bounds(200, [200, 100], 100., true, ScrubTarget::Image);
+            assert!((200. / sizing.pixels(min, 200, 1.) - 9600.).abs() < 1e-9);
+            assert!((200. / sizing.pixels(max, 200, 1.) - 1.).abs() < 1e-9);
         }
     }
 

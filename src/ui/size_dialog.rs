@@ -61,9 +61,9 @@ impl Editor {
         }
     }
     fn size_scrub_bounds(&self, index: usize, fields: &[(&str, String)]) -> ((f64, f64), f64) {
-        use super::image_size::ImageSizing;
+        use super::image_size::{ImageSizing, ScrubTarget};
         let doc = &self.session().document;
-        let original = f64::from(if index == 0 { doc.width } else { doc.height });
+        let original = if index == 0 { doc.width } else { doc.height };
         let image = matches!(
             &self.modal,
             Some(Form::Edit {
@@ -90,25 +90,6 @@ impl Editor {
                 _ => ImageSizing::Pixels,
             }
         };
-        if !sizing.resamples() {
-            let multiplier = if matches!(sizing, ImageSizing::PrintCentimeters) {
-                2.54
-            } else {
-                1.
-            };
-            return (
-                (original * multiplier / 9600., original * multiplier),
-                0.01 * multiplier,
-            );
-        }
-        let unit = match sizing {
-            ImageSizing::Percent => 100. / original,
-            ImageSizing::Inches => 1. / resolution,
-            ImageSizing::Centimeters => 2.54 / resolution,
-            _ => 1.,
-        };
-        let relative = !image && fields.get(5).is_some_and(|(_, v)| v == "1");
-        let offset = if relative { original } else { 0. };
         let action = if image {
             Action::ImageSize
         } else {
@@ -117,30 +98,18 @@ impl Editor {
         let size = self
             .size_result(action, fields)
             .unwrap_or([doc.width, doc.height]);
-        let dimension = f64::from(size[index]);
-        let other = f64::from(size[1 - index]);
-        let locked = self.dimension_link.as_ref().is_some_and(|link| link.locked);
-        let limit = if image {
-            compositor::document::MAX_SURFACE_PIXELS as f64
-        } else {
-            30_000. * 30_000.
-        };
-        let max = if locked {
-            (limit * dimension / other)
-                .sqrt()
-                .min(30000. * dimension / other)
-                .min(30000.)
-        } else {
-            (limit / other).min(30000.)
-        };
-        let min = if locked {
-            (dimension / other).max(1.)
-        } else {
-            1.
-        };
-        (
-            ((min - offset) * unit, (max.max(min) - offset) * unit),
-            unit,
+        sizing.scrub_bounds(
+            original,
+            [size[index], size[1 - index]],
+            resolution,
+            self.dimension_link.as_ref().is_some_and(|link| link.locked),
+            if image {
+                ScrubTarget::Image
+            } else {
+                ScrubTarget::Canvas {
+                    relative: fields.get(5).is_some_and(|(_, value)| value == "1"),
+                }
+            },
         )
     }
     fn size_dimensions(
