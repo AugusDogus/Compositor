@@ -54,7 +54,7 @@ impl Thumbnails {
             let size = fitted_size(canvas, MASK_BOX).map(|v| v * BACKING_SCALE);
             let step = canvas[0] as f64 / size[0] as f64;
             let placement = mask.placement.unwrap_or(layer.transform);
-            let background = (mask.edge_tone() * 255.).round() as u8;
+            let background = (mask.background() * 255.).round() as u8;
             let mut pixels = Cow::Borrowed(mask.pixels.as_ref());
             if placement.sampling != Sampling::Nearest {
                 let width = (placement.size[0] / step).ceil().max(1.) as u32;
@@ -95,32 +95,28 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn mask_thumbnail_preserves_gray_edge_tone_outside_a_transformed_mask() {
-        let mut layer = Layer::blank("Gray mask", 20, 20);
-        let mut placement = crate::geometry::Transform::new(20, 20);
-        placement.origin = [20., 20.];
-        placement.rotation = 30.;
-        layer.mask = Some(Mask {
-            pixels: Arc::new(GrayImage::from_pixel(20, 20, Luma([96]))),
-            enabled: true,
-            linked: false,
-            placement: Some(placement),
-        });
-        let pixels = Thumbnails::render(&layer, [60, 60]).unwrap().mask.unwrap();
-        assert!(
-            pixels
-                .pixels()
-                .all(|pixel| *pixel == Rgba([96, 96, 96, 255]))
-        );
-        // Canvas compositing still uses its binary edge extension policy.
-        assert_eq!(layer.mask.as_ref().unwrap().background(), 0.);
-        layer.mask.as_mut().unwrap().pixels = Arc::new(
-            GrayImage::from_raw(3, 3, vec![0, 32, 64, 96, 255, 128, 160, 192, 224]).unwrap(),
-        );
-        let pixels = Thumbnails::render(&layer, [60, 60]).unwrap().mask.unwrap();
-        // The eight outer pixels average 112; the bright center is not an edge pixel.
-        assert_eq!(pixels[(0, 0)], Rgba([112, 112, 112, 255]));
-        assert_eq!(layer.mask.as_ref().unwrap().background(), 0.);
+    fn mask_thumbnail_background_matches_canvas_while_preserving_interior_gray() {
+        for (gray, background) in [(96, 0), (192, 255)] {
+            let mut layer = Layer::blank("Gray mask", 20, 20);
+            let mut placement = crate::geometry::Transform::new(20, 20);
+            placement.origin = [20., 20.];
+            layer.mask = Some(Mask {
+                pixels: Arc::new(GrayImage::from_pixel(20, 20, Luma([gray]))),
+                enabled: true,
+                linked: false,
+                placement: Some(placement),
+            });
+            let pixels = Thumbnails::render(&layer, [60, 60]).unwrap().mask.unwrap();
+            assert_eq!(
+                pixels[(0, 0)],
+                Rgba([background, background, background, 255])
+            );
+            assert_eq!(pixels[(30, 30)], Rgba([gray, gray, gray, 255]));
+            assert_eq!(
+                layer.mask.as_ref().unwrap().background(),
+                background as f64 / 255.
+            );
+        }
     }
 
     #[test]

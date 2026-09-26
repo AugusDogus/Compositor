@@ -43,7 +43,7 @@ impl Mask {
         if self.edge_tone() >= 0.5 { 1. } else { 0. }
     }
 
-    /// Mean tone of the outermost pixels, used by the canvas-framed mask thumbnail.
+    /// Mean outer-edge tone, used to choose the canvas and thumbnail background.
     pub fn edge_tone(&self) -> f64 {
         let (w, h) = self.pixels.dimensions();
         if w == 0 || h == 0 {
