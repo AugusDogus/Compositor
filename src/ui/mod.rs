@@ -106,6 +106,7 @@ mod pixel_grid;
 #[cfg(test)]
 mod pixel_operations_tests;
 mod project_open;
+mod project_saving;
 mod project_sheets;
 mod project_tab;
 mod project_tools;
@@ -392,6 +393,7 @@ pub struct Editor {
     updates: updates::Updates,
     job: Option<jobs::Job>,
     file_job: Option<file_jobs::FileJob>,
+    saves: project_saving::Saves,
     psd_conversion: Option<psd_conversion::Conversion>,
     layout_drag: Option<layout_guides::Drag>,
     clipboard_job: Option<clipboard_jobs::Job>,
@@ -512,6 +514,7 @@ impl Editor {
             updates: updates::Updates::default(),
             job: None,
             file_job: None,
+            saves: project_saving::Saves::default(),
             psd_conversion: None,
             layout_drag: None,
             clipboard_job: None,
@@ -721,6 +724,7 @@ impl View for Editor {
         self.start_external_open();
         self.start_job(cx);
         self.start_file_job(cx);
+        self.start_save_job(cx);
         self.start_clipboard_job(cx);
         self.start_update_job(cx);
         self.sync_raw_input(cx);

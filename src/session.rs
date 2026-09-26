@@ -138,9 +138,15 @@ impl Session {
         }
         self.backing_scale = scale;
     }
-    pub fn mark_saved(&mut self, path: PathBuf) {
+    pub fn revision(&self) -> Uuid {
+        self.revision
+    }
+    pub fn mark_saved_revision(&mut self, path: PathBuf, revision: Uuid) {
         self.path = Some(path);
-        self.saved_revision = Some(self.revision);
+        self.saved_revision = Some(revision);
+    }
+    pub fn mark_saved(&mut self, path: PathBuf) {
+        self.mark_saved_revision(path, self.revision);
     }
     pub fn title(&self) -> String {
         let name = self

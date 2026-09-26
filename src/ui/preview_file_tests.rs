@@ -53,7 +53,7 @@ fn save_shortcut_keeps_hue_and_saves_committed_pixels() {
         e.form_key(&Key::Character("s".into()), Modifiers::CONTROL, cx);
         assert!(e.adjustment_edit.is_some());
         assert!(e.modal.is_some());
-        let job = e.file_job.take().expect("Ctrl+S must queue Save");
+        let job = e.saves.queue.pop_front().expect("Ctrl+S must queue Save");
         let completed = job.run(&[]).unwrap();
         e.pending = false;
         e.finish_file_job(completed, cx).unwrap();

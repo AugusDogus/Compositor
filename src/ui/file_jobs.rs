@@ -12,6 +12,7 @@ pub(super) enum FileJob {
     },
     Save {
         session: Uuid,
+        revision: Uuid,
         document: Document,
         path: PathBuf,
     },
@@ -46,6 +47,7 @@ pub(super) enum Completed {
     },
     Saved {
         session: Uuid,
+        revision: Uuid,
         path: PathBuf,
     },
     Exported {
@@ -75,7 +77,7 @@ impl FileJob {
         }
     }
 
-    fn run(self, open: &[(Uuid, PathBuf)]) -> Result<Completed> {
+    pub(super) fn run(self, open: &[(Uuid, PathBuf)]) -> Result<Completed> {
         match self {
             Self::ExportPsd { document, path } => {
                 let bytes = compositor::psd::encode(&document)?;
@@ -143,12 +145,14 @@ impl FileJob {
             }
             Self::Save {
                 session,
+                revision,
                 document,
                 path,
             } => {
                 project::save(&document, &path)?;
                 Ok(Completed::Saved {
                     session,
+                    revision,
                     path: path.canonicalize()?,
                 })
             }
@@ -169,6 +173,10 @@ impl FileJob {
 
 impl Editor {
     pub(super) fn queue_file(&mut self, job: FileJob) {
+        if matches!(job, FileJob::Save { .. }) {
+            self.queue_save(job);
+            return;
+        }
         self.status = match &job {
             FileJob::Import { .. } => "Importing images…",
             _ => "Working…",
@@ -340,23 +348,12 @@ impl Editor {
                 self.show_opened_projects(projects)?;
                 self.status = "Imported successfully. Ctrl+Z undoes the import.".into();
             }
-            Completed::Saved { session, path } => {
-                let session = self
-                    .tabs
-                    .iter_mut()
-                    .find(|s| s.id == session)
-                    .and_then(ProjectTab::session_mut)
-                    .ok_or_else(|| {
-                        invalid(format!(
-                            "Saved {} successfully, but its tab has closed.",
-                            path.display()
-                        ))
-                    })?;
-                session.mark_saved(path);
-                self.status = "Project saved.".into();
-                if let Some(intent) = self.close_intent.take() {
-                    self.finish_close(intent, cx);
-                }
+            Completed::Saved {
+                session,
+                revision,
+                path,
+            } => {
+                self.finish_save(session, revision, path, cx)?;
             }
             Completed::Exported { path, jpeg_quality } => {
                 self.status = format!(
@@ -626,6 +623,7 @@ mod tests {
         assert!(matches!(
             FileJob::Save {
                 session,
+                revision: Uuid::new_v4(),
                 document: document.clone(),
                 path: path.clone()
             }

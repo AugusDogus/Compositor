@@ -30,7 +30,7 @@ impl Editor {
                                 "Images",
                                 &[
                                     "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp",
-                                    "psd", "psb", "nef", "nrw",
+                                    "psd", "psb", "nef", "nrw", "svg",
                                 ],
                             ),
                             file_filter("Camera RAW", compositor::raw::extensions()),
@@ -206,9 +206,10 @@ impl Editor {
         Ok(())
     }
 
-    fn save_to(&mut self, path: PathBuf, cx: &mut EventContext) {
+    pub(super) fn save_to(&mut self, path: PathBuf, cx: &mut EventContext) {
         self.queue_file(super::file_jobs::FileJob::Save {
             session: self.session().id,
+            revision: self.session().revision(),
             document: self.session().committed_document().clone(),
             path,
         });
