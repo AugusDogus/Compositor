@@ -29,7 +29,7 @@ chmod +x Compositor-0.5.0-x86_64.AppImage
 
 ## Features and parity
 
-Development targets feature parity with **Compositor for macOS 1.3.3**, including the latest ASCII rendering update (`2309a85`). Xuan is compared at `7fd0ee1` (0.2.2). The download above is the published v0.5.0 release.
+Development targets feature parity with **Compositor for macOS 1.3.3**. The table compares development with Xuan 0.2.2; the download above is the published v0.5.0 release. [Changes since v0.5.0](docs/linux-features.md#unreleased-features).
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
@@ -94,7 +94,7 @@ Development targets feature parity with **Compositor for macOS 1.3.3**, includin
 
 ## Development
 
-[Build from source](docs/linux-building.md) · [AppImage builds and releases](docs/linux-releases.md) · [Implementation notes](docs/linux-port.md)
+[Build from source](docs/linux-building.md) · [AppImage builds and releases](docs/linux-releases.md) · [Contributor guide](docs/linux-port.md)
 
 ## License
 
