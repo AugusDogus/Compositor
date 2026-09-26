@@ -16,11 +16,14 @@ pub fn decode(bytes: &[u8]) -> Result<Imported> {
         mut report,
         metadata,
         bytes,
+        crop_to_canvas,
     } = preflight::validate(bytes)?;
     let mut psd = ag_psd::read_psd(
         &bytes,
         &photoshop::ReadOptions {
             use_image_data: Some(true),
+            use_raw_data: Some(crop_to_canvas),
+            skip_composite_image_data: Some(crop_to_canvas),
             skip_thumbnail: Some(true),
             skip_linked_files_data: Some(true),
             total_memory_limit: Some(
@@ -35,6 +38,9 @@ pub fn decode(bytes: &[u8]) -> Result<Imported> {
             "PSD could not be read: {e}. The current document is unchanged."
         ))
     })?;
+    if crop_to_canvas {
+        super::crop::decode(&mut psd, &mut report)?;
+    }
     super::vector_metadata::apply(&mut psd, metadata)?;
     let mut budget = decoded_budget(&psd);
     crate::document::validate_pixel_budget(budget)?;

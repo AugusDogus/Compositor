@@ -817,6 +817,7 @@ dependencies = [
  "arboard",
  "bytemuck",
  "cc",
+ "flate2",
  "half",
  "i_overlay",
  "image",

@@ -7,6 +7,7 @@ pub(super) struct Prepared<'a> {
     pub report: ConversionReport,
     pub metadata: Vec<super::vector_metadata::Metadata>,
     pub bytes: Cow<'a, [u8]>,
+    pub crop_to_canvas: bool,
 }
 
 struct Cursor<'a> {
@@ -53,23 +54,24 @@ impl<'a> Cursor<'a> {
         self.bytes.len() - self.offset
     }
 }
-fn rectangle(c: &mut Cursor<'_>, budget: &mut u64) -> Result<()> {
+fn rectangle(c: &mut Cursor<'_>, budget: &mut u64, crop: &mut bool, large: bool) -> Result<()> {
     let top = i64::from(c.u32()? as i32);
     let left = i64::from(c.u32()? as i32);
     let bottom = i64::from(c.u32()? as i32);
     let right = i64::from(c.u32()? as i32);
     let width = right - left;
     let height = bottom - top;
-    if width < 0 || height < 0 || width > 30_000 || height > 30_000 {
+    let max_side = if large { 300_000 } else { 30_000 };
+    if width < 0 || height < 0 || width > max_side || height > max_side {
         return Err(invalid(
-            "PSD layer or mask bounds exceed the 30,000 pixel limit.",
+            "PSD layer or mask bounds exceed the format dimension limit.",
         ));
     }
     if width > 0 && height > 0 {
-        validate_size(width as u32, height as u32)?;
+        *crop |= validate_size(width as u32, height as u32).is_err();
     }
     *budget += (width * height) as u64;
-    crate::document::validate_pixel_budget(*budget)?;
+    *crop |= crate::document::validate_pixel_budget(*budget).is_err();
     Ok(())
 }
 pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
@@ -157,6 +159,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             report,
             metadata: Vec::new(),
             bytes: decoder_bytes,
+            crop_to_canvas: false,
         });
     }
     let mut layers = section.sized_section(large)?;
@@ -165,6 +168,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             report,
             metadata: Vec::new(),
             bytes: decoder_bytes,
+            crop_to_canvas: false,
         });
     }
     let count = (layers.u16()? as i16).unsigned_abs();
@@ -172,13 +176,14 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
         return Err(invalid("PSD exceeds the 10,000 layer limit."));
     }
     let mut budget = u64::from(width) * u64::from(height);
+    let mut crop_to_canvas = false;
     let mut channel_bytes = 0usize;
     let mut folder_depth = 0usize;
     let mut metadata = Vec::new();
     for _ in 0..count {
         let mut entry = super::vector_metadata::Metadata::default();
         let mut divider = false;
-        rectangle(&mut layers, &mut budget)?;
+        rectangle(&mut layers, &mut budget, &mut crop_to_canvas, large)?;
         let channels = layers.u16()?;
         if channels > 56 {
             return Err(invalid("PSD layer has too many channels."));
@@ -211,11 +216,11 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
         let mut extra = layers.section()?;
         let mut mask = extra.section()?;
         if mask.remaining() != 0 {
-            rectangle(&mut mask, &mut budget)?;
+            rectangle(&mut mask, &mut budget, &mut crop_to_canvas, large)?;
             mask.take(2)?;
             if mask.remaining() >= 18 {
                 mask.take(2)?;
-                rectangle(&mut mask, &mut budget)?;
+                rectangle(&mut mask, &mut budget, &mut crop_to_canvas, large)?;
             }
         }
         let blending_ranges = extra.section()?;
@@ -311,5 +316,6 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
         report,
         metadata,
         bytes: decoder_bytes,
+        crop_to_canvas,
     })
 }
