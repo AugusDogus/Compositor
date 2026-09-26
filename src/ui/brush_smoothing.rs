@@ -17,6 +17,10 @@ impl Rope {
         )
     }
 
+    pub(super) fn point(&self) -> Point {
+        self.anchor
+    }
+
     pub(super) fn pull(&mut self, point: Point, zoom: f64) -> Option<Point> {
         let radius = self.length / zoom.max(0.01);
         let delta = [point[0] - self.anchor[0], point[1] - self.anchor[1]];

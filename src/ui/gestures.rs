@@ -587,7 +587,9 @@ impl Editor {
                         Some(point)
                     } else {
                         match smoothing {
-                            Some(rope) => rope.pull(point, zoom),
+                            Some(rope) => rope
+                                .pull(point, zoom)
+                                .or_else(|| event.tablet.map(|_| rope.point())),
                             None => Some(point),
                         }
                     };

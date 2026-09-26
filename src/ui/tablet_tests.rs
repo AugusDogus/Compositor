@@ -71,3 +71,20 @@ fn cancel_discards_tablet_stroke_and_disabled_pressure_keeps_configured_size() {
     pointer(&mut editor, PointerPhase::Up, [80., 50.], 0.1, false);
     assert!(editor.session().document.layers[0].raster().unwrap()[(80, 65)][3] > 200);
 }
+
+#[test]
+fn pressure_changes_update_the_tip_while_the_smoothing_rope_is_slack() {
+    let mut editor = editor();
+    editor.tools.brush_smoothing = 20.;
+    pointer(&mut editor, PointerPhase::Down, [40., 50.], 0.25, false);
+    assert_eq!(
+        editor.session().document.layers[0].raster().unwrap()[(40, 65)][3],
+        0
+    );
+    pointer(&mut editor, PointerPhase::Move, [42., 50.], 1., false);
+    assert!(editor.session().document.layers[0].raster().unwrap()[(40, 65)][3] > 200);
+    assert_eq!(
+        editor.session().document.layers[0].raster().unwrap()[(61, 50)][3],
+        0
+    );
+}
