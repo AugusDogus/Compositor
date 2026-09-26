@@ -49,6 +49,7 @@ fn eye_swipes_set_one_state_across_rows_autoscroll_and_undo_once() {
     let bounds = cx.element_bounds(window, eye.as_str()).unwrap();
     let from = Point::new(bounds.x + 10., bounds.y + 10.);
     let mut event = PointerEvent {
+        tablet: None,
         phase: PointerPhase::Down,
         position: from,
         origin: from,

@@ -7,6 +7,7 @@ use quickgui::{
 fn pointer(point: [f32; 2], phase: PointerPhase, modifiers: Modifiers) -> PointerEvent {
     let point = Point::new(point[0], point[1]);
     PointerEvent {
+        tablet: None,
         phase,
         position: point,
         origin: point,

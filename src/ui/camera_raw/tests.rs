@@ -169,6 +169,7 @@ fn canvas_pointer(editor: &mut Editor, phase: quickgui::PointerPhase, unit: [f64
     );
     editor
         .camera_sample_pointer(&PointerEvent {
+            tablet: None,
             phase,
             position: point,
             origin: point,

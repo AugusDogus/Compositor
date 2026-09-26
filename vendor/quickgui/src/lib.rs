@@ -263,7 +263,7 @@ pub use event::{
     MAX_ROTATION_DEGREES_PER_EVENT, MAX_SCROLL_LINES_PER_EVENT, MAX_SCROLL_PIXELS_PER_EVENT,
     MAX_TARGETED_ACTIONS_PER_EVENT, MAX_TOUCH_COORDINATE, MAX_VALIDATION_ISSUES,
     MAX_VALIDATION_MESSAGE_BYTES, Modifiers, MouseButton, MouseDownEvent, MouseExitEvent,
-    MouseMoveEvent, MousePressureEvent, MouseUpEvent, PinchEvent, PointerEvent, PointerPhase,
+    MouseMoveEvent, MousePressureEvent, MouseUpEvent, PinchEvent, PointerEvent, PointerPhase, TabletInfo,
     PressureStage, RotationEvent, ScrollDelta, ScrollWheelEvent, SmartMagnifyEvent, TouchEvent,
     TouchId, TouchPhase, ValidationIssue, ValidationReport,
 };

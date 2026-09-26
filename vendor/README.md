@@ -40,6 +40,12 @@ the installed `compositor.desktop` filename.
   inset. The default remains 12 pixels; editor decorations retain their own
   padding.
 
+- `EventContext::text_input_selection` exposes retained UTF-8 selection ranges,
+  and `Element::text_input_initial_selection` restores a range when a text field
+  mounts. Runtime and test contexts use the same selection contract. Compositor
+  uses these APIs to color selected letters and retain selection across its
+  text color picker.
+
 - `Element::disable_subtree` explicitly disables an already-built control tree.
   The upstream `disabled` builder affects only the element itself. Compositor uses
   the opt-in subtree operation while a floating color/adjustment picker samples
@@ -94,3 +100,22 @@ the installed `compositor.desktop` filename.
 Keep the upstream license files and third-party notices with this copy.
 Reconcile every local patch against a newer QuickGUI release before removing
 the vendor directory, then verify both native backends.
+
+## Linux tablet input
+
+`quickgui-winit/` is the published `quickgui-winit` 0.1.5 crate from the same
+QuickGUI commit `d327e10b214596afbd6b830f0cc6934622320913` (`vendor/winit`).
+Its Apache-2.0 license is retained in `quickgui-winit/LICENSE`.
+
+The local patch adds typed tablet frames to Winit's existing Wayland tablet-v2
+and XInput2 event streams. XInput valuators use driver-provided axis labels and
+ranges. Tablet events replace mouse emulation on that same connection, avoiding
+second-connection event ordering and duplicate strokes. Wayland routes frames by
+surface and updates pen cursors, including a visible fallback on compositors
+without cursor-shape-v1. Device removal and proximity loss release held buttons.
+
+QuickGUI carries optional pressure, tilt, and eraser metadata on captured pointer
+events. Its regular hit testing, buttons, focus, capture, and cancellation paths
+also handle pen input. Mouse events keep `tablet: None`. Native packet tests,
+synthetic editor strokes, and GPU-versus-CPU brush comparisons cover the software
+path; physical pen hardware still requires manual validation.

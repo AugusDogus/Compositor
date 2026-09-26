@@ -359,7 +359,7 @@ impl EventProcessor {
         let mut devices = self.devices.borrow_mut();
         if let Some(info) = DeviceInfo::get(&window_target.xconn, device as _) {
             for info in info.iter() {
-                devices.insert(DeviceId(info.deviceid as _), Device::new(info));
+                devices.insert(DeviceId(info.deviceid as _), Device::new(info, &window_target.xconn));
             }
         }
     }
@@ -1114,6 +1114,10 @@ impl EventProcessor {
             return;
         }
 
+        if let Some(frame) = self.tablet_frame(event, Some(state)) {
+            callback(&self.target, Event::WindowEvent { window_id, event: WindowEvent::Tablet(frame) });
+            return;
+        }
         let event = match event.detail as u32 {
             xlib::Button1 => WindowEvent::MouseInput {
                 device_id,
@@ -1169,6 +1173,12 @@ impl EventProcessor {
         callback(&self.target, event);
     }
 
+    fn tablet_frame(&self, event: &XIDeviceEvent, button: Option<ElementState>) -> Option<crate::event::TabletEvent> {
+        let mut devices = self.devices.borrow_mut();
+        let tool = devices.get_mut(&DeviceId(event.sourceid as _))?.tablet.as_mut()?;
+        Some(tool.update(event, button))
+    }
+
     fn xinput2_mouse_motion<T: 'static, F>(&self, event: &XIDeviceEvent, mut callback: F)
     where
         F: FnMut(&RootAEL, Event<T>),
@@ -1181,6 +1191,10 @@ impl EventProcessor {
         let device_id = mkdid(event.deviceid as xinput::DeviceId);
         let window = event.event as xproto::Window;
         let window_id = mkwid(window);
+        if let Some(frame) = self.tablet_frame(event, None) {
+            callback(&self.target, Event::WindowEvent { window_id, event: WindowEvent::Tablet(frame) });
+            return;
+        }
         let new_cursor_pos = (event.event_x, event.event_y);
 
         let cursor_moved = self.with_window(window, |window| {
@@ -1323,6 +1337,12 @@ impl EventProcessor {
         // Leave, FocusIn, and FocusOut can be received by a window that's already
         // been destroyed, which the user presumably doesn't want to deal with.
         if self.window_exists(window) {
+            let mut devices = self.devices.borrow_mut();
+            if let Some(tool) = devices.get_mut(&DeviceId(event.sourceid as _)).and_then(|device| device.tablet.as_mut()) {
+                callback(&self.target, Event::WindowEvent { window_id: mkwid(window), event: WindowEvent::Tablet(tool.leave()) });
+                return;
+            }
+            drop(devices);
             let event = Event::WindowEvent {
                 window_id: mkwid(window),
                 event: WindowEvent::CursorLeft {
@@ -1651,7 +1671,13 @@ impl EventProcessor {
                     },
                 );
                 let mut devices = self.devices.borrow_mut();
-                devices.remove(&DeviceId(info.deviceid as xinput::DeviceId));
+                if let Some(mut device) = devices.remove(&DeviceId(info.deviceid as xinput::DeviceId)) {
+                    if let Some(tool) = device.tablet.as_mut() {
+                        if let Some(window) = tool.window {
+                            callback(&self.target, Event::WindowEvent { window_id: mkwid(window), event: WindowEvent::Tablet(tool.leave()) });
+                        }
+                    }
+                }
             }
         }
     }

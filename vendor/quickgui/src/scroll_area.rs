@@ -731,6 +731,7 @@ mod tests {
 
     fn pointer_event(phase: PointerPhase, x: f32, y: f32) -> PointerEvent {
         PointerEvent {
+            tablet: None,
             size: Size::new(12.0, 200.0),
             phase,
             position: Point::new(x, y),

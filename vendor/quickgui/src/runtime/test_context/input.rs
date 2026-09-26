@@ -433,6 +433,7 @@ impl TestAppContext {
         let element = element.into();
         let button = MouseButton::Left;
         let base = PointerEvent {
+            tablet: None,
             size: Size::ZERO,
             phase: PointerPhase::Down,
             position: from,
@@ -448,6 +449,7 @@ impl TestAppContext {
             window,
             element,
             PointerEvent {
+                tablet: None,
                 phase: PointerPhase::Move,
                 position: to,
                 local_position: to,
@@ -459,6 +461,7 @@ impl TestAppContext {
             window,
             element,
             PointerEvent {
+                tablet: None,
                 phase: PointerPhase::Up,
                 position: to,
                 local_position: to,

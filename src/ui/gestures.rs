@@ -16,13 +16,38 @@ impl Editor {
         if self.brush_tip_pointer(event) {
             return Ok(());
         }
+        let selected_tool = self.tools.tool;
+        if event.tablet.is_some_and(|pen| pen.eraser) && !self.space_pan {
+            self.tools.tool = Tool::Erase;
+        }
         let result = self.edit_pointer(event);
+        self.tools.tool = selected_tool;
         if result.is_ok() {
             self.track_selection_scroll(event);
         } else {
             self.selection_scroll = None;
         }
         result
+    }
+
+    fn brush_input(&self, point: [f64; 2], event: &PointerEvent) -> compositor::brush::Input {
+        compositor::brush::Input {
+            point,
+            tip: event.tablet.map(|pen| {
+                compositor::brush::Tip::new(
+                    if self.tools.pen_pressure {
+                        pen.pressure.map(f64::from)
+                    } else {
+                        None
+                    },
+                    if self.tools.pen_tilt {
+                        pen.tilt.map(|tilt| tilt.map(f64::from))
+                    } else {
+                        None
+                    },
+                )
+            }),
+        }
     }
 
     fn edit_pointer(&mut self, event: &PointerEvent) -> Result<()> {
@@ -219,9 +244,10 @@ impl Editor {
                     let mut brush = self.tools.brush;
                     brush.color = self.palette_colors(mask)[0];
                     let sample_all = self.tools.clone_sample_all;
-                    match Stroke::start(
+                    let input = self.brush_input(from, event);
+                    match Stroke::start_input(
                         &mut self.session_mut().document,
-                        from,
+                        input,
                         brush,
                         mode,
                         mask,
@@ -565,8 +591,9 @@ impl Editor {
                             None => Some(point),
                         }
                     };
-                    if let Some(painted) = painted
-                        && let Err(error) = stroke.to(&mut self.session_mut().document, painted)
+                    let input = painted.map(|point| self.brush_input(point, event));
+                    if let Some(input) = input
+                        && let Err(error) = stroke.to_input(&mut self.session_mut().document, input)
                     {
                         self.session_mut().cancel();
                         return Err(error);

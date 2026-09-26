@@ -94,6 +94,7 @@ fn object_pointer(
 ) {
     editor
         .pointer(&PointerEvent {
+            tablet: None,
             phase,
             position,
             origin: start,

@@ -63,6 +63,7 @@ impl Kernel {
             },
             length,
             antialias,
+            metric: [1., 0., 0., 1.],
         }
     }
 }
@@ -73,11 +74,33 @@ pub(super) struct Segment<'a> {
     direction: Point,
     length: f64,
     antialias: f64,
+    metric: [f64; 4],
 }
 
 impl Segment<'_> {
+    pub(super) fn with_metric(mut self, metric: [f64; 4]) -> Self {
+        if metric == [1., 0., 0., 1.] {
+            return self;
+        }
+        self.metric = metric;
+        let delta = self.map(self.direction.map(|v| v * self.length));
+        self.length = delta[0].hypot(delta[1]);
+        self.direction = if self.length > 0. {
+            delta.map(|v| v / self.length)
+        } else {
+            [0.; 2]
+        };
+        self
+    }
+    fn map(&self, point: Point) -> Point {
+        [
+            self.metric[0] * point[0] + self.metric[1] * point[1],
+            self.metric[2] * point[0] + self.metric[3] * point[1],
+        ]
+    }
+
     pub(super) fn deposit(&self, point: Point) -> f32 {
-        let offset = [point[0] - self.start[0], point[1] - self.start[1]];
+        let offset = self.map([point[0] - self.start[0], point[1] - self.start[1]]);
         let projection = offset[0] * self.direction[0] + offset[1] * self.direction[1];
         let (radius, hardness, softness, spacing, table) = match self.kernel {
             Kernel::Hard { radius } => {

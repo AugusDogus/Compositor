@@ -16,6 +16,8 @@ mod background_controls;
 mod brush_controls;
 mod brush_cursor;
 mod brush_smoothing;
+#[cfg(test)]
+mod tablet_tests;
 mod brush_tip;
 mod byte_count;
 mod camera_raw;

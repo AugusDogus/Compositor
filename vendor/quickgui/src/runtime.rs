@@ -250,6 +250,7 @@ mod event_loop_lifecycle;
 mod event_loop_user;
 mod event_loop_wait;
 mod event_loop_window;
+mod tablet;
 mod keyboard_input;
 mod lifecycle;
 mod listener_scope;
@@ -616,6 +617,9 @@ struct RuntimeWindow {
     resize_correction: Option<Size>,
     /// The last raw Force Touch pressure stage, so a force click fires once per transition.
     pressure_stage: i64,
+    tablet: Option<crate::TabletInfo>,
+    tablet_buttons: [bool; 3],
+    dispatching_tablet: bool,
     /// One in-flight corrective outer position requested by `constrain_move`.
     move_correction: Option<Point>,
     focused: bool,

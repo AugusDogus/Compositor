@@ -99,6 +99,7 @@ fn graph_grid_is_centered_on_the_curve_coordinate_quarters() {
 fn pointer(x: f32, y: f32, phase: PointerPhase, width: f32) -> PointerEvent {
     let point = quickgui::Point::new(x / 255. * width, (1. - y / 255.) * 260.);
     PointerEvent {
+        tablet: None,
         phase,
         position: point,
         origin: point,

@@ -164,6 +164,7 @@ mod tests {
                     let zoom = cx.read(view, |e| e.session().zoom).unwrap();
                     cx.update(view, |e, _| {
                         let mut event = quickgui::PointerEvent {
+                            tablet: None,
                             phase: quickgui::PointerPhase::Down,
                             button: quickgui::MouseButton::Left,
                             position: start,

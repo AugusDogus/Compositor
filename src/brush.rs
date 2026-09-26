@@ -2,7 +2,9 @@ mod blur;
 mod coverage;
 mod path;
 mod source;
+mod tablet;
 use source::Source;
+pub use tablet::{Input, Tip};
 
 use crate::{
     Result,
@@ -59,6 +61,8 @@ pub struct Stroke {
     tail: Option<path::Tail>,
     last: Point,
     brush: Brush,
+    base_brush: Brush,
+    tip: Option<Tip>,
     kernel: coverage::Kernel,
     mode: PaintMode,
     mask: bool,
@@ -79,6 +83,25 @@ impl Stroke {
         mask: bool,
         sample_all: bool,
     ) -> Result<Self> {
+        Self::start_input(
+            doc,
+            Input { point, tip: None },
+            brush,
+            mode,
+            mask,
+            sample_all,
+        )
+    }
+
+    pub fn start_input(
+        doc: &mut Document,
+        input: Input,
+        brush: Brush,
+        mode: PaintMode,
+        mask: bool,
+        sample_all: bool,
+    ) -> Result<Self> {
+        let point = input.point;
         validate_point(point)?;
         let layer = doc
             .active_layer()
@@ -164,6 +187,8 @@ impl Stroke {
                 .ok_or_else(|| invalid("Layer pixels could not be allocated."))?;
             (image.width(), image.height())
         };
+        let base_brush = brush;
+        let brush = input.tip.map_or(brush, |tip| tip.brush(brush));
         let mut stroke = Self {
             original: doc.clone(),
             coverage: coverage::Plane::new(width, height),
@@ -171,17 +196,30 @@ impl Stroke {
             tail: None,
             last: point,
             brush,
+            base_brush,
+            tip: input.tip,
             kernel: coverage::Kernel::new(brush),
             mode,
             mask,
             source,
         };
-        stroke.deposit(doc, point, point)?;
+        if !input.tip.is_some_and(|tip| tip.pressure == Some(0.)) {
+            stroke.deposit(doc, point, point)?;
+        }
         Ok(stroke)
     }
 
     pub fn to(&mut self, doc: &mut Document, point: Point) -> Result<()> {
         validate_point(point)?;
+        if self.tip.is_some() {
+            return self.to_input(
+                doc,
+                Input {
+                    point,
+                    tip: self.tip,
+                },
+            );
+        }
         self.append(doc, point)
     }
 
@@ -345,7 +383,10 @@ impl Stroke {
             dy,
             canvas,
         };
-        let segment = self.kernel.segment(start, end, antialias_width);
+        let segment = self
+            .kernel
+            .segment(start, end, antialias_width)
+            .with_metric(self.tip.map_or([1., 0., 0., 1.], Tip::metric));
         if selection.is_none()
             && let Some(changed) = coverage::gpu::paint(
                 &region,

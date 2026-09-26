@@ -10,6 +10,7 @@ struct Parameters {
     size: vec4<u32>,
     spacing: vec4<f32>,
     color: vec4<f32>,
+    metric: vec4<f32>,
 }
 struct Output { density: f32, changed: u32, color: u32 }
 @group(0) @binding(0) var<uniform> u: Parameters;
@@ -22,7 +23,8 @@ fn tip_density(distance_squared: f32) -> f32 {
     let coverage = max(0.0, (exp(-2.5 * t * t) - exp(-2.5)) / (1.0 - exp(-2.5)));
     return -log(max(1.0 - coverage, 0.001));
 }
-fn deposit(p: vec2<f32>) -> f32 {
+fn deposit(point: vec2<f32>) -> f32 {
+    let p = vec2<f32>(dot(u.metric.xy, point), dot(u.metric.zw, point));
     let direction = u.segment.xy;
     let length = u.segment.z;
     let projection = dot(p, direction);

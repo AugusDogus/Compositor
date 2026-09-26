@@ -225,7 +225,7 @@ impl Engine {
                 values.extend_from_slice(&plane.as_raw()[start..start + width as usize]);
             }
             let origin = region.point(left, y);
-            let mut parameters = Vec::with_capacity(112);
+            let mut parameters = Vec::with_capacity(128);
             for field in [
                 [region.dx[0], region.dx[1], region.dy[0], region.dy[1]],
                 [
@@ -269,6 +269,7 @@ impl Engine {
             ]));
             parameters
                 .extend_from_slice(bytemuck::cast_slice(&brush.color.map(|v| v as f32 / 255.)));
+            parameters.extend_from_slice(bytemuck::cast_slice(&segment.metric.map(|v| v as f32)));
             let original = match target {
                 Target::Coverage => None,
                 Target::Image { original, .. } => {

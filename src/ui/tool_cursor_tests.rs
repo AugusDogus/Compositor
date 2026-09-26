@@ -360,6 +360,7 @@ fn captured_pan_keeps_closed_hand_outside_canvas_until_release() {
     )
     .unwrap();
     let event = quickgui::PointerEvent {
+        tablet: None,
         phase: quickgui::PointerPhase::Down,
         position: inside,
         origin: inside,
@@ -391,6 +392,7 @@ fn captured_pan_keeps_closed_hand_outside_canvas_until_release() {
         window,
         "canvas",
         quickgui::PointerEvent {
+            tablet: None,
             phase: quickgui::PointerPhase::Up,
             position: outside,
             local_position: quickgui::Point::new(outside.x - bounds.x, outside.y - bounds.y),

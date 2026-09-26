@@ -58,6 +58,7 @@ fn gradient_map_sampling_does_not_resample_its_new_preview_on_pointer_release() 
     e.open_pixel_adjustment(Kind::GradientMap).unwrap();
     e.open_gradient_map_picker().unwrap();
     let mut event = quickgui::PointerEvent {
+        tablet: None,
         phase: quickgui::PointerPhase::Down,
         position: Point::new(10., 10.),
         origin: Point::new(10., 10.),

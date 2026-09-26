@@ -487,6 +487,7 @@ mod tests {
             track.y + 12.,
         );
         let down = quickgui::PointerEvent {
+            tablet: None,
             phase: PointerPhase::Down,
             position: target,
             origin: target,
@@ -508,6 +509,7 @@ mod tests {
             window,
             id,
             quickgui::PointerEvent {
+            tablet: None,
                 phase: PointerPhase::Cancel,
                 ..down
             },

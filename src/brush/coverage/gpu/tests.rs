@@ -137,3 +137,36 @@ fn gpu_matches_reference_for_clicks_segments_transforms_and_chunk_boundaries() {
         }
     }
 }
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn gpu_tilted_tip_matches_reference_with_canvas_clipping() {
+    let engine = Engine::new().unwrap();
+    for hardness in [0., 0.5, 1.] {
+        let brush = Brush {
+            diameter: 520.,
+            hardness,
+            ..Brush::default()
+        };
+        let kernel = Kernel::new(brush);
+        let segment = kernel
+            .segment([15., 25.], [280., 150.], 1.)
+            .with_metric(crate::brush::Tip::new(Some(1.), Some([45., 35.])).metric());
+        let region = Region {
+            bounds: [0, 0, 700, 600],
+            origin: [-10.5, -20.5],
+            dx: [1., 0.],
+            dy: [0., 1.],
+            canvas: [650., 550.],
+        };
+        let mut actual = Plane::new(700, 600);
+        let mut reference = actual.clone();
+        let expected = region.rasterize(&mut reference, &segment, brush).unwrap();
+        let result = engine
+            .rasterize(&region, &mut actual, &segment, brush)
+            .unwrap();
+        for (a, b) in result.as_raw().iter().zip(expected.as_raw()) {
+            assert!(a.abs_diff(*b) <= 1, "hardness={hardness}: {a} vs {b}");
+        }
+    }
+}

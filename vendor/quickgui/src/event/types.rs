@@ -685,6 +685,15 @@ pub enum PointerPhase {
     Cancel,
 }
 
+/// Calibrated native pen data. Missing axes remain unknown, not fabricated.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TabletInfo {
+    pub pressure: Option<f32>,
+    /// Signed tilt angles in degrees, zero when perpendicular to the tablet.
+    pub tilt: Option<[f32; 2]>,
+    pub eraser: bool,
+}
+
 /// A pointer event delivered to an element that owns pointer capture.
 ///
 /// Positions and deltas use logical pixels. [`Self::position`] and [`Self::origin`] are relative
@@ -693,6 +702,7 @@ pub enum PointerPhase {
 /// events and the terminal up or cancel event even when the pointer is outside its bounds.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PointerEvent {
+    pub tablet: Option<TabletInfo>,
     pub phase: PointerPhase,
     /// Current pointer position in logical window coordinates.
     pub position: Point,
@@ -1030,6 +1040,7 @@ mod tests {
     #[test]
     fn localizing_a_pointer_event_carries_the_captured_element_geometry() {
         let event = PointerEvent {
+            tablet: None,
             phase: PointerPhase::Move,
             position: Point::new(140.0, 60.0),
             origin: Point::new(100.0, 50.0),

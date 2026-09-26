@@ -40,6 +40,7 @@ fn editor() -> Editor {
 
 fn stroke(e: &mut Editor, phase: PointerPhase) -> Result<()> {
     e.pointer(&PointerEvent {
+        tablet: None,
         phase,
         position: Point::new(32., 30.),
         origin: Point::new(32., 30.),

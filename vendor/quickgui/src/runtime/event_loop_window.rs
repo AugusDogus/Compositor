@@ -10,6 +10,16 @@ impl Runtime {
         if !self.activate_window(window_id) {
             return;
         }
+        if let WindowEvent::Tablet(sample) = event {
+            self.deactivate_window();
+            self.handle_tablet(event_loop, window_id, sample);
+            return;
+        }
+        if matches!(event, WindowEvent::CursorMoved { .. } | WindowEvent::MouseInput { .. }) {
+            if let Some(state) = &mut self.window {
+                if !state.dispatching_tablet { state.tablet = None; }
+            }
+        }
         #[cfg(target_os = "macos")]
         let (event, platform_click_count) = match event {
             WindowEvent::MouseInputWithClickCount {
@@ -379,6 +389,7 @@ impl Runtime {
                         (
                             capture.target,
                             PointerEvent {
+                                tablet: state.tablet,
                                 // The captured element localizes the event before delivery.
                                 size: Size::ZERO,
                                 phase: PointerPhase::Move,
@@ -764,6 +775,7 @@ impl Runtime {
                                     (
                                         capture.target,
                                         PointerEvent {
+                                            tablet: window.tablet,
                                             // The captured element localizes the event before delivery.
                                             size: Size::ZERO,
                                             phase: PointerPhase::Up,
@@ -945,6 +957,7 @@ impl Runtime {
                                         Some((
                                             target,
                                             PointerEvent {
+                                                tablet: window.tablet,
                                                 // The captured element localizes the event before delivery.
                                                 size: Size::ZERO,
                                                 phase: PointerPhase::Down,
@@ -972,6 +985,7 @@ impl Runtime {
                                         (
                                             capture.target,
                                             PointerEvent {
+                                                tablet: window.tablet,
                                                 // The captured element localizes the event before delivery.
                                                 size: Size::ZERO,
                                                 phase: PointerPhase::Up,
@@ -1440,6 +1454,7 @@ impl Runtime {
                             let internal_drag = state.drag_session.take().is_some();
                             state.drag_candidate = None;
                             state.pressed_mouse_buttons = PressedMouseButtons::default();
+                            state.tablet_buttons = [false; 3];
                             state.mouse_clicks.cancel();
                             #[cfg(target_os = "macos")]
                             {
@@ -1465,6 +1480,7 @@ impl Runtime {
                             Some((
                                 capture.target,
                                 PointerEvent {
+                                    tablet: state.tablet,
                                     // The captured element localizes the event before delivery.
                                     size: Size::ZERO,
                                     phase: PointerPhase::Cancel,

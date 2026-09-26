@@ -112,6 +112,7 @@ mod tests {
 
     fn pointer(x: f32, phase: PointerPhase) -> PointerEvent {
         PointerEvent {
+            tablet: None,
             phase,
             position: Point::new(x, 50.),
             origin: Point::new(25., 50.),

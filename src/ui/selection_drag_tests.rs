@@ -17,6 +17,7 @@ fn editor(tool: Tool) -> Editor {
 fn pointer(e: &mut Editor, phase: PointerPhase, at: [f32; 2]) {
     let point = Point::new(at[0], at[1]);
     e.pointer(&PointerEvent {
+        tablet: None,
         phase,
         position: point,
         origin: point,
@@ -177,6 +178,7 @@ fn selected_pixel_drag_keeps_both_axes_with_shift_and_captures_copy_on_press() {
             ),
         ] {
             e.pointer(&PointerEvent {
+                tablet: None,
                 phase,
                 position: point,
                 origin: Point::new(8., 8.),

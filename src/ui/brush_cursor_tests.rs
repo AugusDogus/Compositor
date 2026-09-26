@@ -6,6 +6,7 @@ use quickgui::{
 
 fn pointer(x: f32, phase: PointerPhase, modifiers: Modifiers) -> PointerEvent {
     PointerEvent {
+        tablet: None,
         phase,
         position: UiPoint::new(x, 50.),
         origin: UiPoint::new(50., 50.),

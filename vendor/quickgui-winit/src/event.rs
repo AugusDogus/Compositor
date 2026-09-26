@@ -159,9 +159,23 @@ pub enum StartCause {
     Init,
 }
 
+/// A native stylus sample. Positions are physical window pixels; tilt is degrees.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TabletEvent {
+    pub position: PhysicalPosition<f64>,
+    pub pressure: Option<f32>,
+    pub tilt: Option<[f32; 2]>,
+    pub eraser: bool,
+    /// Primary tip, secondary barrel, middle barrel.
+    pub buttons: [bool; 3],
+    pub proximity: bool,
+}
+
 /// Describes an event from a [`Window`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum WindowEvent {
+    /// Native Linux tablet frame. Replaces emulated mouse events for this tool.
+    Tablet(TabletEvent),
     /// The activation token was delivered back and now could be used.
     #[cfg_attr(
         not(any(x11_platform, wayland_platform)),

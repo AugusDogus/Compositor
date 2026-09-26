@@ -29,6 +29,7 @@ fn pointer(e: &mut Editor, phase: PointerPhase, point: Point, modifiers: Modifie
         (point[1] * zoom + offset[1]) as f32,
     );
     e.pointer(&PointerEvent {
+        tablet: None,
         phase,
         position: p,
         origin: p,

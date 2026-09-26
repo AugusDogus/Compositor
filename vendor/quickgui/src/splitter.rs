@@ -732,6 +732,7 @@ mod tests {
 
     fn drag(delta: f32) -> PointerEvent {
         PointerEvent {
+            tablet: None,
             size: crate::Size::ZERO,
             phase: PointerPhase::Move,
             position: Point::new(0.0, 0.0),
@@ -1021,6 +1022,7 @@ mod tests {
     fn a_captured_drag_is_reported_from_its_press_to_its_release() {
         let mut state = SplitterState::new(SplitterOrientation::Horizontal, &[200.0, 300.0]);
         let event = |phase, x, delta| PointerEvent {
+            tablet: None,
             phase,
             position: Point::new(x, 0.0),
             delta: Vector::new(delta, 0.0),
@@ -1055,6 +1057,7 @@ mod tests {
     fn a_captured_drag_stays_anchored_when_layout_normalizes_the_panes() {
         let mut state = SplitterState::new(SplitterOrientation::Horizontal, &[100.0, 100.0, 100.0]);
         let event = |phase, x, delta| PointerEvent {
+            tablet: None,
             phase,
             position: Point::new(x, 0.0),
             delta: Vector::new(delta, 0.0),

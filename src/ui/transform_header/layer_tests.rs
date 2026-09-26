@@ -14,6 +14,7 @@ pub(super) fn pointer(
     );
     editor
         .pointer(&PointerEvent {
+            tablet: None,
             phase,
             position: p,
             origin: p,

@@ -1341,6 +1341,7 @@ mod tests {
 
     fn swipe_event(phase: PointerPhase, dx: f32, dy: f32) -> PointerEvent {
         PointerEvent {
+            tablet: None,
             phase,
             position: crate::Point::new(200.0 + dx, 100.0 + dy),
             origin: crate::Point::new(200.0, 100.0),

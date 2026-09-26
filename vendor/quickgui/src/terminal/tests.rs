@@ -263,6 +263,7 @@ fn terminal_style_normalizes_content_padding() {
 #[test]
 fn terminal_selection_uses_pointer_coordinates_local_to_the_terminal() {
     let event = PointerEvent {
+        tablet: None,
         size: crate::Size::ZERO,
         phase: PointerPhase::Move,
         position: crate::Point::new(436.0, 158.0),

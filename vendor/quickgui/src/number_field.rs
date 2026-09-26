@@ -1500,6 +1500,7 @@ mod tests {
 
     fn scrub_event(phase: PointerPhase, dx: f32, dy: f32, modifiers: Modifiers) -> PointerEvent {
         PointerEvent {
+            tablet: None,
             phase,
             position: crate::Point::new(100.0 + dx, 100.0 + dy),
             origin: crate::Point::new(100.0, 100.0),

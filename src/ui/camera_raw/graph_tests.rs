@@ -16,6 +16,7 @@ fn editor(group: Group) -> Editor {
 fn pointer(x: f32, y: f32, phase: PointerPhase) -> PointerEvent {
     let p = quickgui::Point::new(x, y);
     PointerEvent {
+        tablet: None,
         phase,
         position: p,
         origin: p,

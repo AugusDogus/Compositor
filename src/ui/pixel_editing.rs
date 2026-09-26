@@ -121,6 +121,7 @@ mod tests {
                 let before = e.session().document.clone();
                 let point = quickgui::Point::new(10., 10.);
                 let mut event = quickgui::PointerEvent {
+                    tablet: None,
                     phase: quickgui::PointerPhase::Down,
                     position: point,
                     origin: point,

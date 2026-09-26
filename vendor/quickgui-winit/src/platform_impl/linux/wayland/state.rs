@@ -39,6 +39,9 @@ use crate::platform_impl::OsError;
 
 /// Winit's Wayland state.
 pub struct WinitState {
+    pub tablet_tools: AHashMap<ObjectId, sctk::reexports::protocols::wp::tablet::zv2::client::zwp_tablet_tool_v2::ZwpTabletToolV2>,
+    pub tablet_cursor_manager: Option<sctk::reexports::protocols::wp::cursor_shape::v1::client::wp_cursor_shape_manager_v1::WpCursorShapeManagerV1>,
+    pub tablet_manager: Option<sctk::reexports::protocols::wp::tablet::zv2::client::zwp_tablet_manager_v2::ZwpTabletManagerV2>,
     /// The WlRegistry.
     pub registry_state: RegistryState,
 
@@ -143,9 +146,12 @@ impl WinitState {
 
         let seat_state = SeatState::new(globals, queue_handle);
 
+        let tablet_manager: Option<sctk::reexports::protocols::wp::tablet::zv2::client::zwp_tablet_manager_v2::ZwpTabletManagerV2> = globals.bind(queue_handle, 1..=1, ()).ok();
         let mut seats = AHashMap::default();
         for seat in seat_state.seats() {
-            seats.insert(seat.id(), WinitSeatState::new());
+            let mut state = WinitSeatState::new();
+            state.tablet = tablet_manager.as_ref().map(|manager| manager.get_tablet_seat(&seat, queue_handle, seat.id()));
+            seats.insert(seat.id(), state);
         }
 
         let (viewporter_state, fractional_scaling_manager) =
@@ -159,6 +165,9 @@ impl WinitState {
         let custom_cursor_pool = Arc::new(Mutex::new(SlotPool::new(2, &shm).unwrap()));
 
         Ok(Self {
+            tablet_tools: Default::default(),
+            tablet_cursor_manager: globals.bind(queue_handle, 1..=1, sctk::globals::GlobalData).ok(),
+            tablet_manager,
             registry_state,
             compositor_state: Arc::new(compositor_state),
             subcompositor_state: subcompositor_state.map(Arc::new),

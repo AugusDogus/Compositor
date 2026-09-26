@@ -47,6 +47,7 @@ mod util;
 mod window;
 mod xdisplay;
 mod xsettings;
+mod tablet;
 
 pub use util::CustomCursor;
 
@@ -1025,6 +1026,7 @@ fn mkdid(w: xinput::DeviceId) -> crate::event::DeviceId {
 pub struct Device {
     _name: String,
     scroll_axes: Vec<(i32, ScrollAxis)>,
+    tablet: Option<tablet::Tool>,
     // For master devices, this is the paired device (pointer <-> keyboard).
     // For slave devices, this is the master.
     attachment: c_int,
@@ -1044,7 +1046,7 @@ enum ScrollOrientation {
 }
 
 impl Device {
-    fn new(info: &ffi::XIDeviceInfo) -> Self {
+    fn new(info: &ffi::XIDeviceInfo, connection: &XConnection) -> Self {
         let name = unsafe { CStr::from_ptr(info.name).to_string_lossy() };
         let mut scroll_axes = Vec::new();
 
@@ -1071,6 +1073,7 @@ impl Device {
         }
 
         let mut device = Device {
+            tablet: tablet::Tool::new(info, connection, &name),
             _name: name.into_owned(),
             scroll_axes,
             attachment: info.attachment,

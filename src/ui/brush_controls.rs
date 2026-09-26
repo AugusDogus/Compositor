@@ -85,6 +85,20 @@ impl Editor {
                     .accessibility_label("Smoothing")
                     .w(42.));
         }
+        if matches!(
+            self.tools.tool,
+            Tool::Brush | Tool::Erase | Tool::Clone | Tool::Blur | Tool::Heal
+        ) {
+            row = row
+                .child(Self::segment("Pressure", self.tools.pen_pressure)
+                    .id("pen-pressure")
+                    .tooltip("Use tablet pressure for brush size. Mouse strokes keep the configured size.")
+                    .on_click(cx.listener("pen-pressure", |this, cx| { this.tools.pen_pressure = !this.tools.pen_pressure; cx.invalidate(); })))
+                .child(Self::segment("Tilt", self.tools.pen_tilt)
+                    .id("pen-tilt")
+                    .tooltip("Use tablet tilt for an elliptical brush tip.")
+                    .on_click(cx.listener("pen-tilt", |this, cx| { this.tools.pen_tilt = !this.tools.pen_tilt; cx.invalidate(); })));
+        }
         if self.tools.mask_target {
             row = row.child(self.mask_paint_picker(cx));
         } else if !matches!(

@@ -865,6 +865,7 @@ fn curve_graph_adds_drags_removes_and_resets_points() {
     let from = position(0.5, 0.5);
     let to = position(0.6, 0.2);
     let base = quickgui::PointerEvent {
+        tablet: None,
         size: quickgui::Size::ZERO,
         phase: quickgui::PointerPhase::Down,
         position: from,
@@ -885,6 +886,7 @@ fn curve_graph_adds_drags_removes_and_resets_points() {
         window,
         "curve-graph",
         quickgui::PointerEvent {
+            tablet: None,
             phase: quickgui::PointerPhase::Move,
             position: to,
             local_position: to,
@@ -902,6 +904,7 @@ fn curve_graph_adds_drags_removes_and_resets_points() {
         window,
         "curve-graph",
         quickgui::PointerEvent {
+            tablet: None,
             phase: quickgui::PointerPhase::Up,
             position: to,
             local_position: to,

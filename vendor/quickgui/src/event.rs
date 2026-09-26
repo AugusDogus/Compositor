@@ -66,6 +66,7 @@ mod tests {
     #[test]
     fn captured_pointer_localizes_window_coordinates_to_its_element() {
         let event = PointerEvent {
+            tablet: None,
             size: Size::ZERO,
             phase: PointerPhase::Move,
             position: Point::new(342.0, 186.0),

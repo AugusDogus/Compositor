@@ -23,6 +23,8 @@ mod keyboard;
 mod pointer;
 mod text_input;
 mod touch;
+pub(crate) mod tablet;
+pub(crate) mod tablet_cursor;
 
 pub use pointer::relative_pointer::RelativePointerState;
 pub use pointer::{PointerConstraintsState, WinitPointerData, WinitPointerDataExt};
@@ -34,6 +36,7 @@ use touch::TouchPoint;
 
 #[derive(Debug, Default)]
 pub struct WinitSeatState {
+    pub tablet: Option<sctk::reexports::protocols::wp::tablet::zv2::client::zwp_tablet_seat_v2::ZwpTabletSeatV2>,
     /// The pointer bound on the seat.
     pointer: Option<Arc<ThemedPointer<WinitPointerData>>>,
 
@@ -209,7 +212,9 @@ impl SeatHandler for WinitState {
         _queue_handle: &QueueHandle<Self>,
         seat: WlSeat,
     ) {
-        self.seats.insert(seat.id(), WinitSeatState::new());
+        let mut seat_state = WinitSeatState::new();
+        seat_state.tablet = self.tablet_manager.as_ref().map(|manager| manager.get_tablet_seat(&seat, _queue_handle, seat.id()));
+        self.seats.insert(seat.id(), seat_state);
     }
 
     fn remove_seat(
@@ -218,7 +223,10 @@ impl SeatHandler for WinitState {
         _queue_handle: &QueueHandle<Self>,
         seat: WlSeat,
     ) {
-        let _ = self.seats.remove(&seat.id());
+        self.remove_tablet_seat(&seat.id());
+        if let Some(seat_state) = self.seats.remove(&seat.id()) {
+            if let Some(tablet) = seat_state.tablet { tablet.destroy(); }
+        }
         self.on_keyboard_destroy(&seat.id());
     }
 }

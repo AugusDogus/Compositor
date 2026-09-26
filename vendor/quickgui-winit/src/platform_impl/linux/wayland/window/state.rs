@@ -54,6 +54,7 @@ const MIN_WINDOW_SIZE: LogicalSize<u32> = LogicalSize::new(2, 1);
 
 /// The state of the window which is being updated from the [`WinitState`].
 pub struct WindowState {
+    pub tablet_cursors: std::collections::HashMap<sctk::reexports::client::backend::ObjectId, crate::platform_impl::wayland::seat::tablet_cursor::Cursor>,
     /// The connection to Wayland server.
     pub connection: Connection,
 
@@ -184,6 +185,7 @@ impl WindowState {
             .map(|fsm| fsm.fractional_scaling(window.wl_surface(), queue_handle));
 
         Self {
+            tablet_cursors: Default::default(),
             blur: None,
             blur_manager: winit_state.kwin_blur_manager.clone(),
             compositor,
@@ -744,9 +746,15 @@ impl WindowState {
         self.scale_factor
     }
 
+    pub fn update_tablet_cursors(&self) {
+        let icon = match self.selected_cursor { SelectedCursor::Named(icon) => icon, _ => CursorIcon::Default };
+        for cursor in self.tablet_cursors.values() { cursor.update(self.cursor_visible, icon); }
+    }
+
     /// Set the cursor icon.
     pub fn set_cursor(&mut self, cursor_icon: CursorIcon) {
         self.selected_cursor = SelectedCursor::Named(cursor_icon);
+        self.update_tablet_cursors();
 
         if !self.cursor_visible {
             return;
@@ -994,6 +1002,7 @@ impl WindowState {
     /// Set the visibility state of the cursor.
     pub fn set_cursor_visible(&mut self, cursor_visible: bool) {
         self.cursor_visible = cursor_visible;
+        self.update_tablet_cursors();
 
         if self.cursor_visible {
             match &self.selected_cursor {

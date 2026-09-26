@@ -63,6 +63,7 @@ fn pointer(editor: &mut Editor, phase: PointerPhase, at: [f32; 2], modifiers: Mo
     let point = Point::new(at[0], at[1]);
     editor
         .pointer(&PointerEvent {
+            tablet: None,
             phase,
             position: point,
             origin: point,
