@@ -637,6 +637,10 @@ impl Editor {
 
 impl View for Editor {
     fn event(&mut self, event: &Event, cx: &mut EventContext) {
+        self.sync_text_selection(cx);
+        if matches!(&self.modal, Some(Form::Text(_))) {
+            cx.invalidate();
+        }
         self.track_tab_drag(event, cx);
         match event {
             Event::KeyDown {

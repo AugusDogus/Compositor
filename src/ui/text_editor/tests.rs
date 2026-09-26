@@ -163,3 +163,54 @@ fn move_tool_text_open_uses_topmost_visible_transformed_text_and_preserves_docum
         .visible = false;
     assert!(!editor.edit_text_at(point).unwrap());
 }
+
+#[test]
+fn selected_text_color_survives_picker_typing_undo_and_apply() {
+    let mut editor = Editor::with_test_document();
+    editor.begin_text([20., 30.], [20., 30.], false).unwrap();
+    if let Some(Form::Text(draft)) = &mut editor.modal {
+        draft.replace_input("AB中", Some(5..5));
+    }
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("Type colors").size(1400., 1000.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    cx.focus(window, "text-content").unwrap();
+    cx.simulate_keystrokes(window, "ctrl-home right shift-right")
+        .unwrap();
+    cx.click(window, "text-color-picker").unwrap();
+    cx.focus(window, 51_003_u64).unwrap();
+    cx.simulate_keystrokes(window, "ctrl-a").unwrap();
+    cx.simulate_input(window, "FF0000").unwrap();
+    cx.update(view, |editor, cx| {
+        editor.finish_color(true).unwrap();
+        cx.invalidate();
+    })
+    .unwrap();
+    cx.update(view, |editor, _| {
+        let Some(Form::Text(draft)) = &mut editor.modal else {
+            panic!("draft missing")
+        };
+        assert_eq!(draft.selection, 1..2);
+        assert_eq!(draft.style.color_runs.as_ref().unwrap()[0].location, 1);
+        draft.set_selection(2..2);
+        draft.replace_input("AB!中", Some(3..3));
+        assert_eq!(draft.style.color_runs.as_ref().unwrap()[0].length, 2);
+        draft.undo_text(false);
+        assert_eq!(draft.style.content, "AB中");
+        assert_eq!(draft.style.color_runs.as_ref().unwrap()[0].length, 1);
+        draft.undo_text(true);
+        assert_eq!(draft.style.content, "AB!中");
+        editor.apply_text().unwrap();
+        let text = editor
+            .session()
+            .document
+            .active_layer()
+            .unwrap()
+            .text
+            .as_ref()
+            .unwrap();
+        assert_eq!(text.color_runs.as_ref().unwrap()[0].length, 2);
+    })
+    .unwrap();
+}

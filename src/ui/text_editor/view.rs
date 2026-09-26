@@ -208,18 +208,20 @@ impl Editor {
                 )),
             );
         }
-        let rgb = draft.parsed().unwrap_or_else(|_| draft.style.clone());
+        let style = draft.parsed().unwrap_or_else(|_| draft.style.clone());
+        let rgb = draft.selected_color(&style);
         let swatch = button()
             .size(24., 24.)
             .bg(Color::rgb8(
-                (rgb.red * 255.).round() as u8,
-                (rgb.green * 255.).round() as u8,
-                (rgb.blue * 255.).round() as u8,
+                (rgb[0] * 255.).round() as u8,
+                (rgb[1] * 255.).round() as u8,
+                (rgb[2] * 255.).round() as u8,
             ))
             .border(1., Color::rgb8(100, 100, 100))
             .rounded(4.)
             .accessibility_label("Text color")
             .on_click(cx.listener("text-color-picker", |this, cx| {
+                this.sync_text_selection(cx);
                 this.open_text_color_picker();
                 cx.invalidate();
             }));
@@ -231,7 +233,7 @@ impl Editor {
                     .flex_shrink_0()
                     .on_input(cx.input_listener("text-color", |this, value, cx| {
                         if let Some(Form::Text(draft)) = &mut this.modal {
-                            draft.color = value.into();
+                            draft.set_color_field(value.into());
                         }
                         cx.invalidate();
                     })),
@@ -280,19 +282,39 @@ impl Editor {
             .text_size(17.)
             .font_semibold(),
         );
+        let style = draft.parsed().unwrap_or_else(|_| draft.style.clone());
+        let spans = style.colored_spans();
+        let mut styled = quickgui::StyledText::new(style.content.clone());
+        if spans.len() <= quickgui::MAX_TEXT_HIGHLIGHTS {
+            for (range, rgb) in &spans {
+                styled = styled.highlight(
+                    range.clone(),
+                    quickgui::HighlightStyle::default().color(Color::rgb8(
+                        (rgb[0] * 255.).round() as u8,
+                        (rgb[1] * 255.).round() as u8,
+                        (rgb[2] * 255.).round() as u8,
+                    )),
+                );
+            }
+        } else {
+            contents = contents.child(
+                text("Use the preview for colors in this densely styled text.").text_size(12.),
+            );
+        }
         contents = contents.child(
-            quickgui::text_area(draft.style.content.clone())
+            quickgui::styled_text_area(styled)
+                .text_input_initial_selection(draft.selection.clone())
                 .id("text-content")
                 .w_full()
                 .h(160.)
                 .text_size(16.)
                 .focus(controls::focus_outline)
-                .bg(Color::rgb8(26, 26, 26))
+                .bg(Color::rgb8(215, 215, 215))
+                .text_color(Color::rgb8(0, 0, 0))
                 .text_input_padding(10.)
                 .on_input(cx.input_listener("text-content", |this, value, cx| {
                     if let Some(Form::Text(draft)) = &mut this.modal {
-                        draft.style.content = value.into();
-                        draft.error.clear();
+                        draft.replace_input(value, cx.text_input_selection("text-content"));
                     }
                     cx.invalidate();
                 }))

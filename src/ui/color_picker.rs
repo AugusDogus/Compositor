@@ -93,10 +93,14 @@ impl Editor {
             Form::Text(draft) => draft.parsed().unwrap_or_else(|_| draft.style.clone()),
             _ => return,
         };
+        let color = match &form {
+            Form::Text(draft) => draft.selected_color(&style),
+            _ => style.base_color(),
+        };
         let rgb = [
-            (style.red * 255.).round() as u8,
-            (style.green * 255.).round() as u8,
-            (style.blue * 255.).round() as u8,
+            (color[0] * 255.).round() as u8,
+            (color[1] * 255.).round() as u8,
+            (color[2] * 255.).round() as u8,
             255,
         ];
         let mut picker = Picker::new(rgb, [255; 4]);
@@ -281,7 +285,7 @@ impl Editor {
             Purpose::LayerText { mut form } | Purpose::ForegroundText { mut form } => {
                 if apply && let Form::Text(draft) = form.as_mut() {
                     let [r, g, b, _] = picker.colors[0].hsb.rgb();
-                    draft.color = format!("#{r:02X}{g:02X}{b:02X}");
+                    draft.set_color_field(format!("#{r:02X}{g:02X}{b:02X}"));
                 }
                 if apply && foreground_text {
                     self.tools.brush.color = chosen;

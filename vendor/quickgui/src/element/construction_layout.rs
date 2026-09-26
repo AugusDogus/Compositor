@@ -257,6 +257,7 @@ impl Element {
     ) -> Self {
         let mut element = Self::container();
         element.kind = ElementKind::TextInput(TextInputElement {
+            initial_selection: None,
             value,
             highlights,
             placeholder: Arc::from(""),

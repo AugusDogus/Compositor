@@ -189,6 +189,14 @@ impl Element {
 
     /// Set horizontal padding for text, selection, and caret inside a text input.
     /// Editor decorations, when configured, retain their own content padding.
+    /// Initial UTF-8 selection, applied only when this input mounts. Retained edits keep their selection.
+    pub fn text_input_initial_selection(mut self, range: std::ops::Range<usize>) -> Self {
+        if let ElementKind::TextInput(input) = &mut self.kind {
+            input.initial_selection = Some(range);
+        }
+        self
+    }
+
     pub fn text_input_padding(mut self, padding: f32) -> Self {
         assert!(
             padding.is_finite() && padding >= 0.0,

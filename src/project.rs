@@ -104,9 +104,9 @@ pub fn load(path: &Path) -> Result<Document> {
     if manifest.format != "com.compositor.project" || manifest.color_space != "sRGB" {
         return Err(invalid("This is not an sRGB Compositor project."));
     }
-    if !(1..=9).contains(&manifest.version) {
+    if !(1..=10).contains(&manifest.version) {
         return Err(invalid(format!(
-            "Project version {} is unsupported. Supported versions: 1 through 9.",
+            "Project version {} is unsupported. Supported versions: 1 through 10.",
             manifest.version
         )));
     }
@@ -175,6 +175,11 @@ pub fn load(path: &Path) -> Result<Document> {
         }
         if let Some(text) = &record.text {
             text.validate()?;
+            if manifest.version < 10 && text.color_runs.is_some() {
+                return Err(invalid(
+                    "Per-character text colors require project format version 10.",
+                ));
+            }
         }
         if record.text.is_some()
             && (group
@@ -329,7 +334,7 @@ pub fn save(document: &Document, path: &Path) -> Result<()> {
     raw::save(document, staged.path())?;
     let manifest = Manifest {
         format: "com.compositor.project".into(),
-        version: 9,
+        version: 10,
         color_space: "sRGB".into(),
         document_id: document.id,
         width: document.width,

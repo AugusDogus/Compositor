@@ -5,7 +5,7 @@ use image::{GrayImage, Luma, Rgba, RgbaImage};
 use serde_json::json;
 
 #[test]
-fn folder_opacity_saves_as_v9_and_upgrades_older_linux_packages() {
+fn folder_opacity_saves_as_v10_and_upgrades_older_linux_packages() {
     use compositor::{document::Document, layer_ops};
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("folders.comp");
@@ -21,7 +21,7 @@ fn folder_opacity_saves_as_v9_and_upgrades_older_linux_packages() {
         project::save(&doc, &path).unwrap();
         let mut manifest: serde_json::Value =
             serde_json::from_slice(&std::fs::read(path.join("manifest.json")).unwrap()).unwrap();
-        assert_eq!(manifest["version"], 9);
+        assert_eq!(manifest["version"], 10);
         assert_eq!(project::load(&path).unwrap(), doc);
         if opacity != 1. {
             // Linux 0.2/0.3 wrote these as v7. Keep them readable and repair on save.
@@ -37,7 +37,7 @@ fn folder_opacity_saves_as_v9_and_upgrades_older_linux_packages() {
             let upgraded: serde_json::Value =
                 serde_json::from_slice(&std::fs::read(path.join("manifest.json")).unwrap())
                     .unwrap();
-            assert_eq!(upgraded["version"], 9);
+            assert_eq!(upgraded["version"], 10);
         }
     }
 }
@@ -58,7 +58,7 @@ fn swift_project_versions_preserve_defaults_hierarchy_masks_and_adjustments() {
             .save(path.join("images").join(format!("{}.mask.png", id(n))))
             .unwrap();
     }
-    for version in 1..=9 {
+    for version in 1..=10 {
         let mut base = json!({"id":id(1), "name":"Pixels", "isVisible":true,
             "transform":transform, "imageFile":format!("{}.png", id(1))});
         if version >= 2 {
@@ -148,7 +148,7 @@ fn swift_project_versions_preserve_defaults_hierarchy_masks_and_adjustments() {
         project::save(&doc, &saved).unwrap();
         let written: serde_json::Value =
             serde_json::from_slice(&std::fs::read(saved.join("manifest.json")).unwrap()).unwrap();
-        assert_eq!(written["version"], 9);
+        assert_eq!(written["version"], 10);
         assert_eq!(project::load(&saved).unwrap(), doc);
     }
 }
@@ -179,7 +179,7 @@ fn v9_filter_adjustments_round_trip_and_are_rejected_in_older_manifests() {
         let manifest_path = path.join("manifest.json");
         let mut manifest: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
-        assert_eq!(manifest["version"], 9);
+        assert_eq!(manifest["version"], 10);
         for version in [7, 8] {
             manifest["version"] = json!(version);
             std::fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
@@ -190,13 +190,58 @@ fn v9_filter_adjustments_round_trip_and_are_rejected_in_older_manifests() {
                     .contains("require project format version 9")
             );
         }
-        manifest["version"] = json!(10);
+        manifest["version"] = json!(11);
         std::fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
         assert!(
             project::load(&path)
                 .unwrap_err()
                 .to_string()
-                .contains("Supported versions: 1 through 9")
+                .contains("Supported versions: 1 through 10")
         );
     }
+}
+
+#[test]
+fn v10_text_colors_round_trip_and_cannot_hide_in_older_projects() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("colors.comp");
+    let mut style = compositor::text::Text {
+        content: "A🙂中".into(),
+        ..Default::default()
+    };
+    style.set_color(0..5, [1., 0., 0.]).unwrap();
+    let pixels = compositor::text::TextRenderer::default()
+        .render(&style)
+        .unwrap();
+    assert!(
+        pixels
+            .pixels()
+            .any(|p| p[0] > 240 && p[1] < 10 && p[3] > 240)
+    );
+    let mut document = compositor::document::Document::new(400, 200).unwrap();
+    document
+        .add(compositor::text::new_layer(style.clone(), pixels, [0., 0.]).unwrap())
+        .unwrap();
+    compositor::project::save(&document, &path).unwrap();
+    let loaded = compositor::project::load(&path).unwrap();
+    assert_eq!(loaded.active_layer().unwrap().text.as_ref(), Some(&style));
+    let manifest_path = path.join("manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    assert_eq!(manifest["version"], 10);
+    let text = manifest["layers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|layer| layer.get("text"))
+        .unwrap();
+    assert_eq!(text["colorRuns"][0]["length"], 3);
+    manifest["version"] = serde_json::json!(9);
+    std::fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert!(
+        compositor::project::load(&path)
+            .unwrap_err()
+            .to_string()
+            .contains("require project format version 10")
+    );
 }

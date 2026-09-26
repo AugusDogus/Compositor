@@ -22,6 +22,9 @@ pub(super) struct Draft {
     pub(super) color: String,
     fonts_open: bool,
     error: String,
+    selection: std::ops::Range<usize>,
+    history: Vec<Text>,
+    redo: Vec<Text>,
 }
 impl Draft {
     pub(super) fn parsed(&self) -> Result<Text> {
@@ -46,16 +49,22 @@ impl Draft {
         let rgb = u32::from_str_radix(hex, 16).map_err(|_| {
             invalid("Enter the text color as six hexadecimal digits, such as #3366CC.")
         })?;
+        let selected = self.selected_color(&style);
         let original = format!(
             "{:02X}{:02X}{:02X}",
-            (style.red * 255.).round() as u8,
-            (style.green * 255.).round() as u8,
-            (style.blue * 255.).round() as u8
+            (selected[0] * 255.).round() as u8,
+            (selected[1] * 255.).round() as u8,
+            (selected[2] * 255.).round() as u8
         );
         if !hex.eq_ignore_ascii_case(&original) {
-            style.red = f64::from((rgb >> 16) & 255) / 255.;
-            style.green = f64::from((rgb >> 8) & 255) / 255.;
-            style.blue = f64::from(rgb & 255) / 255.;
+            style.set_color(
+                self.selection.clone(),
+                [
+                    f64::from((rgb >> 16) & 255) / 255.,
+                    f64::from((rgb >> 8) & 255) / 255.,
+                    f64::from(rgb & 255) / 255.,
+                ],
+            )?;
         }
         style.validate()?;
         Ok(style)
@@ -100,6 +109,7 @@ impl Editor {
             .unwrap_or_else(|| {
                 let mut style = self.text_defaults.clone();
                 style.content.clear();
+                style.color_runs = None;
                 style.box_size = box_size;
                 let [r, g, b, _] = self.tools.brush.color;
                 style.red = f64::from(r) / 255.;
@@ -124,7 +134,7 @@ impl Editor {
             self.session_mut().document.select(layer.id, false);
         }
         let size = style.box_size.unwrap_or([400., 200.]);
-        let draft = Draft {
+        let mut draft = Draft {
             session: self.session().id,
             layer: target.map(|l| l.id),
             origin,
@@ -141,10 +151,14 @@ impl Editor {
                 (style.green * 255.).round() as u8,
                 (style.blue * 255.).round() as u8
             ),
+            selection: style.content.len()..style.content.len(),
             style: std::mem::take(&mut style),
             fonts_open: false,
             error: String::new(),
+            history: Vec::new(),
+            redo: Vec::new(),
         };
+        draft.sync_color();
         self.text_renderer.get_or_insert_with(TextRenderer::default);
         self.tools.mask_target = false;
         self.tools.tool = Tool::Text;
@@ -213,7 +227,9 @@ impl Editor {
                 (style.green * 255.).round() as u8,
                 (style.blue * 255.).round() as u8
             );
+            draft.selection = style.content.len()..style.content.len();
             draft.style = style;
+            draft.sync_color();
         }
         Ok(())
     }
@@ -301,6 +317,19 @@ impl Editor {
             cx.prevent_default();
             return;
         };
+        if let Key::Character(letter) = &key
+            && (modifiers - Modifiers::SHIFT) == Modifiers::CONTROL
+            && (letter.eq_ignore_ascii_case("z") || letter.eq_ignore_ascii_case("y"))
+        {
+            cx.prevent_default();
+            if let Some(Form::Text(draft)) = &mut self.modal {
+                draft.undo_text(
+                    letter.eq_ignore_ascii_case("y") || modifiers.contains(Modifiers::SHIFT),
+                );
+            }
+            cx.invalidate();
+            return;
+        }
         if key == Key::Enter && modifiers == Modifiers::CONTROL {
             cx.prevent_default();
             self.text_submit(cx);
@@ -374,6 +403,7 @@ impl Editor {
     }
 }
 
+mod editing;
 mod view;
 
 #[cfg(test)]

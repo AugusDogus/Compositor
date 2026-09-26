@@ -20,6 +20,7 @@ pub struct EventContext {
     pub(crate) popover_owner_window: Option<WindowHandle>,
     pub(crate) popover_root_window: Option<WindowHandle>,
     pub(crate) pointer_position: Option<Point>,
+    pub(crate) text_selections: std::collections::HashMap<ElementId, std::ops::Range<usize>>,
     pub(crate) invalidate: bool,
     pub(crate) exit: bool,
     pub(crate) relaunch: Option<RelaunchRequest>,
@@ -83,9 +84,15 @@ pub(crate) struct EventRuntimeContext {
     pub(crate) system_preferences: SystemPreferences,
     pub(crate) window_registry: WindowRegistry,
     pub(crate) window: EventWindowContext,
+    pub(crate) text_selections: std::collections::HashMap<ElementId, std::ops::Range<usize>>,
 }
 
 impl EventContext {
+    /// Retained UTF-8 selection of a mounted text input, including an unfocused input.
+    pub fn text_input_selection(&self, id: impl Into<ElementId>) -> Option<std::ops::Range<usize>> {
+        self.text_selections.get(&id.into()).cloned()
+    }
+
     pub(crate) fn with_runtime(runtime: EventRuntimeContext) -> Self {
         Self {
             globals: runtime.globals,
@@ -104,6 +111,7 @@ impl EventContext {
             popover_owner_window: runtime.window.popover_owner,
             popover_root_window: runtime.window.popover_root,
             pointer_position: runtime.window.pointer_position,
+            text_selections: runtime.text_selections,
             invalidate: false,
             exit: false,
             relaunch: None,

@@ -214,6 +214,7 @@ impl Runtime {
         let parent = self.window.as_ref().and_then(|window| window.parent);
         let popover_context = self.current_popover_context();
         EventContext::with_runtime(EventRuntimeContext {
+            text_selections: self.window.as_ref().map(|w| w.ui.text_input_selections()).unwrap_or_default(),
             globals: self.globals.clone(),
             foreground_tasks: self.foreground_tasks.clone(),
             clipboard: self.clipboard.clone(),

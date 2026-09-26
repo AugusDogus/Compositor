@@ -13,6 +13,9 @@ use image::{Pixel, Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+mod colors;
+pub use colors::ColorRun;
+
 const PADDING: f64 = 12.;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -37,6 +40,8 @@ pub struct Text {
     pub leading: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub box_size: Option<Point>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color_runs: Option<Vec<ColorRun>>,
 }
 impl Default for Text {
     fn default() -> Self {
@@ -51,6 +56,7 @@ impl Default for Text {
             tracking: 0.,
             leading: 0.,
             box_size: None,
+            color_runs: None,
         }
     }
 }
@@ -74,7 +80,7 @@ impl Text {
                 "Text settings exceed supported bounds. Use up to 100,000 characters, 1–2000 px type, and a box within 30,000 px and 200 megapixels.",
             ));
         }
-        Ok(())
+        self.validate_colors()
     }
     pub fn line_height(&self) -> f64 {
         if self.leading > 0. {
@@ -136,6 +142,7 @@ impl TextRenderer {
     pub fn first_baseline(&mut self, style: &Text) -> Result<f64> {
         let mut sample = style.clone();
         sample.content = " ".into();
+        sample.color_runs = None;
         self.render_with_baseline(&sample)
             .map(|(_, baseline)| baseline)
     }
@@ -185,8 +192,18 @@ impl TextRenderer {
             Wrap::None
         });
         buffer.set_size(width, Some(30_001.));
-        buffer.set_text(
-            &style.content,
+        let spans = style.colored_spans();
+        buffer.set_rich_text(
+            spans.iter().map(|(range, rgb)| {
+                (
+                    &style.content[range.clone()],
+                    attrs.clone().color(Color::rgb(
+                        (rgb[0] * 255.).round() as u8,
+                        (rgb[1] * 255.).round() as u8,
+                        (rgb[2] * 255.).round() as u8,
+                    )),
+                )
+            }),
             &attrs,
             Shaping::Advanced,
             Some(match style.alignment {
@@ -255,6 +272,7 @@ pub fn recolor_layer(layer: &mut Layer, color: [u8; 4]) -> Result<()> {
     style.red = f64::from(red) / 255.;
     style.green = f64::from(green) / 255.;
     style.blue = f64::from(blue) / 255.;
+    style.color_runs = None;
     if layer.text.as_ref() == Some(&style) {
         return Ok(());
     }

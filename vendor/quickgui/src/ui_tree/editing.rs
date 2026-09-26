@@ -6,6 +6,10 @@ use crate::{
 };
 
 impl UiTree {
+    pub(crate) fn text_input_selections(&self) -> HashMap<ElementId, std::ops::Range<usize>> {
+        self.text_inputs.iter().map(|(id, state)| (*id, state.selection())).collect()
+    }
+
     pub fn focused_text_input(&self) -> Option<ElementId> {
         self.focused
             .filter(|focused| self.text_inputs.contains_key(focused))

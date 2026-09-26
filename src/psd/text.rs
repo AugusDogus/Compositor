@@ -168,6 +168,7 @@ fn settings(
             0.
         },
         box_size: None,
+        color_runs: None,
     };
     if !size.is_finite() || size <= 0. {
         return None;

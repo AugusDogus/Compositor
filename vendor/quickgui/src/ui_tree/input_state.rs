@@ -21,12 +21,16 @@ pub(super) fn sync_text_inputs(
                 )
             })
             .or_insert_with(|| {
-                TextInputState::with_styling(
+                let mut state = TextInputState::with_styling(
                     &input.value,
                     input.multiline,
                     input.constraints.clone(),
                     input.highlights.clone(),
-                )
+                );
+                if let Some(range) = &input.initial_selection {
+                    state.set_selection(range.start, range.end);
+                }
+                state
             });
     }
     for child in &element.children {

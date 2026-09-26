@@ -1099,6 +1099,7 @@ impl fmt::Debug for ImageReplacement {
 
 #[derive(Clone, Debug)]
 pub(crate) struct TextInputElement {
+    pub initial_selection: Option<std::ops::Range<usize>>,
     pub value: Arc<str>,
     pub highlights: Arc<[TextHighlight]>,
     pub placeholder: Arc<str>,

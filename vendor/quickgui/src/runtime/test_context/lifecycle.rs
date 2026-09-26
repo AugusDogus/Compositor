@@ -225,6 +225,7 @@ impl TestAppContext {
             .and_then(|window| self.windows.get(&window))
             .and_then(|window| window.pointer);
         EventContext::with_runtime(EventRuntimeContext {
+            text_selections: window.and_then(|w| self.windows.get(&w)).map(|w| w.ui.text_input_selections()).unwrap_or_default(),
             globals: self.globals.clone(),
             foreground_tasks: self.foreground_tasks.clone(),
             clipboard: self.clipboard.clone(),
