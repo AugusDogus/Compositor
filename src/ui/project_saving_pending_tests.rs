@@ -72,9 +72,9 @@ fn close_after_save_waits_for_uncommitted_brush_text_and_transform_edits() {
                 _ => unreachable!(),
             }
             assert_eq!(editor.session().revision(), pending_revision);
-            let Completed::Saved { session, revision, fingerprint, path } = job.run(&[]).unwrap() else { panic!() };
+            let saved = job.run().unwrap();
             editor.saves.running = false;
-            editor.finish_save(session, revision, fingerprint, path.clone(), cx).unwrap();
+            editor.finish_save(saved, cx).unwrap();
             assert!(editor.close_intent.is_some());
             assert_eq!(editor.tabs.len(), 1);
             match draft {

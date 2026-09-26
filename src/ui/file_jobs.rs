@@ -10,13 +10,6 @@ pub(super) enum FileJob {
         paths: Vec<PathBuf>,
         center: Option<compositor::geometry::Point>,
     },
-    Save {
-        session: Uuid,
-        revision: Uuid,
-        expected: Option<project::Fingerprint>,
-        document: Document,
-        path: PathBuf,
-    },
     ExportPsd {
         document: Document,
         path: PathBuf,
@@ -46,12 +39,6 @@ pub(super) enum Completed {
         psds: Vec<(String, compositor::psd::Imported)>,
         raws: Vec<PathBuf>,
     },
-    Saved {
-        session: Uuid,
-        revision: Uuid,
-        fingerprint: project::Fingerprint,
-        path: PathBuf,
-    },
     Exported {
         path: PathBuf,
         jpeg_quality: Option<u8>,
@@ -63,7 +50,6 @@ impl FileJob {
         match self {
             Self::Open(_) => alerts::Operation::Open,
             Self::Import { .. } => alerts::Operation::Import,
-            Self::Save { .. } => alerts::Operation::Save,
             Self::Export { path, .. } => match path
                 .extension()
                 .and_then(|s| s.to_str())
@@ -145,21 +131,6 @@ impl FileJob {
                     raws,
                 })
             }
-            Self::Save {
-                session,
-                revision,
-                expected,
-                document,
-                path,
-            } => {
-                let fingerprint = project::save_if_unchanged(&document, &path, expected.as_ref())?;
-                Ok(Completed::Saved {
-                    session,
-                    revision,
-                    fingerprint,
-                    path: path.canonicalize()?,
-                })
-            }
             Self::Export {
                 document,
                 path,
@@ -177,10 +148,6 @@ impl FileJob {
 
 impl Editor {
     pub(super) fn queue_file(&mut self, job: FileJob) {
-        if matches!(job, FileJob::Save { .. }) {
-            self.queue_save(job);
-            return;
-        }
         self.status = match &job {
             FileJob::Import { .. } => "Importing images…",
             _ => "Working…",
@@ -254,7 +221,7 @@ impl Editor {
     pub(super) fn finish_approved_file_job(
         &mut self,
         completed: Completed,
-        cx: &mut EventContext,
+        _cx: &mut EventContext,
     ) -> Result<()> {
         match completed {
             Completed::Opened { projects, failures } => {
@@ -351,14 +318,6 @@ impl Editor {
                 }
                 self.show_opened_projects(projects)?;
                 self.status = "Imported successfully. Ctrl+Z undoes the import.".into();
-            }
-            Completed::Saved {
-                session,
-                revision,
-                fingerprint,
-                path,
-            } => {
-                self.finish_save(session, revision, fingerprint, path, cx)?;
             }
             Completed::Exported { path, jpeg_quality } => {
                 self.status = format!(
@@ -625,18 +584,15 @@ mod tests {
         let path = directory.path().join("Roundtrip.comp");
         let document = Document::new(3, 2).unwrap();
         let session = Uuid::new_v4();
-        assert!(matches!(
-            FileJob::Save {
-                session,
-                revision: Uuid::new_v4(),
-                expected: None,
-                document: document.clone(),
-                path: path.clone()
-            }
-            .run(&[])
-            .unwrap(),
-            Completed::Saved { .. }
-        ));
+        super::project_saving::SaveRequest {
+            session,
+            revision: Uuid::new_v4(),
+            expected: None,
+            document: document.clone(),
+            path: path.clone(),
+        }
+        .run()
+        .unwrap();
         let Completed::Opened { projects, failures } = FileJob::Open(vec![path]).run(&[]).unwrap()
         else {
             panic!("Expected loaded projects");

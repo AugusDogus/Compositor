@@ -218,7 +218,7 @@ impl Editor {
                 }
             }
         };
-        self.queue_file(super::file_jobs::FileJob::Save {
+        self.queue_save(super::project_saving::SaveRequest {
             session: self.session().id,
             revision: self.session().revision(),
             expected,

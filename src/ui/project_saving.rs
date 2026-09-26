@@ -1,15 +1,40 @@
 //! Serialize saves without blocking edits. Each result acknowledges only its snapshot.
-use super::{
-    file_jobs::{Completed, FileJob},
-    *,
-};
+use super::*;
 use compositor::invalid;
 use std::collections::VecDeque;
 use uuid::Uuid;
 
+pub(super) struct SaveRequest {
+    pub session: Uuid,
+    pub revision: Uuid,
+    pub expected: Option<project::Fingerprint>,
+    pub document: Document,
+    pub path: PathBuf,
+}
+
+pub(super) struct SavedSnapshot {
+    session: Uuid,
+    revision: Uuid,
+    fingerprint: project::Fingerprint,
+    path: PathBuf,
+}
+
+impl SaveRequest {
+    pub(super) fn run(self) -> Result<SavedSnapshot> {
+        let fingerprint =
+            project::save_if_unchanged(&self.document, &self.path, self.expected.as_ref())?;
+        Ok(SavedSnapshot {
+            session: self.session,
+            revision: self.revision,
+            fingerprint,
+            path: self.path.canonicalize()?,
+        })
+    }
+}
+
 #[derive(Default)]
 pub(super) struct Saves {
-    pub(super) queue: VecDeque<FileJob>,
+    pub(super) queue: VecDeque<SaveRequest>,
     running: bool,
     pub close: Option<CloseIntent>,
     resume_close: Option<Uuid>,
@@ -20,15 +45,11 @@ impl Saves {
     }
 }
 impl Editor {
-    pub(super) fn queue_save(&mut self, job: FileJob) {
+    pub(super) fn queue_save(&mut self, job: SaveRequest) {
         // Repeated Ctrl+S retains the newest requested revision for this destination.
-        if let FileJob::Save { session, path, .. } = &job {
-            self.saves.queue.retain(|queued| {
-                !matches!(queued,
-                FileJob::Save { session: id, path: destination, .. }
-                    if id == session && destination == path)
-            });
-        }
+        self.saves
+            .queue
+            .retain(|queued| queued.session != job.session || queued.path != job.path);
         self.saves.queue.push_back(job);
         self.status = "Saving… You can keep editing.".into();
     }
@@ -40,30 +61,21 @@ impl Editor {
         let Some(mut job) = self.saves.queue.pop_front() else {
             return;
         };
-        if let FileJob::Save {
-            session,
-            path,
-            expected,
-            ..
-        } = &mut job
-            && let Some(current) = self
-                .tabs
-                .iter()
-                .find(|tab| tab.id == *session)
-                .and_then(ProjectTab::session)
-            && current.path.as_ref() == Some(path)
+        if let Some(current) = self
+            .tabs
+            .iter()
+            .find(|tab| tab.id == job.session)
+            .and_then(ProjectTab::session)
+            && current.path.as_ref() == Some(&job.path)
         {
-            *expected = current.disk_fingerprint.clone();
+            job.expected = current.disk_fingerprint.clone();
         }
         self.saves.running = true;
-        let launched = cx.spawn_background(move || job.run(&[]), |this, result, cx| {
+        let launched = cx.spawn_background(move || job.run(), |this, result, cx| {
             this.saves.running = false;
             let result = result.map_err(|e| invalid(format!("Save worker failed: {e}. Your edits are preserved. Save again to retry.")))
                 .and_then(|result| result)
-                .and_then(|completed| match completed {
-                    Completed::Saved { session, revision, fingerprint, path } => this.finish_save(session, revision, fingerprint, path, cx),
-                    _ => Err(invalid("The save worker returned an unexpected result. Your edits are preserved.")),
-                });
+                .and_then(|saved| this.finish_save(saved, cx));
             if result.is_err() {
                 this.saves.queue.clear();
                 this.saves.close = None;
@@ -82,12 +94,15 @@ impl Editor {
 
     pub(super) fn finish_save(
         &mut self,
-        id: Uuid,
-        revision: Uuid,
-        fingerprint: project::Fingerprint,
-        path: PathBuf,
+        saved: SavedSnapshot,
         cx: &mut EventContext,
     ) -> Result<()> {
+        let SavedSnapshot {
+            session: id,
+            revision,
+            fingerprint,
+            path,
+        } = saved;
         let session = self
             .tabs
             .iter_mut()
@@ -131,20 +146,11 @@ impl Editor {
         }
         if self.saves.busy()
             || self.recovery.busy()
-            || self.pending
-            || self.gesture.is_some()
-            || self.rename.is_some()
-            || self.layout_drag.is_some()
-            || self.develop.is_some()
-            || self.psd_conversion.is_some()
-            || !self.errors.is_empty()
-            || self.pending_gradient.is_some()
-            || self.pending_pixels.is_some()
+            || !self.project_transition_ready()
             || self.transform_edit.is_some()
             || self.tools.pending_crop.is_some()
             || self.slider_drag.is_some()
             || self.numeric_scrub.is_some()
-            || !matches!(self.modal, None | Some(Form::Blend))
         {
             return;
         }
@@ -202,18 +208,9 @@ mod tests {
                 .unwrap();
             e.request_close(CloseIntent::Window, cx);
             assert!(e.saves.close.is_some());
-            let Completed::Saved {
-                session,
-                revision,
-                fingerprint,
-                path,
-            } = job.run(&[]).unwrap()
-            else {
-                panic!()
-            };
+            let saved = job.run().unwrap();
             e.saves.running = false;
-            e.finish_save(session, revision, fingerprint, path.clone(), cx)
-                .unwrap();
+            e.finish_save(saved, cx).unwrap();
             assert!(e.session().dirty());
             assert_eq!(project::load(&path).unwrap().resolution, 72.);
             assert!(matches!(e.modal, Some(Form::Close)));
@@ -229,7 +226,7 @@ mod tests {
         let mut e = Editor::with_test_document();
         let path = PathBuf::from("first.comp");
         for destination in [path.clone(), PathBuf::from("copy.comp"), path] {
-            e.queue_save(FileJob::Save {
+            e.queue_save(SaveRequest {
                 session: e.session().id,
                 revision: e.session().revision(),
                 expected: None,

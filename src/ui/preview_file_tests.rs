@@ -54,9 +54,9 @@ fn save_shortcut_keeps_hue_and_saves_committed_pixels() {
         assert!(e.adjustment_edit.is_some());
         assert!(e.modal.is_some());
         let job = e.saves.queue.pop_front().expect("Ctrl+S must queue Save");
-        let completed = job.run(&[]).unwrap();
+        let saved = job.run().unwrap();
         e.pending = false;
-        e.finish_file_job(completed, cx).unwrap();
+        e.finish_save(saved, cx).unwrap();
         assert_eq!(e.session().document, preview);
         assert!(!e.session().dirty());
         e.cancel_adjustment();
