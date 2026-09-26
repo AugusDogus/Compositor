@@ -21,6 +21,12 @@ enum Content {
 }
 
 impl ProjectTab {
+    pub fn recovered(session: Session, name: String) -> Self {
+        Self {
+            name,
+            ..session.into()
+        }
+    }
     pub fn empty(name: String) -> Self {
         Self {
             id: uuid::Uuid::new_v4(),

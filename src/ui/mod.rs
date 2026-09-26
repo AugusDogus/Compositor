@@ -115,6 +115,8 @@ mod project_tools;
 mod psd_conversion;
 mod raw_develop;
 mod recent_projects;
+mod recovery_store;
+mod project_recovery;
 mod rename;
 mod sample_ring;
 #[cfg(test)]
@@ -400,6 +402,7 @@ pub struct Editor {
     file_job: Option<file_jobs::FileJob>,
     saves: project_saving::Saves,
     recent_projects: recent_projects::RecentProjects,
+    recovery: project_recovery::Recovery,
     external_projects: external_projects::ExternalProjects,
     psd_conversion: Option<psd_conversion::Conversion>,
     layout_drag: Option<layout_guides::Drag>,
@@ -447,8 +450,13 @@ impl Editor {
                 tabs.push(Session::new(doc, None).into());
             }
         }
+        let (recovery, recovery_status) = project_recovery::Recovery::initialize(&mut tabs);
         if tabs.is_empty() {
             tabs.push(ProjectTab::empty("Untitled".into()));
+        }
+        let mut recent_projects = recent_projects::RecentProjects::load();
+        for path in tabs.iter().filter_map(|tab| tab.session()?.path.clone()) {
+            if let Err(error) = recent_projects.remember(path) { eprintln!("Could not remember project: {error}"); }
         }
         Ok(Self {
             wayland_clipboard: None,
@@ -484,7 +492,7 @@ impl Editor {
             pixel_grid_shader: pixel_grid::shader()?,
             guide_grid_shader: guide_grid::shader()?,
             gradient_overlay_shader: gradient_overlay::shader()?,
-            status: String::new(),
+            status: recovery_status,
             errors: std::collections::VecDeque::new(),
             revision: 0,
             preview: None,
@@ -523,7 +531,8 @@ impl Editor {
             job: None,
             file_job: None,
             saves: project_saving::Saves::default(),
-            recent_projects: recent_projects::RecentProjects::load(),
+            recent_projects,
+            recovery,
             external_projects: external_projects::ExternalProjects::default(),
             psd_conversion: None,
             layout_drag: None,
@@ -740,6 +749,7 @@ impl View for Editor {
         self.start_file_job(cx);
         self.start_save_job(cx);
         self.monitor_projects(cx);
+        self.autosave_projects(cx);
         self.start_clipboard_job(cx);
         self.start_update_job(cx);
         self.sync_raw_input(cx);

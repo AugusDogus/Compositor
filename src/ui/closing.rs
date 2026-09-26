@@ -23,6 +23,12 @@ impl Editor {
             cx.invalidate();
             return;
         }
+        if self.recovery.busy() {
+            self.recovery.close = Some(intent);
+            self.status = "Finishing recovery save before closing…".into();
+            cx.invalidate();
+            return;
+        }
         if self.develop.is_some() {
             self.show_error(alerts::Operation::RawDevelop, "Choose Develop to keep the RAW edit, or Cancel to discard it, before closing. Your existing project and camera file are unchanged.");
             cx.invalidate();
@@ -87,6 +93,10 @@ impl Editor {
                 return;
             }
         }
+        if let Err(error) = self.finish_recovery() {
+            self.show_error(alerts::Operation::Save, format!("Could not clear recovery copies: {error}. Your projects are still open. Check available disk access and close again."));
+            return;
+        }
         cx.exit();
     }
 
@@ -114,6 +124,7 @@ impl Editor {
                             });
                         self.activate_tab(destination);
                     }
+                    self.remove_recovery(target);
                     self.tabs.remove(index);
                     if self.current > index {
                         self.current -= 1;
