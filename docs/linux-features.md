@@ -53,7 +53,7 @@ Source: [upstream changes since the previous comparison](https://github.com/robb
 
 ## Compatibility and platform differences
 
-- **Projects:** reads schema versions 1 through 10 and writes version 10 `.comp` directory packages. Per-character text colors, all six layer effects, line shapes, Soft Light and folder opacity are preserved. Unknown project fields are rejected where the schema requires it. Opening Linux-saved projects in the real macOS app remains unverified. See [project I/O](../src/project.rs) and [compatibility tests](../tests/project_compatibility.rs).
+- **Projects:** reads schema versions 1 through 10 and writes version 10 `.comp` directory packages. Per-character text colors, all six layer effects, line shapes, Soft Light and folder opacity are preserved. Unknown project fields are rejected where the schema requires it. [15 round trips through upstream Swift on a physical Mac passed](macos-compatibility.md). Full-app testing remains unverified; Mac saves discard Linux-only embedded RAW source/settings. See [project I/O](../src/project.rs) and [compatibility tests](../tests/project_compatibility.rs).
 - **Text colors:** unusually dense color runs beyond the editor's 4,096 highlight-span budget use a neutral textarea display with a notice. The raster preview and saved text retain their colors.
 - **Background removal:** full BiRefNet Dynamic replaces Apple's proprietary Vision model. Basic/Advanced refinement, editable masks, selection handling and undo are implemented. One AppImage bundles native ONNX Runtime, the WebGPU/Vulkan plugin and both GPU/CPU models. Compatible NVIDIA and AMD Vulkan GPUs need FP16 shader support; no compatible adapter selects CPU. NVIDIA and CPU paths have been tested, physical AMD hardware has not. GPU execution failures report an error rather than silently rerunning on CPU.
 - **Rendering:** large brushes, compositing and preview reduction have GPU paths with CPU fallbacks. Tests compare those paths with the Rust CPU reference; they do not establish identical macOS pixels or performance. Individual surfaces are limited to 200 million pixels; total raster storage scales from 200 to 800 million pixels with system memory. Sparse canvases support up to 30,000 pixels per side.
@@ -87,6 +87,8 @@ Sources: [README](https://github.com/silverling/xuan/blob/7fd0ee19344c83b5863463
 ## Verification
 
 The integrated suite passes 875 tests, with 34 hardware or external-fixture tests opt-in. Formatting and strict all-target Clippy pass.
+
+A subsequent [Mac-generated v10 regression test](../tests/macos_project.rs) also passes. [Cross-device testing](macos-compatibility.md) verifies metadata and cached pixels through the upstream Swift reader/writer on macOS 15.8; the released macOS app requires 26.5.
 
 Development verification covers v10 text colors, save/reload conflicts, recovery, SVG limits, cropped PSD/PSB decoding, numeric controls, masks and tablet brush dynamics. Native X11 checks include SVG import, Dither/ASCII preview, Apply/Undo and restoring a recovery snapshot after an intentional crash. Vulkan brush checks compare pressure/tilt coverage against CPU references. Physical tablet, AMD GPU and real macOS/Photoshop application round trips remain unverified.
 
