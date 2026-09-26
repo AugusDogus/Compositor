@@ -270,14 +270,12 @@ impl Editor {
                 return;
             }
             if this.picking_color() {
-                cx.focus(focus);
                 this.sample_picker(event);
                 let result = this.preview_picker();
                 this.result(result, cx);
                 return;
             }
             if this.camera_sampling() {
-                cx.focus(focus);
                 let result = this.camera_sample_pointer(event);
                 if this.camera_tool_active() || result.is_err() {
                     this.result(result, cx);
@@ -287,7 +285,6 @@ impl Editor {
                 return;
             }
             if this.adjustment_sampling() {
-                cx.focus(focus);
                 let result = this.adjustment_sample_pointer(event);
                 this.result(result, cx);
                 return;

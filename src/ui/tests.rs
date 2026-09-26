@@ -53,6 +53,8 @@ fn hue_target_drag_selects_the_sampled_range_and_eyedropper_recenters_it() {
         .unwrap();
     let window = editor.window_handle();
     cx.click(window, "hue-Target color").unwrap();
+    cx.focus(window, 50_000_u64).unwrap();
+    let panel_focus = cx.focused(window).unwrap();
     let bounds = cx.element_bounds(window, "canvas").unwrap();
     let (zoom, offset) = cx
         .update(editor, |e, _| e.viewport(bounds.width, bounds.height))
@@ -71,6 +73,11 @@ fn hue_target_drag_selects_the_sampled_range_and_eyedropper_recenters_it() {
         quickgui::Point::new(start.x + 20., start.y),
     )
     .unwrap();
+    assert_eq!(
+        cx.focused(window).unwrap(),
+        panel_focus,
+        "Sampling must retain panel keyboard focus"
+    );
     cx.read(editor, |e| {
         let settings = e
             .adjustment_edit
