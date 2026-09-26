@@ -231,23 +231,23 @@ impl Stroke {
     }
 
     fn grow_bounds(&mut self, doc: &mut Document, bounds: [f64; 4]) -> Result<()> {
-        if !self.mask
-            && matches!(
+        if (self.mask || matches!(
                 self.mode,
                 PaintMode::Paint | PaintMode::Clone { .. } | PaintMode::Blur
-            )
+            ))
             && bounds[2] > bounds[0]
             && bounds[3] > bounds[1]
         {
             let layer = doc
                 .active_layer_mut()
                 .ok_or_else(|| invalid("The active layer is missing."))?;
-            if let Some(expansion) = crate::raster_extent::expand(layer, bounds)? {
+            let expand = if self.mask { crate::mask_extent::expand } else { crate::raster_extent::expand };
+            if let Some(expansion) = expand(layer, bounds)? {
                 let original = self
                     .original
                     .active_layer_mut()
                     .ok_or_else(|| invalid("Original stroke layer is missing."))?;
-                crate::raster_extent::expand(original, bounds)?;
+                expand(original, bounds)?;
                 let mut coverage = coverage::Plane::new(expansion.size[0], expansion.size[1]);
                 image::imageops::replace(
                     &mut coverage,

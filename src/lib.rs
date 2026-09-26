@@ -36,6 +36,7 @@ pub mod pixel_adjustment;
 pub mod project;
 pub mod psd;
 mod raster_extent;
+mod mask_extent;
 pub mod raw;
 pub mod render;
 mod resample;

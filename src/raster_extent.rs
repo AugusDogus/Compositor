@@ -55,6 +55,43 @@ pub(crate) fn expand(layer: &mut Layer, bounds: [f64; 4]) -> Result<Option<Expan
         (old.size[0].ceil() as u32, old.size[1].ceil() as u32),
         |p| p.dimensions(),
     );
+    let Some((expansion, transform)) = expanded_grid(old, [width, height], bounds)? else {
+        return Ok(None);
+    };
+    let Expansion { offset, size } = expansion;
+    let mut expanded = RgbaImage::new(size[0], size[1]);
+    if let Some(pixels) = pixels {
+        image::imageops::replace(
+            &mut expanded,
+            pixels.as_ref(),
+            offset[0] as i64,
+            offset[1] as i64,
+        );
+    }
+    if let Some(mask) = &mut layer.mask
+        && mask.placement.is_none()
+    {
+        let mut grown = GrayImage::from_pixel(size[0], size[1], Luma([255]));
+        let original = image::imageops::resize(
+            mask.pixels.as_ref(),
+            width,
+            height,
+            image::imageops::FilterType::Nearest,
+        );
+        image::imageops::replace(&mut grown, &original, offset[0] as i64, offset[1] as i64);
+        mask.pixels = Arc::new(grown);
+    }
+    layer.content = LayerContent::Raster(Some(Arc::new(expanded)));
+    layer.transform = transform;
+    Ok(Some(Expansion { offset, size }))
+}
+
+/// Compute padding in the existing rotated/flipped pixel grid without resampling.
+pub(crate) fn expanded_grid(
+    old: Transform,
+    [width, height]: [u32; 2],
+    bounds: [f64; 4],
+) -> Result<Option<(Expansion, Transform)>> {
     let mut extent = [0., 0., width as f64, height as f64];
     for p in [
         [bounds[0], bounds[1]],
@@ -99,31 +136,7 @@ pub(crate) fn expand(layer: &mut Layer, bounds: [f64; 4]) -> Result<Option<Expan
         ));
     }
     let offset = [(-extent[0]) as u32, (-extent[1]) as u32];
-    let mut expanded = RgbaImage::new(size[0], size[1]);
-    if let Some(pixels) = pixels {
-        image::imageops::replace(
-            &mut expanded,
-            pixels.as_ref(),
-            offset[0] as i64,
-            offset[1] as i64,
-        );
-    }
-    if let Some(mask) = &mut layer.mask
-        && mask.placement.is_none()
-    {
-        let mut grown = GrayImage::from_pixel(size[0], size[1], Luma([255]));
-        let original = image::imageops::resize(
-            mask.pixels.as_ref(),
-            width,
-            height,
-            image::imageops::FilterType::Nearest,
-        );
-        image::imageops::replace(&mut grown, &original, offset[0] as i64, offset[1] as i64);
-        mask.pixels = Arc::new(grown);
-    }
-    layer.content = LayerContent::Raster(Some(Arc::new(expanded)));
-    layer.transform = transform;
-    Ok(Some(Expansion { offset, size }))
+    Ok(Some((Expansion { offset, size }, transform)))
 }
 
 #[cfg(test)]
