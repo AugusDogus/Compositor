@@ -41,7 +41,7 @@ Compositor for Linux **v0.6.1** targets feature parity with **Compositor for mac
 | Brush stroke smoothing | ✅ | ✅ | ✅ |
 | Tablet pressure, tilt and eraser tip | ❌ | ⚠️ Wayland/X11[^tablet] | ✅ |
 | Gradients, rectangle and ellipse shapes | ✅ | ✅ | ✅ |
-| Non-destructive transforms, perspective and snapping | ✅ | ✅ | ✅ |
+| Layer transforms, perspective and snapping | ✅ | ✅ | ✅ |
 | Marquee, lasso and magic-wand selections | ✅ | ✅ | ✅ |
 | Color adjustments and filters | ✅ | ✅ | ✅ |
 | Dither, halftone and ASCII filters | ✅ | ✅ | ❌ |
@@ -54,7 +54,7 @@ Compositor for Linux **v0.6.1** targets feature parity with **Compositor for mac
 | Vignette, Bloom and Tonal Contrast | ✅ | ✅ | ⚠️ Vignette[^filters] |
 | Background removal | ✅ Apple Vision[^background] | ✅ BiRefNet[^background] | ⚠️ Border-color matte[^background] |
 | Original `.comp` projects | ✅ Read/write | ⚠️ Read/write[^projects] | ⚠️ Import only[^projects] |
-| ICC color conversion | ✅ | ✅ | ❌ |
+| ICC color conversion | ✅ | ⚠️ Except PSD profiles[^psd] | ❌ |
 | HEIC import | ✅ | ✅ Bundled | ✅ Bundled |
 | SVG import | ✅ Rasterized | ✅ Rasterized | ❌ |
 | PNG/JPEG export | ✅ | ✅ | ✅ |
@@ -83,7 +83,7 @@ Compositor for Linux **v0.6.1** targets feature parity with **Compositor for mac
 [^background]: The AppImage includes offline models; no Python setup. NVIDIA and CPU inference are tested; AMD hardware is not. BiRefNet results differ from Apple Vision. Xuan's matte is intended for simple backgrounds.
 [^projects]: Reads v1–10; writes v10. [Mac file-format tests passed](docs/macos-compatibility.md); full-app compatibility is unverified. Mac saves discard embedded RAW sources and settings. Xuan imports `.comp` but saves `.xuan`.
 [^upstream-psd]: 8-bit RGB only. Unsupported text and smart objects become pixels; Photoshop effects are discarded. Conversions are reported.
-[^psd]: 8-bit RGB or grayscale only. Unsupported text and smart objects use saved pixels; text and shapes become pixels on export. Photoshop export round trips are unverified. [Format support](docs/linux-features.md#file-compatibility).
+[^psd]: 8-bit RGB or grayscale only; embedded profiles are not converted. Unsupported text and smart objects use saved pixels; text and shapes become pixels on export. Photoshop export round trips are unverified. [Format support](docs/linux-features.md#file-compatibility).
 [^objects]: SAM 3.1 selects objects; BiRefNet selects subjects. Boundaries may need manual correction. [Model details](docs/object-selection-models.md).
 [^raw]: RAW Develop exports 16-bit TIFF; ordinary editing and export use 8-bit color. Foveon X3F is unsupported. [Camera support and limits](docs/linux-raw.md).
 [^filters]: Xuan uses attached filter stacks and offers vignette through Lens Correction.

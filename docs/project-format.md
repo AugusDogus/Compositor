@@ -24,10 +24,12 @@ Undo history, pixel selections, viewport, group collapse state and view preferen
 | 4 | Raster layer `maskFile` and `maskEnabled`. |
 | 5 | Clipping references through `maskSourceID`. |
 | 6 | Masks on groups. |
-| 7 | Adjustment layers. The schema also accepts additive editable shape, text and effect metadata. |
+| 7 | Adjustment layers. |
 | 8 | Document guides and non-default folder opacity. Older Linux v7 files with folder opacity remain readable. |
 | 9 | Gaussian Blur, Motion Blur and Add Noise adjustment layers. |
 | 10 | Per-character text colors through `text.colorRuns`. |
+
+Editable shape, text and effect metadata are additive fields accepted in earlier versions when their layer data is valid. Text color runs require v10.
 
 Color runs contain `location`, `length`, `red`, `green` and `blue`. Locations and lengths count **UTF-16 code units**, not UTF-8 bytes. Runs must be ordered, non-overlapping and nonempty, and cannot split a surrogate pair. Uncovered text uses the layer's base color.
 
@@ -37,7 +39,7 @@ Groups are pass-through: group opacity and masks multiply descendant coverage. A
 
 ## Validation and saving
 
-Linux validates metadata, hierarchy, asset names and allocation limits before replacing the open document. Unknown manifest fields, unsupported versions, missing assets and unsafe paths are rejected. Saves stage a complete package before atomic directory replacement.
+Linux validates metadata, hierarchy, asset names and allocation limits before replacing the open document. Unknown fields at the manifest root and layer-record level are rejected; some nested settings ignore unknown fields. Unsupported versions, missing assets and unsafe paths are rejected. Saves stage a complete package before atomic directory replacement.
 
 | Limit | Linux value |
 | --- | --- |

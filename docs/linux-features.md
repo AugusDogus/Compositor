@@ -12,7 +12,7 @@ Changes since v0.5.0:
 | Dither | Atkinson, Floyd-Steinberg, Bayer, halftone, Mac patterns and ASCII, with preview and undo. |
 | SVG import | Imports SVG as pixels, including text and embedded images. |
 | Open Recent | Persistent recent-project list with missing files filtered out. |
-| External project changes | Reloads unchanged documents automatically; offers a separate copy when local edits exist. Competing saves preserve both versions. |
+| External project changes | Reloads clean projects automatically when idle; otherwise offers the external version separately. Competing saves preserve both versions. |
 | Background saves | Continue editing during saves. Later edits remain unsaved; close and quit wait for the requested save. |
 | Large PSD/PSB layers | Imports oversized layers by cropping them to the canvas when the full layer exceeds the memory budget. |
 | Adjustment controls | Colored tracks, individual double-click resets and numeric label dragging. |
@@ -28,9 +28,11 @@ Recovery preserves committed document contents, not undo history or unfinished d
 - **PSD/PSB import:** accepts 8-bit RGB and grayscale files. Supported primitives and simple point/paragraph text remain editable. Unsupported text, smart objects and some vector content use cached pixels. Missing fonts and unsupported styles or transforms are reported. CMYK and non-8-bit files are unsupported.
 - **PSD export:** rasterizes text and shapes, preserves supported adjustment layers, masks and clipping, and reports conversions. Imports have been tested with Photoshop-created files; reopening exports in Photoshop remains unverified.
 - **PSD adjustments:** import and export preserve Levels, Curves, Hue/Saturation, Black & White, Color Balance and Invert as editable adjustment layers.
-- **Color and precision:** imported raster ICC profiles are converted to sRGB. The compositor and ordinary exports use 8-bit color. RAW Develop can export the developed image directly as 16-bit sRGB TIFF.
+- **Color and precision:** ordinary image imports convert embedded ICC profiles to sRGB. PSD/PSB imports do not convert embedded profiles and interpret pixels as sRGB, which can change their appearance. The compositor and ordinary exports use 8-bit color. RAW Develop can export the developed image directly as 16-bit sRGB TIFF.
 
 ## Editing and platform limits
+
+Moving, scaling, rotating and flipping whole raster layers preserve their source pixels. Applying perspective distortion resamples pixels and rasterizes editable text and shapes. Selected-pixel transforms also resample pixels; Undo can restore the prior state while it remains in history.
 
 Camera Raw Filter adjusts existing image pixels. [Camera RAW Develop](linux-raw.md) works from the original sensor data and preserves editable development settings. They are separate workflows.
 
