@@ -779,6 +779,7 @@ impl View for Editor {
         self.start_external_open();
         self.start_job(cx);
         self.start_file_job(cx);
+        self.start_brush_preview(cx);
         self.start_save_job(cx);
         self.monitor_projects(cx);
         self.autosave_projects(cx);

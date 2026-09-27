@@ -1,6 +1,7 @@
 //! Loaded brush tips are bounded session resources; the chosen shape belongs to each project.
 mod import;
 mod library;
+mod preview;
 use super::*;
 use compositor::brush::sampled::{Sampled, Shape, Tip};
 use compositor::invalid;

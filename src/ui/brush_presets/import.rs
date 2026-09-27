@@ -4,7 +4,8 @@ use std::collections::BTreeSet;
 
 #[derive(Clone)]
 pub(super) struct Import {
-    pack: Arc<Pack>,
+    pub(super) pack: Arc<Pack>,
+    pub(super) preview: preview::Preview,
     selected: BTreeSet<usize>,
 }
 impl Editor {
@@ -14,6 +15,7 @@ impl Editor {
             error: String::new(),
             import: Some(Import {
                 pack: Arc::new(pack),
+                preview: preview::Preview::default(),
                 selected: BTreeSet::new(),
             }),
         }));
@@ -27,6 +29,7 @@ impl Editor {
         else {
             return;
         };
+        import.preview.request(index);
         if import.selected.remove(&index) {
             error.clear();
             return;
@@ -75,7 +78,13 @@ impl Editor {
         import: &Import,
         error: &str,
     ) -> Element {
-        let mut rows = div().flex_col().gap(4.).max_h(300.).overflow_y_scroll();
+        let mut rows = div()
+            .flex_col()
+            .gap(4.)
+            .max_h(300.)
+            .overflow_y_scroll()
+            .min_w(0.)
+            .flex_1();
         for (index, info) in import.pack.tips().iter().enumerate() {
             let label = format!("{} · {} × {}", info.name, info.size[0], info.size[1]);
             rows = rows.child(
@@ -99,7 +108,13 @@ impl Editor {
             .gap(12.)
             .child(text(import.pack.report()).wrap().text_size(12.))
             .child(text(abr::LIMITATIONS).wrap().text_size(12.))
-            .child(rows)
+            .child(
+                div()
+                    .flex_row()
+                    .gap(12.)
+                    .child(rows)
+                    .child(self.brush_preview_view(cx, &import.preview, &import.pack)),
+            )
             .child(
                 text(format!(
                     "{} selected · {} of 32 library slots used",
