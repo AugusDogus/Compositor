@@ -54,7 +54,7 @@ Compositor for Linux targets feature parity with **Compositor for macOS 1.3.3**.
 - Compressed SVG (`.svgz`) import, with a 16 MiB limit on expanded SVG data.
 - Image-menu commands rotate the whole canvas 90° in either direction, retaining editable layers and rotating masks, selections and guides. Visible Grain and Add Noise adjustments must be merged with their underlying layers first to preserve their patterns.
 - DEB, RPM and Arch packaging includes the same codecs and offline models as the AppImage. Available for x86_64 and ARM64.
-- A Nix flake installs the published v0.6.1 AppImage with its bundled models.
+- A Nix flake installs the published v0.7.0 AppImage with its bundled models.
 
 ## New in v0.6.1
 
