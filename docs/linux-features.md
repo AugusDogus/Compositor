@@ -61,7 +61,7 @@ Individual image surfaces are limited to 200 megapixels. Total raster storage is
 
 Bloom and background removal use different implementations from macOS. Pixel-identical rendering, font appearance and performance across operating systems are not guaranteed.
 
-Linux supports Wayland and X11, Ctrl/Alt shortcuts, portal file dialogs and native clipboard integration. Packages require x86_64, glibc 2.39+, host graphics drivers and desktop portals. Development builds produce AppImage, DEB and RPM files; v0.6.1 provides the AppImage. ARM64 and Flatpak builds are not provided. Releases are unsigned. Update checks open GitHub Releases; replace the AppImage or install the updated DEB/RPM with your package manager after closing the editor.
+Linux supports Wayland and X11, Ctrl/Alt shortcuts, portal file dialogs and native clipboard integration. AppImage, DEB, RPM and Arch packages require x86_64, glibc 2.39+, host graphics drivers and desktop portals. Development builds produce all four formats; v0.6.1 provides the AppImage. The Nix package wraps that published AppImage. ARM64 and Flatpak builds are not provided. Releases are unsigned. Update checks open GitHub Releases; replace the AppImage or update through your package manager after closing the editor.
 
 ## Comparison sources
 

@@ -70,7 +70,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Folder opacity and duplication | ✅ | ✅ | ✅ |
 | Keyboard-shortcuts editor | ✅ | ✅ | ⚠️ Reference window |
 | PSD/PSB import | ⚠️ Layers, shapes, text, adjustments[^upstream-psd] | ⚠️ Layers, shapes, text, adjustments[^psd] | ❌ |
-| PSD export | ❌ | ⚠️ Layers and adjustments[^psd] | ❌ |
+| PSD export | ❌ | ⚠️ Layers, adjustments and effects[^psd] | ❌ |
 | Object selection | ✅ Click | ✅ Click/box[^objects] | ❌ |
 | Object-selection edge adjustment and smoothing | ✅ | ✅ | ❌ |
 | Select Subject | ✅ | ✅ BiRefNet[^objects] | ❌ |
