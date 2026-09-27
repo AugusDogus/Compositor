@@ -180,6 +180,9 @@ impl Editor {
         fields: &[(&'static str, String)],
     ) -> Element {
         let action = self.extended_control_action(action);
+        if matches!(action, Action::NewArtboard | Action::EditArtboard(_)) {
+            return self.artboard_fields(cx, fields);
+        }
         if matches!(action, Action::ExportSizes) {
             return self.export_sizes_fields(cx, fields);
         }

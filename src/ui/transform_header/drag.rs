@@ -98,7 +98,21 @@ impl Editor {
                 "Enter valid transform values, or Cancel to restore the layer.",
             ));
         }
-        let drag = PixelDrag::new(edit.current.placement(), point, zoom, modifiers, true);
+        let board = self.transforms_artboard();
+        let modifiers = if board {
+            modifiers & !Modifiers::CONTROL
+        } else {
+            modifiers
+        };
+        let mut drag = PixelDrag::new(edit.current.placement(), point, zoom, modifiers, true);
+        if board
+            && matches!(
+                drag.kind,
+                DragKind::Transform(compositor::transform::Handle::Rotate)
+            )
+        {
+            drag.kind = DragKind::Move;
+        }
         if matches!(drag.kind, DragKind::Move) && modifiers.contains(Modifiers::ALT) {
             self.finish_header_transform(true)?;
             return Ok(None);

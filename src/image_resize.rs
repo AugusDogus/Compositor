@@ -34,6 +34,9 @@ pub fn resize(
     // A rotated nonuniform resize can introduce shear, which the editable RAW
     // placement cannot represent. Check before changing any layer.
     for layer in &doc.layers {
+        if layer.is_artboard() {
+            crate::artboard::validate_frame(scaled_artboard(layer.transform, [sx, sy]))?;
+        }
         if layer.raw.is_some() {
             raw_placement(layer.transform, [sx, sy], sampling)?;
         }
@@ -41,6 +44,13 @@ pub fn resize(
     let old_canvas = Transform::new(doc.width, doc.height);
     let new_canvas = Transform::new(width, height);
     for layer in &mut doc.layers {
+        if layer.is_artboard() {
+            layer.transform = scaled_artboard(layer.transform, [sx, sy]);
+            if let Some(placement) = layer.mask.as_mut().and_then(|mask| mask.placement.as_mut()) {
+                *placement = placement.following(old_canvas, new_canvas);
+            }
+            continue;
+        }
         if layer.raw.is_some() {
             layer.transform = raw_placement(layer.transform, [sx, sy], sampling)?;
             if let Some(placement) = layer.mask.as_mut().and_then(|mask| mask.placement.as_mut()) {
@@ -105,6 +115,14 @@ pub fn resize(
     doc.resolution = resolution;
     doc.selection = None;
     Ok(())
+}
+
+fn scaled_artboard(mut frame: Transform, scale: Point) -> Transform {
+    for (axis, factor) in scale.into_iter().enumerate() {
+        frame.origin[axis] *= factor;
+        frame.size[axis] *= factor;
+    }
+    frame
 }
 
 fn raw_placement(old: Transform, [sx, sy]: Point, sampling: Sampling) -> Result<Transform> {

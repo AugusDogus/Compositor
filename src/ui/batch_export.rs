@@ -1,26 +1,66 @@
-//! Export a committed snapshot without changing the open document or its save path.
+//! Folder exports capture one committed document before opening the chooser.
 use super::*;
 use quickgui::PathPromptOptions;
+#[derive(Clone, Copy)]
+pub(super) enum Kind {
+    Layers,
+    Artboards,
+}
+impl Kind {
+    fn operation(self) -> alerts::Operation {
+        match self {
+            Self::Layers => alerts::Operation::ExportLayers,
+            Self::Artboards => alerts::Operation::ExportArtboards,
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Self::Layers => "Layers",
+            Self::Artboards => "Artboards",
+        }
+    }
+    fn job(self, document: Document, parent: PathBuf, title: String) -> file_jobs::FileJob {
+        match self {
+            Self::Layers => file_jobs::FileJob::ExportLayers {
+                document,
+                parent,
+                title,
+            },
+            Self::Artboards => file_jobs::FileJob::ExportArtboards {
+                document,
+                parent,
+                title,
+            },
+        }
+    }
+}
 impl Editor {
-    pub(super) fn prompt_export_layers(&mut self, cx: &mut EventContext) {
+    pub(super) fn prompt_batch_export(&mut self, kind: Kind, cx: &mut EventContext) {
         let document = self.session().committed_document().clone();
         let title = self.session().title();
-        let operation = alerts::Operation::ExportLayers;
+        let operation = kind.operation();
+        let label = kind.label();
         let options = PathPromptOptions::new()
             .files(false)
             .directories(true)
-            .title("Choose Layer Export Destination");
+            .title(format!("Export {label}: Choose Destination"));
         match cx.prompt_for_paths(options) {
-            Ok(response) => self.await_response(cx, operation, response, move |this,result,_| match result {
-                Ok(Some(paths)) => {
-                    if let Some(parent) = paths.into_iter().next() {
-                        this.queue_file(file_jobs::FileJob::ExportLayers { document, parent, title });
+            Ok(response) => self.await_response(cx, operation, response, move |this, result, _| {
+                match result {
+                    Ok(Some(paths)) => {
+                        if let Some(parent) = paths.into_iter().next() {
+                            this.queue_file(kind.job(document, parent, title));
+                        }
                     }
+                    Ok(None) => this.status = "Export cancelled. Your project is unchanged.".into(),
+                    Err(error) => this.show_error(operation, format!(
+                        "Could not choose an export destination: {error}. Choose Export {label} again to retry."
+                    )),
                 }
-                Ok(None) => this.status = "Layer export cancelled. Your project is unchanged.".into(),
-                Err(error) => this.show_error(operation,format!("Could not choose a layer export destination: {error}. Choose Export Layers again to retry.")),
             }),
-            Err(error) => self.show_error(operation,format!("Could not open the layer export destination dialog: {error}. Choose Export Layers again to retry.")),
+            Err(error) => self.show_error(operation, format!(
+                "Could not open the export destination dialog: {error}. Choose Export {label} again to retry."
+            )),
         }
     }
 }

@@ -104,6 +104,13 @@ pub fn load(path: &Path) -> Result<Document> {
 }
 
 fn load_native(path: &Path) -> Result<Document> {
+    load_native_checked(path, |_| Ok(()))
+}
+
+fn load_native_checked(
+    path: &Path,
+    preflight: impl FnOnce(&Document) -> Result<()>,
+) -> Result<Document> {
     let root = path.canonicalize()?;
     let mut bytes = Vec::new();
     checked_file(&root, &path.join("manifest.json"), MANIFEST_LIMIT)?
@@ -227,6 +234,7 @@ fn load_native(path: &Path) -> Result<Document> {
         });
     }
     doc.validate()?;
+    preflight(&doc)?;
     let mut source_pixels = 0_u64;
     let mut mask_pixels = 0_u64;
     for (layer, record) in doc.layers.iter_mut().zip(manifest.layers) {
@@ -410,9 +418,9 @@ fn write_native(document: &Document, path: &Path) -> Result<()> {
             adjustment: match &layer.content {
                 LayerContent::Adjustment(a) => Some(a.as_ref().clone()),
                 LayerContent::Raster(_) | LayerContent::Group => None,
-                LayerContent::ExtendedAdjustment(_) => {
+                LayerContent::ExtendedAdjustment(_) | LayerContent::Artboard(_) => {
                     return Err(invalid(
-                        "An extended adjustment requires a Linux authoring snapshot.",
+                        "An extended adjustment or artboard requires a Linux authoring snapshot.",
                     ));
                 }
             },

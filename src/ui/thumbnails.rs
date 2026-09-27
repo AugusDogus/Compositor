@@ -217,6 +217,7 @@ impl Editor {
             } else {
                 match &layer.content {
                     compositor::document::LayerContent::Group => Some(Icon::Folder),
+                    compositor::document::LayerContent::Artboard(_) => Some(Icon::Artboard),
                     compositor::document::LayerContent::ExtendedAdjustment(_) => {
                         Some(Icon::Palette)
                     }

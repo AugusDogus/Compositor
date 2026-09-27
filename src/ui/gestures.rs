@@ -64,6 +64,9 @@ impl Editor {
         } else {
             point
         };
+        if matches!(self.gesture, Some(Gesture::Artboard(_))) {
+            return self.artboard_pointer(event);
+        }
         if matches!(self.gesture, Some(Gesture::Path(_))) {
             return self.path_pointer(event, point);
         }
@@ -111,6 +114,9 @@ impl Editor {
                 || self.space_pan
             {
                 self.gesture = Some(Gesture::Pan);
+                return Ok(());
+            }
+            if self.tools.tool == Tool::Move && self.artboard_down(event, zoom, offset)? {
                 return Ok(());
             }
             if self.tools.tool == Tool::Move
@@ -342,12 +348,15 @@ impl Editor {
                     {
                         let handle = transform::hit_handle(
                             Transform::HANDLES.map(|u| bounds.geometry_point(u)),
-                            Some(bounds.geometry_point([0.5, -28. / zoom / bounds.size[1]])),
+                            (!self.transforms_artboard()).then(|| {
+                                bounds.geometry_point([0.5, -28. / zoom / bounds.size[1]])
+                            }),
                             point,
                             zoom,
                         );
                         if let Some(handle) = handle {
-                            if event.modifiers.contains(Modifiers::CONTROL)
+                            if !self.transforms_artboard()
+                                && event.modifiers.contains(Modifiers::CONTROL)
                                 && let Handle::Resize(_) = handle
                             {
                                 if let Some(drag) =
@@ -520,7 +529,7 @@ impl Editor {
             }
         } else if let Some(mut gesture) = self.gesture.take() {
             match &mut gesture {
-                Gesture::BrushTip(_) | Gesture::Path(_) => return Ok(()),
+                Gesture::BrushTip(_) | Gesture::Path(_) | Gesture::Artboard(_) => return Ok(()),
                 Gesture::Sample => {
                     let original = self.tools.brush.color;
                     self.sample_palette(point)?;

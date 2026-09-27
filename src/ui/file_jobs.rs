@@ -16,6 +16,11 @@ pub(super) enum FileJob {
         paths: Vec<PathBuf>,
         center: Option<compositor::geometry::Point>,
     },
+    ExportArtboards {
+        document: Document,
+        parent: PathBuf,
+        title: String,
+    },
     ExportLayers {
         document: Document,
         parent: PathBuf,
@@ -84,6 +89,7 @@ impl FileJob {
                 Some("gif") => alerts::Operation::ExportGif,
                 _ => alerts::Operation::ExportPng,
             },
+            Self::ExportArtboards { .. } => alerts::Operation::ExportArtboards,
             Self::ExportLayers { .. } => alerts::Operation::ExportLayers,
             Self::ExportSizes { .. } => alerts::Operation::ExportSizes,
             Self::ExportPsd { .. } => alerts::Operation::ExportPsd,
@@ -122,6 +128,17 @@ impl FileJob {
                 }
             }
             Self::BrushTips { pack, selected } => pack.decode(&selected).map(Completed::BrushTips),
+            Self::ExportArtboards {
+                document,
+                parent,
+                title,
+            } => {
+                let path = compositor::artboard_export::export(&document, &parent, &title)?;
+                Ok(Completed::Exported {
+                    path,
+                    jpeg_quality: None,
+                })
+            }
             Self::ExportLayers {
                 document,
                 parent,

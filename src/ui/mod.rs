@@ -11,8 +11,12 @@ mod adjustments;
 mod alert_tests;
 mod alerts;
 mod appearance;
+mod artboard_drag;
+mod artboard_overlay;
+mod artboards;
 mod autoscroll;
 mod background_controls;
+mod batch_export;
 mod brightness_contrast;
 mod brush_controls;
 mod brush_cursor;
@@ -48,7 +52,6 @@ mod dither_controls;
 mod dropdown;
 #[cfg(test)]
 mod duplicate_tests;
-mod export_layers;
 mod export_sizes;
 mod extended_adjustments;
 mod external_open;
@@ -280,6 +283,11 @@ pub enum Action {
     ExportPng,
     ExportSizes,
     ExportLayers,
+    ExportArtboards,
+    NewArtboard,
+    ArtboardFromLayers,
+    ArtboardSettings,
+    EditArtboard(uuid::Uuid),
     ExportTiff,
     ExportWebp,
     ExportAvif,
@@ -584,6 +592,7 @@ impl Editor {
         if !self.has_document() {
             return Ok(());
         }
+        self.finish_artboard_drag(true)?;
         self.finish_path_drag(true)?;
         self.finish_opacity_input()?;
         self.finish_visibility_swipe()?;

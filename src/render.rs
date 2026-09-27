@@ -1,3 +1,4 @@
+mod artboard;
 mod downsample;
 pub(crate) mod gpu;
 mod spatial;
@@ -245,7 +246,11 @@ fn paint_children(
         if state.before == Some(layer.id) {
             return true;
         }
-        if layer.is_group() {
+        if matches!(layer.content, LayerContent::Artboard(_)) {
+            if artboard::paint(doc, layer, point, inherited, out, depth, state) {
+                return true;
+            }
+        } else if layer.is_group() {
             if paint_children(
                 doc,
                 Some(layer.id),

@@ -93,6 +93,7 @@ impl Editor {
         let color = self.palette_colors(self.tools.mask_target)[0];
         let mask = self.tools.mask_target;
         let result = match action {
+            Action::Transform if self.transforms_artboard() => self.edit_selected_artboard(),
             Action::Transform if self.can_float_selection() => self.begin_pixel_transform(),
             Action::Transform
                 if compositor::transform::selection_bounds(&self.session().document, mask)
@@ -102,6 +103,10 @@ impl Editor {
                     "Select a visible layer with pixels before transforming it.",
                 ))
             }
+            Action::NewArtboard => self.open_artboard(None),
+            Action::EditArtboard(id) => self.open_artboard(Some(id)),
+            Action::ArtboardSettings => self.edit_selected_artboard(),
+            Action::ArtboardFromLayers => self.artboard_from_layers(),
             Action::New => {
                 self.add_empty_tab();
                 self.suggest_new_canvas(cx)
@@ -162,7 +167,8 @@ impl Editor {
             | Action::ExportAvif
             | Action::ExportGif
             | Action::ExportPsd
-            | Action::ExportLayers => {
+            | Action::ExportLayers
+            | Action::ExportArtboards => {
                 self.file_action(action, cx);
                 Ok(())
             }
@@ -649,9 +655,15 @@ impl Editor {
             cx.prevent_default();
             return;
         }
+        if matches!(self.gesture, Some(Gesture::Artboard(_))) && *key == Key::Escape {
+            let result = self.finish_artboard_drag(false);
+            self.result(result, cx);
+            cx.prevent_default();
+            return;
+        }
         if matches!(
             self.gesture,
-            Some(Gesture::Paint { .. } | Gesture::Warp { .. })
+            Some(Gesture::Paint { .. } | Gesture::Warp { .. } | Gesture::Artboard(_))
         ) && *key != Key::Escape
         {
             cx.prevent_default();

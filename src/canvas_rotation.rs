@@ -74,7 +74,17 @@ pub fn rotate(document: &mut Document, turn: QuarterTurn) -> Result<()> {
     rotated.paths = crate::vector_path::mapped(&document.paths, |point| turn.point(point, size))?;
     std::mem::swap(&mut rotated.width, &mut rotated.height);
     for layer in &mut rotated.layers {
-        turn.transform(&mut layer.transform, size);
+        if layer.is_artboard() {
+            let old = layer.transform;
+            if let Some(mask) = &mut layer.mask {
+                mask.placement.get_or_insert(old);
+            }
+            let center = turn.point(old.point([0.5, 0.5]), size);
+            layer.transform.size = [old.size[1], old.size[0]];
+            layer.transform.origin = [center[0] - old.size[1] / 2., center[1] - old.size[0] / 2.];
+        } else {
+            turn.transform(&mut layer.transform, size);
+        }
         if let Some(placement) = layer.mask.as_mut().and_then(|mask| mask.placement.as_mut()) {
             turn.transform(placement, size);
         }

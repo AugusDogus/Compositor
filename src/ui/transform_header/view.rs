@@ -105,6 +105,7 @@ impl Editor {
             .px(if compact { 0. } else { 18. })
             .flex_shrink_0();
         for (index, label) in ["X", "Y", "W", "H", "Scale", "°"].into_iter().enumerate() {
+            let disabled = disabled || (index == 5 && self.transforms_artboard());
             let id = format!("transform-value-{index}");
             let mut field = self
                 .text_field(current[index].clone())

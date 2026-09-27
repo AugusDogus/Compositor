@@ -5,7 +5,11 @@ impl Action {
     pub(super) fn requires_layer_edit(self) -> bool {
         matches!(
             self,
-            Self::AddLayer
+            Self::NewArtboard
+                | Self::ArtboardFromLayers
+                | Self::ArtboardSettings
+                | Self::EditArtboard(_)
+                | Self::AddLayer
                 | Self::Duplicate
                 | Self::DeleteLayer
                 | Self::Group

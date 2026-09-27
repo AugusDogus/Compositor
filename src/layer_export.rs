@@ -78,6 +78,10 @@ fn isolated(document: &Document, target: Uuid, stacks: &HashMap<Uuid, Vec<Uuid>>
     let mut result = document.clone();
     result.layers.retain(|layer| included.contains(&layer.id));
     for layer in &mut result.layers {
+        if let crate::document::LayerContent::Artboard(board) = &mut layer.content {
+            board.background = [0; 4];
+        }
+
         if dependencies.contains(&layer.id) {
             layer.visible = false;
         }

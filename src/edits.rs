@@ -51,6 +51,14 @@ pub fn canvas_size(doc: &mut Document, width: u32, height: u32, anchor: Point) -
 }
 
 pub fn flip_canvas(doc: &mut Document, horizontal: bool) -> Result<()> {
+    let mut next = doc.clone();
+    flip_canvas_in(&mut next, horizontal)?;
+    next.validate()?;
+    *doc = next;
+    Ok(())
+}
+
+fn flip_canvas_in(doc: &mut Document, horizontal: bool) -> Result<()> {
     let axis = if horizontal {
         doc.width as f64 / 2.
     } else {
@@ -69,7 +77,16 @@ pub fn flip_canvas(doc: &mut Document, horizontal: bool) -> Result<()> {
         }
     }
     for layer in &mut doc.layers {
+        let artboard = layer.is_artboard();
+        if artboard && let Some(mask) = &mut layer.mask {
+            mask.placement.get_or_insert(layer.transform);
+        }
         layer.transform = layer.transform.mirrored(horizontal, axis);
+        if artboard {
+            layer.transform.flip_x = false;
+            layer.transform.flip_y = false;
+            layer.transform.rotation = 0.;
+        }
         if let Some(placement) = layer.mask.as_mut().and_then(|m| m.placement.as_mut()) {
             *placement = placement.mirrored(horizontal, axis);
         }

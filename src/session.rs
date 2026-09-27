@@ -383,6 +383,9 @@ impl Session {
                 .filter(|l| l.is_group())
                 .cloned()
                 .ok_or_else(|| invalid("Select a group to ungroup."))?;
+            if group.is_artboard() {
+                return Err(invalid("Artboards cannot be ungrouped without discarding their frame and background. Move layers out individually or merge the artboard first."));
+            }
             if group.mask.is_some() {
                 return Err(invalid("Apply or remove the group mask before ungrouping."));
             }

@@ -38,6 +38,14 @@ struct Settings {
     layers: Vec<ExtendedLayer>,
     #[serde(default)]
     paths: Vec<crate::vector_path::SavedPath>,
+    #[serde(default)]
+    artboards: Vec<SavedArtboard>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedArtboard {
+    layer: Uuid,
+    background: [u8; 4],
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -61,10 +69,12 @@ pub(super) fn needed(document: &Document) -> bool {
     !document.paths.is_empty() || rendered_projection_needed(document)
 }
 fn rendered_projection_needed(document: &Document) -> bool {
-    document
-        .layers
-        .iter()
-        .any(|layer| matches!(layer.content, LayerContent::ExtendedAdjustment(_)))
+    document.layers.iter().any(|layer| {
+        matches!(
+            layer.content,
+            LayerContent::ExtendedAdjustment(_) | LayerContent::Artboard(_)
+        )
+    })
 }
 pub(super) fn present(path: &Path) -> Result<bool> {
     for name in [NAME, SOURCE] {
@@ -112,7 +122,15 @@ pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Resul
     let mut source = document.clone();
     let paths = std::mem::take(&mut source.paths);
     let mut layers = Vec::new();
+    let mut artboards = Vec::new();
     for layer in &mut source.layers {
+        if let LayerContent::Artboard(board) = layer.content {
+            artboards.push(SavedArtboard {
+                layer: layer.id,
+                background: board.background,
+            });
+            layer.content = LayerContent::Group;
+        }
         if let LayerContent::ExtendedAdjustment(adjustment) = &layer.content {
             layers.push(ExtendedLayer {
                 layer: layer.id,
@@ -125,9 +143,10 @@ pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Resul
     write_json(
         &source_path.join(SETTINGS),
         &Settings {
-            version: 2,
+            version: 3,
             layers,
             paths,
+            artboards,
         },
     )?;
     if purpose == Purpose::Recovery {
@@ -204,9 +223,13 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     }
     let source_path = path.join(SOURCE);
     let settings: Settings = read_json(&root, &source_path.join(SETTINGS))?;
-    if !matches!(settings.version, 1 | 2)
+    if !matches!(settings.version, 1..=3)
         || (settings.version == 1 && !settings.paths.is_empty())
-        || (settings.layers.is_empty() && settings.paths.is_empty())
+        || (settings.version < 3 && !settings.artboards.is_empty())
+        || (settings.layers.is_empty()
+            && settings.paths.is_empty()
+            && settings.artboards.is_empty())
+        || settings.artboards.len() > 10_000
         || settings.layers.len() > 10_000
     {
         return Err(invalid(
@@ -221,9 +244,20 @@ pub(super) fn load(path: &Path) -> Result<Document> {
             return Err(invalid("The Linux adjustment snapshot repeats a layer."));
         }
     }
+    for board in &settings.artboards {
+        if board.layer.is_nil() || !seen.insert(board.layer) {
+            return Err(invalid(
+                "The Linux artboard snapshot contains an invalid or repeated layer ID.",
+            ));
+        }
+    }
     // No compatibility image is decoded: source pixels alone consume the
     // document allocation budget.
-    let mut document = load_native(&source_path)?;
+    let mut document = load_native_checked(&source_path, |source| {
+        let mut metadata = source.clone();
+        restore_artboards(&mut metadata, &settings.artboards)?;
+        metadata.validate()
+    })?;
     document.paths = settings.paths;
     for setting in settings.layers {
         let layer = document
@@ -238,8 +272,26 @@ pub(super) fn load(path: &Path) -> Result<Document> {
         }
         layer.content = LayerContent::ExtendedAdjustment(Box::new(setting.adjustment));
     }
+    restore_artboards(&mut document, &settings.artboards)?;
     document.validate()?;
     Ok(document)
+}
+
+fn restore_artboards(document: &mut Document, artboards: &[SavedArtboard]) -> Result<()> {
+    for board in artboards {
+        let layer = document
+            .layers
+            .iter_mut()
+            .find(|layer| layer.id == board.layer)
+            .ok_or_else(|| invalid("A Linux artboard refers to a missing source folder."))?;
+        if !matches!(layer.content, LayerContent::Group) {
+            return Err(invalid("A Linux artboard must reference a source folder."));
+        }
+        layer.content = LayerContent::Artboard(crate::artboard::Artboard {
+            background: board.background,
+        });
+    }
+    Ok(())
 }
 
 fn regular_directory(path: &Path) -> Result<()> {

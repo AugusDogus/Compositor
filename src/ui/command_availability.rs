@@ -11,6 +11,7 @@ impl Action {
                 | Self::Save
                 | Self::SaveAs
                 | Self::ExportPsd
+                | Self::ExportArtboards
                 | Self::ExportLayers
                 | Self::ExportSizes
                 | Self::ExportPng
@@ -80,7 +81,20 @@ impl Editor {
         {
             return false;
         }
+        if matches!(action, Action::ExportArtboards)
+            && !self.session().committed_document().layers.iter().any(|l| {
+                l.visible && matches!(l.content, compositor::document::LayerContent::Artboard(_))
+            })
+        {
+            return false;
+        }
         match action {
+            Action::ArtboardSettings | Action::EditArtboard(_) => {
+                self.can_edit_layers() && self.active_artboard().is_some()
+            }
+            Action::ArtboardFromLayers => {
+                self.can_edit_layers() && !self.session().document.selected.is_empty()
+            }
             action if action.is_project_operation() => self.can_start_project_operation(),
             Action::New | Action::Open | Action::OpenPsd | Action::OpenRaw | Action::CloseTab => {
                 self.can_switch_projects()

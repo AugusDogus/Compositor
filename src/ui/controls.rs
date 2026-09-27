@@ -250,6 +250,9 @@ impl Editor {
             return self.navigation_header(cx);
         }
         if self.tools.tool == Tool::Move {
+            if self.transforms_artboard() {
+                return self.artboard_header(cx);
+            }
             return self.transform_header(cx);
         }
         self.generic_tool_options(cx)

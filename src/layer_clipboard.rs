@@ -37,6 +37,12 @@ impl Layers {
         crate::render::render(&self.document, self.document.width, self.document.height)
     }
     pub fn paste(&self, target: &mut Document) -> Result<()> {
+        let mut next = target.clone();
+        self.paste_in(&mut next)?;
+        *target = next;
+        Ok(())
+    }
+    fn paste_in(&self, target: &mut Document) -> Result<()> {
         let id = self
             .document
             .active
@@ -51,7 +57,23 @@ impl Layers {
         } else {
             target.active
         };
-        let parent = above.and_then(|id| target.layer(id)).and_then(|l| l.parent);
+        let copying_artboards = self.document.layers.iter().any(|layer| layer.is_artboard());
+        let above = if copying_artboards {
+            above.map(|id| {
+                let mut current = id;
+                while let Some(parent) = target.layer(current).and_then(|layer| layer.parent) {
+                    current = parent;
+                }
+                current
+            })
+        } else {
+            above
+        };
+        let parent = if copying_artboards {
+            None
+        } else {
+            above.and_then(|id| target.layer(id)).and_then(|l| l.parent)
+        };
         let center = if same {
             source.transform.geometry_point([0.5, 0.5])
         } else {

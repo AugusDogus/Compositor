@@ -72,6 +72,7 @@ fn composite(@builtin(global_invocation_id) id:vec3<u32>) {
     if id.x>=view.size.x || id.y>=view.size.y {return;}
     let p=vec2<f32>(id.xy+vec2(0u,view.size.z));
     var color=vec4(0.0); var group=vec4(0.0); var group_alpha=0.0; var group_input_alpha=0.0;
+    var board_outer=vec4(0.0); var board_active=false; var board_inside=false;
     var masks:array<f32,66>; masks[0]=1.0; var depth=0u;
     var opacities:array<f32,66>; opacities[0]=1.0;
     for(var i=0u;i<view.size.w;i++){
@@ -86,8 +87,24 @@ fn composite(@builtin(global_invocation_id) id:vec3<u32>) {
             case 6u: {color=blend(layer.info.x,color,vec4(group.rgb,group_alpha));}
             case 7u: {color=adjusted(layer,p,color,layer.image_dy.z*mask_alpha(layer,p)*masks[depth]*opacities[depth]);}
             case 8u: {color=vec4(group.rgb,group_input_alpha);}
+            case 9u: {
+                board_outer=color; board_active=true;
+                let uv=unit(layer.image_map,layer.image_dy.xy,p);
+                board_inside=all(uv>=vec2(0.0)) && all(uv<vec2(1.0));
+                color=unpack4x8unorm(layer.options.z);
+            }
+            case 10u: {
+                var local=color;
+                if !board_inside {local=vec4(0.0);}
+                local.a*=layer.image_dy.z*mask_alpha(layer,p);
+                color=blend(layer.info.x,board_outer,local);
+                board_active=false;
+            }
             default: {}
         }
     }
+    // A spatial adjustment truncates the program before its operation, which
+    // may leave a board open. Its backdrop must exclude neighboring boards.
+    if board_active && !board_inside {color=vec4(0.0);}
     output[id.y*view.size.x+id.x]=pack4x8unorm(color);
 }

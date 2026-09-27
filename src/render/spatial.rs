@@ -58,18 +58,22 @@ pub(super) fn prepare(
     ];
     let origin = aligned;
     let step = [spacing; 2];
-    // Accumulate halos so chained filters also have complete input at viewport edges.
-    let margin: f64 = ids
-        .iter()
-        .filter_map(|id| doc.layer(*id))
-        .map(|l| match &l.content {
+    // Root adjustments can sample the combined canvas. Independent board
+    // chains only need their largest halo, not the sum of neighboring boards.
+    let mut margins: HashMap<Option<Uuid>, f64> = HashMap::new();
+    for layer in ids.iter().filter_map(|id| doc.layer(*id)) {
+        let margin = match &layer.content {
             LayerContent::Adjustment(a) if a.kind == Kind::GaussianBlur => {
                 a.blur_radius.unwrap_or(10.) * 3. + 2.
             }
             LayerContent::Adjustment(a) => a.motion_distance.unwrap_or(10.) * 0.5 + 2.,
             _ => 0.,
-        })
-        .sum();
+        };
+        *margins
+            .entry(crate::artboard::owner(doc, layer.id))
+            .or_default() += margin;
+    }
+    let margin = margins.remove(&None).unwrap_or(0.) + margins.values().copied().fold(0., f64::max);
     let pad = [
         (margin / step[0]).ceil() as u32,
         (margin / step[1]).ceil() as u32,

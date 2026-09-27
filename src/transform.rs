@@ -45,6 +45,27 @@ pub fn hit_handle(
 }
 
 pub fn selection_bounds(doc: &Document, mask_target: bool) -> Option<Transform> {
+    if let Some(board) = doc
+        .layers
+        .iter()
+        .find(|layer| layer.is_artboard() && doc.selected.contains(&layer.id))
+        && doc
+            .selected
+            .iter()
+            .all(|id| crate::artboard::owner(doc, *id) == Some(board.id))
+    {
+        let transform = if mask_target && doc.selected.len() == 1 {
+            board
+                .mask
+                .as_ref()
+                .filter(|mask| !mask.linked)
+                .and_then(|mask| mask.placement)
+                .unwrap_or(board.transform)
+        } else {
+            board.transform
+        };
+        return doc.layer_is_visible(board.id).then_some(transform);
+    }
     let ids = target_ids(doc);
     if doc.selected.len() == 1 && doc.active_layer().is_some_and(|l| !l.is_group()) {
         let layer = doc.active_layer().filter(|l| ids.contains(&l.id))?;
@@ -118,6 +139,42 @@ pub fn pick(doc: &Document, point: Point, force: bool) -> Option<uuid::Uuid> {
 pub fn apply(doc: &mut Document, old: Transform, new: Transform, mask_target: bool) -> Result<()> {
     if !new.valid() {
         return Err(invalid("The transform exceeds supported bounds."));
+    }
+    if mask_target
+        && doc.selected.len() == 1
+        && let Some(board) = doc.active_layer_mut().filter(|layer| layer.is_artboard())
+        && let Some(mask) = board.mask.as_mut().filter(|mask| !mask.linked)
+    {
+        mask.placement = Some(new);
+        return Ok(());
+    }
+    let boards: Vec<_> = doc
+        .layers
+        .iter()
+        .filter(|layer| layer.is_artboard() && doc.selected.contains(&layer.id))
+        .collect();
+    if let Some(board) = boards.first() {
+        if boards.len() != 1
+            || doc
+                .selected
+                .iter()
+                .any(|id| crate::artboard::owner(doc, *id) != Some(board.id))
+            || mask_target
+        {
+            return Err(invalid(
+                "Transform one artboard at a time with its image target selected. Its frame and all layers are unchanged.",
+            ));
+        }
+        let id = board.id;
+        let name = board.name.clone();
+        let LayerContent::Artboard(settings) = board.content else {
+            return Err(invalid("The selected artboard is unavailable."));
+        };
+        let frame = board.transform.following(old, new);
+        if old.size != new.size {
+            return crate::artboard::resize_frame(doc, id, frame);
+        }
+        return crate::artboard::update(doc, id, &name, frame, settings.background);
     }
     if mask_target
         && doc.selected.len() == 1

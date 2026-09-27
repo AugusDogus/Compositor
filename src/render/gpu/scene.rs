@@ -146,6 +146,7 @@ impl Scene {
             let (kind, adjustment, settings) = match &layer.content {
                 LayerContent::Raster(_) => (0, 0, 0),
                 LayerContent::Group => (1, 0, 0),
+                LayerContent::Artboard(_) => (3, 0, 0),
                 LayerContent::ExtendedAdjustment(a) => {
                     let offset = scene.adjustments.len() as u32;
                     let kind = super::adjustments::encode_extended(a, &mut scene.adjustments);
@@ -167,9 +168,13 @@ impl Scene {
                 kind,
                 settings,
             ]);
+            let board_background = match &layer.content {
+                LayerContent::Artboard(board) => u32::from_le_bytes(board.background),
+                _ => 0,
+            };
             scene
                 .layers
-                .extend([u32::from(placement), adjustment, 0, 0]);
+                .extend([u32::from(placement), adjustment, board_background, 0]);
         }
         let state = RenderState::new(doc);
         fn visit(
@@ -192,7 +197,11 @@ impl Scene {
                     continue;
                 }
                 let index = index as u32;
-                if layer.is_group() {
+                if matches!(layer.content, LayerContent::Artboard(_)) {
+                    scene.operations.push([9, index]);
+                    visit(scene, doc, state, Some(layer.id), depth + 1);
+                    scene.operations.push([10, index]);
+                } else if layer.is_group() {
                     scene.operations.push([0, index]); // Push inherited group mask.
                     visit(scene, doc, state, Some(layer.id), depth + 1);
                     scene.operations.push([1, 0]);

@@ -32,6 +32,7 @@ struct LayerKey {
 enum Pixels {
     Raster(Option<Weak<RgbaImage>>),
     Group,
+    Artboard(compositor::artboard::Artboard),
     Adjustment(Box<Adjustment>),
     ExtendedAdjustment(Box<compositor::adjustment::ExtendedAdjustment>),
 }
@@ -75,6 +76,7 @@ impl LayerKey {
             content: match &layer.content {
                 LayerContent::Raster(pixels) => Pixels::Raster(pixels.as_ref().map(Arc::downgrade)),
                 LayerContent::Group => Pixels::Group,
+                LayerContent::Artboard(board) => Pixels::Artboard(*board),
                 LayerContent::Adjustment(value) => Pixels::Adjustment(value.clone()),
                 LayerContent::ExtendedAdjustment(value) => {
                     Pixels::ExtendedAdjustment(value.clone())
@@ -103,6 +105,7 @@ impl LayerKey {
                 }
                 (Pixels::Raster(None), LayerContent::Raster(None))
                 | (Pixels::Group, LayerContent::Group) => true,
+                (Pixels::Artboard(a), LayerContent::Artboard(b)) => a == b,
                 (Pixels::Adjustment(a), LayerContent::Adjustment(b)) => a == b,
                 (Pixels::ExtendedAdjustment(a), LayerContent::ExtendedAdjustment(b)) => a == b,
                 _ => false,

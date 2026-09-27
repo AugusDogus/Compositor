@@ -429,3 +429,191 @@ fn bound_but_invalid_path_sources_are_rejected() {
         assert_eq!(fallback.layers, document.layers);
     }
 }
+
+fn artboard_document() -> Document {
+    let mut document = document();
+    let children: Vec<_> = document.layers.iter().map(|layer| layer.id).collect();
+    let board = crate::artboard::create(
+        &mut document,
+        "Board",
+        Transform::new(3, 2),
+        [10, 20, 30, 128],
+    )
+    .unwrap();
+    for layer in &mut document.layers {
+        if children.contains(&layer.id) {
+            layer.parent = Some(board);
+        }
+    }
+    add_path(&mut document);
+    document.validate().unwrap();
+    document
+}
+
+#[test]
+fn artboards_roundtrip_sources_and_render_native_compatibility_root() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("Artboards.comp");
+    let document = artboard_document();
+    super::super::save(&document, &path).unwrap();
+    assert_eq!(super::super::load(&path).unwrap(), document);
+    let source = load_native(&path.join(SOURCE)).unwrap();
+    assert!(matches!(
+        source.active_layer().unwrap().content,
+        LayerContent::Group
+    ));
+    let settings: Settings =
+        read_json(directory.path(), &path.join(SOURCE).join(SETTINGS)).unwrap();
+    assert_eq!(settings.version, 3);
+    assert_eq!(settings.artboards.len(), 1);
+    let native = load_native(&path).unwrap();
+    assert_eq!(native.layers.len(), 1);
+    assert_eq!(
+        crate::render::render(&native, 3, 2).unwrap(),
+        crate::render::render(&document, 3, 2).unwrap()
+    );
+    let native_directory = tempfile::tempdir().unwrap();
+    assert!(write_native(&document, native_directory.path()).is_err());
+    assert_eq!(fs::read_dir(native_directory.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn sparse_artboard_recovery_preserves_sources_without_allocating_canvas() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("Artboards.comp");
+    let mut document = artboard_document();
+    document.width = 30_000;
+    document.height = 30_000;
+    super::super::save_recovery(&document, &path).unwrap();
+    assert!(!path.join("images").exists());
+    assert_eq!(super::super::load(&path).unwrap(), document);
+    fs::write(path.join(NAME), b"{}").unwrap();
+    assert!(inspect_open(&path).is_err());
+}
+
+#[test]
+fn version_two_paths_still_load_without_artboard_metadata() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("Paths.comp");
+    let mut document = Document::new(3, 2).unwrap();
+    add_path(&mut document);
+    super::super::save(&document, &path).unwrap();
+    let settings_path = path.join(SOURCE).join(SETTINGS);
+    let mut settings: serde_json::Value = read_json(directory.path(), &settings_path).unwrap();
+    settings["version"] = 2.into();
+    settings.as_object_mut().unwrap().remove("artboards");
+    write_json(&settings_path, &settings).unwrap();
+    rebind(&path);
+    assert_eq!(super::super::load(&path).unwrap(), document);
+}
+
+fn rebind(path: &Path) {
+    write_json(
+        &path.join(NAME),
+        &Index {
+            version: 1,
+            purpose: Purpose::Project,
+            files: bound_files(path).unwrap(),
+        },
+    )
+    .unwrap();
+}
+
+#[test]
+fn invalid_artboard_sources_reject_before_image_decode_and_offer_rendered_copy() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("InvalidArtboards.comp");
+    let document = artboard_document();
+    let board = document.active.unwrap();
+    for case in 0..7 {
+        super::super::save(&document, &path).unwrap();
+        let settings_path = path.join(SOURCE).join(SETTINGS);
+        let mut settings: serde_json::Value = read_json(directory.path(), &settings_path).unwrap();
+        let manifest_path = path.join(SOURCE).join("manifest.json");
+        let mut manifest: Manifest = read_json(directory.path(), &manifest_path).unwrap();
+        match case {
+            0 => settings["artboards"][0]["layer"] = Uuid::new_v4().to_string().into(),
+            1 => settings["artboards"][0]["layer"] = document.layers[0].id.to_string().into(),
+            2 => {
+                let duplicate = settings["artboards"][0].clone();
+                settings["artboards"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(duplicate);
+            }
+            3 => settings["version"] = 2.into(),
+            4 => {
+                manifest
+                    .layers
+                    .iter_mut()
+                    .find(|layer| layer.id == board)
+                    .unwrap()
+                    .transform
+                    .rotation = 90.
+            }
+            5 => {
+                manifest
+                    .layers
+                    .iter_mut()
+                    .find(|layer| layer.id == board)
+                    .unwrap()
+                    .transform
+                    .flip_x = true
+            }
+            _ => {
+                let mut folder = Layer::blank("Outer folder", 3, 2);
+                folder.content = LayerContent::Group;
+                let outer = folder.id;
+                let mut nested = document.clone();
+                nested
+                    .layers
+                    .iter_mut()
+                    .find(|layer| layer.id == board)
+                    .unwrap()
+                    .content = LayerContent::Group;
+                nested.paths.clear();
+                nested
+                    .layers
+                    .retain(|layer| !matches!(layer.content, LayerContent::ExtendedAdjustment(_)));
+                nested
+                    .layers
+                    .iter_mut()
+                    .find(|layer| layer.id == board)
+                    .unwrap()
+                    .parent = Some(outer);
+                nested.add(folder).unwrap();
+                let temp = tempfile::tempdir().unwrap();
+                write_native(&nested, temp.path()).unwrap();
+                manifest = read_json(temp.path(), &temp.path().join("manifest.json")).unwrap();
+            }
+        }
+        write_json(&settings_path, &settings).unwrap();
+        write_json(&manifest_path, &manifest).unwrap();
+        // A forged but rebound invalid board should be rejected before decoding
+        // even a malformed pixel asset.
+        fs::write(
+            path.join(SOURCE)
+                .join("images")
+                .join(asset_name(document.layers[0].id, false)),
+            b"invalid PNG",
+        )
+        .unwrap();
+        rebind(&path);
+        let error = super::super::load(&path).unwrap_err().to_string();
+        assert!(
+            error.contains("artboard") || error.contains("Artboard") || error.contains("snapshot"),
+            "case {case}: {error}"
+        );
+        let OpenResult::RenderedCopyAvailable { fingerprint, .. } = inspect_open(&path).unwrap()
+        else {
+            panic!("Expected rendered copy warning for case {case}")
+        };
+        assert_eq!(
+            load_rendered_copy(&path, &fingerprint)
+                .unwrap()
+                .layers
+                .len(),
+            1
+        );
+    }
+}

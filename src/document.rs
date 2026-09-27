@@ -75,6 +75,7 @@ impl Mask {
 pub enum LayerContent {
     Raster(Option<Arc<RgbaImage>>),
     Group,
+    Artboard(crate::artboard::Artboard),
     Adjustment(Box<crate::adjustment::Adjustment>),
     ExtendedAdjustment(Box<crate::adjustment::ExtendedAdjustment>),
 }
@@ -204,7 +205,13 @@ impl Layer {
         )
     }
     pub fn is_group(&self) -> bool {
-        matches!(self.content, LayerContent::Group)
+        matches!(
+            self.content,
+            LayerContent::Group | LayerContent::Artboard(_)
+        )
+    }
+    pub fn is_artboard(&self) -> bool {
+        matches!(self.content, LayerContent::Artboard(_))
     }
     /// Pixel edits require explicitly discarding the editable camera source first.
     pub fn require_rasterized(&self) -> Result<()> {
@@ -309,6 +316,7 @@ impl Document {
         }
     }
     pub fn validate(&self) -> Result<()> {
+        crate::artboard::validate(self)?;
         crate::vector_path::validate(&self.paths)?;
         crate::guides::validate(&self.guides)?;
         validate_canvas_size(self.width, self.height)?;

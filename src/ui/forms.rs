@@ -653,6 +653,8 @@ impl Editor {
             Ok(n as u32)
         };
         match action {
+            Action::NewArtboard => self.apply_artboard(None, &values)?,
+            Action::EditArtboard(id) => self.apply_artboard(Some(id), &values)?,
             Action::EditExtendedAdjustment => self.finish_extended_adjustment()?,
             Action::FeatherSelection => {
                 let amount = number(0)?;

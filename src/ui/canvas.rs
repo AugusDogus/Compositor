@@ -9,6 +9,7 @@ use compositor::{
 use super::canvas_preview::PreviewKey;
 
 pub(super) enum Gesture {
+    Artboard(Box<artboard_drag::Drag>),
     Path(Box<paths::Drag>),
     BrushTip(super::brush_tip::Drag),
     PixelTransform(super::floating::PixelDrag),
@@ -409,7 +410,16 @@ impl Editor {
                 || self.pending_pixels.is_some())
             && let Some(placement) = self.transform_placement()
         {
-            surface = surface.child(super::transform_overlay::overlay(placement, zoom, offset));
+            surface = surface.child(super::transform_overlay::overlay_with_rotation(
+                placement,
+                zoom,
+                offset,
+                !self.transforms_artboard(),
+            ));
+        }
+        match self.artboard_overlay(zoom, offset, [width, height]) {
+            Ok(overlay) => surface = surface.child(overlay),
+            Err(error) => self.status = error.to_string(),
         }
         surface = surface.child(selection_outline);
         match self.selection_draft_overlay(zoom, offset) {

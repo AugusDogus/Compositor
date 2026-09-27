@@ -41,6 +41,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Brush stroke smoothing | ✅ | ✅ | ✅ |
 | Tablet pressure, tilt and eraser tip | ❌ | ⚠️ Wayland/X11[^tablet] | ✅ |
 | Gradients, rectangle and ellipse shapes | ✅ | ✅ | ✅ |
+| Artboards and per-artboard PNG export | ❌ | ✅ | ❌ |
 | Saved Bézier paths, path selection and painting | ❌ | ✅ | ❌ |
 | Layer transforms, perspective and snapping | ✅ | ✅ | ✅ |
 | Marquee, lasso and magic-wand selections | ✅ | ✅ | ✅ |

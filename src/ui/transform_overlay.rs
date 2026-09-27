@@ -3,7 +3,16 @@ use super::floating::Placement;
 use super::*;
 use compositor::geometry::Point;
 
+#[cfg(test)]
 pub(super) fn overlay(placement: Placement, zoom: f64, offset: Point) -> Element {
+    overlay_with_rotation(placement, zoom, offset, true)
+}
+pub(super) fn overlay_with_rotation(
+    placement: Placement,
+    zoom: f64,
+    offset: Point,
+    allow_rotation: bool,
+) -> Element {
     let mut overlay = div().absolute().size_full().accessibility_hidden(true);
     let transform = placement.bounds();
     let mut handles = placement.handles();
@@ -14,7 +23,7 @@ pub(super) fn overlay(placement: Placement, zoom: f64, offset: Point) -> Element
             (offset[1] + point[1] * zoom) as f32,
         )
     });
-    let rotation = matches!(placement, Placement::Affine(_));
+    let rotation = allow_rotation && matches!(placement, Placement::Affine(_));
     let accent = Color::rgb8(0, 122, 255);
     for (width, color) in [(3., Color::BLACK.with_alpha(0.7)), (1., accent)] {
         let mut builder = quickgui::PathBuilder::stroke(width);

@@ -54,10 +54,11 @@ pub(super) enum Icon {
     Progress,
     PopupChevron,
     Pen,
+    Artboard,
 }
 impl Icon {
     fn svg(self) -> quickgui::Svg {
-        static ICONS: OnceLock<[quickgui::Svg; 50]> = OnceLock::new();
+        static ICONS: OnceLock<[quickgui::Svg; 51]> = OnceLock::new();
         ICONS.get_or_init(|| {
             [
                 include_bytes!("../../assets/icons/compositor-move.svg").as_slice(),
@@ -110,6 +111,7 @@ impl Icon {
                 include_bytes!("../../assets/icons/compositor-progress.svg").as_slice(),
                 include_bytes!("../../assets/icons/compositor-popup-chevron.svg").as_slice(),
                 include_bytes!("../../assets/icons/pen.svg").as_slice(),
+                include_bytes!("../../assets/icons/artboard.svg").as_slice(),
             ]
             .map(|bytes| quickgui::Svg::from_bytes(bytes).expect("Embedded icon must be valid SVG"))
         })[self as usize]

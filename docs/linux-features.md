@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Artboards group layers inside editable frames with transparent or colored backgrounds. Create them empty or from selected layers, move them by their labels, and resize their frames without scaling the contents. Export Artboards writes one PNG per visible board, excluding other boards and adjustments outside the board. Linux projects preserve editable artboards; macOS and PSD exports use a rendered compatibility copy.
+
 - File > Export Layers writes a PNG for each visible pixel, text or shape layer, with its clipping stack, masks, effects and opacity. Files use each layer’s transformed bounds and stay within the canvas. Unclipped adjustment layers are excluded. Each batch gets a new folder.
 
 - Pen (P) creates saved Bézier paths with editable anchors and handles. Convert paths to selections, fill them, or stroke them with the current brush and mask target. Paths support undo, renaming and canvas transforms. Linux `.comp` files preserve them; macOS and PSD exports omit the working paths.
