@@ -4,6 +4,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Photo Filter adds warming, cooling, sepia and custom-color filtration, with density and Preserve Luminosity controls. It edits pixels with preview and undo; it is not an editable adjustment layer. Vulkan accelerates processing when available.
 - GBR v2 brush tips support imported shapes, spacing, pressure, tilt, selections and undo. Paint and Erase use the foreground color or mask coverage; embedded RGB colors are not used. Tips stay loaded for the current session.
 - Brightness/Contrast provides direct pixel edits and adjustment layers with preview and undo. It saves as native Levels; Mac saves retain those Levels but remove the Linux slider settings.
 - Radial Blur provides Spin and Zoom modes with center controls, selection-aware preview and undo. Vulkan accelerates supported image sizes, with a CPU path when unavailable.
