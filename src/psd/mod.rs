@@ -16,6 +16,7 @@ mod text;
 mod threshold;
 mod vector;
 mod vector_metadata;
+mod vibrance;
 
 use crate::{Result, document::Document, invalid};
 pub use export::{encode, export_report};

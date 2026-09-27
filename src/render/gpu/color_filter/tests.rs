@@ -217,3 +217,44 @@ fn channel_mixer_gpu_matches_cpu_for_signed_coefficients_constants_monochrome_an
         }
     }
 }
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn vibrance_gpu_matches_skin_hues_saturation_extremes_and_alpha() {
+    let engine = Engine::new().unwrap();
+    let source = RgbaImage::from_fn(256, 256, |x, y| {
+        image::Rgba([
+            x as u8,
+            y as u8,
+            (x as u8).wrapping_mul(17),
+            (y as u8).wrapping_mul(29),
+        ])
+    });
+    for (vibrance, saturation) in [
+        (0., 0.),
+        (100., 0.),
+        (-100., 0.),
+        (0., -100.),
+        (100., 100.),
+        (-100., -100.),
+        (47.25, -23.75),
+    ] {
+        let settings = crate::vibrance::Vibrance::new(vibrance, saturation).unwrap();
+        let actual = engine
+            .color_filter(&source, Settings::Vibrance(settings))
+            .unwrap();
+        let expected = crate::vibrance::reference(&source, settings);
+        for (a, b) in actual.pixels().zip(expected.pixels()) {
+            assert_eq!(a[3], b[3]);
+            for channel in 0..3 {
+                assert!(
+                    a[channel].abs_diff(b[channel]) <= 1,
+                    "vibrance={vibrance} saturation={saturation}: {a:?}/{b:?}"
+                );
+            }
+        }
+        if vibrance == 0. && saturation == 0. {
+            assert_eq!(actual, source);
+        }
+    }
+}

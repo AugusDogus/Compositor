@@ -55,6 +55,7 @@ pub mod threshold;
 pub mod thumbnail;
 pub mod transform;
 pub mod trim;
+pub mod vibrance;
 pub mod wand;
 pub mod warp;
 

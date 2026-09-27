@@ -11,6 +11,7 @@ pub mod radial;
 mod selective_color;
 mod sharpen;
 mod threshold;
+mod vibrance;
 pub use finishing::Vignette;
 
 use crate::{
@@ -29,6 +30,7 @@ pub enum Filter {
     SelectiveColor(crate::selective_color::SelectiveColor),
     Threshold(crate::threshold::Threshold),
     Posterize(crate::posterize::Posterize),
+    Vibrance(crate::vibrance::Vibrance),
     Radial(radial::Radial),
     LuminositySharpen(luminosity_sharpen::Settings),
     HighPass {
@@ -193,6 +195,7 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
             Filter::SelectiveColor(settings) => selective_color::apply(&source, settings)?,
             Filter::Threshold(settings) => threshold::apply(&source, settings)?,
             Filter::Posterize(settings) => posterize::apply(&source, settings)?,
+            Filter::Vibrance(settings) => vibrance::apply(&source, settings)?,
             Filter::LuminositySharpen(settings) => luminosity_sharpen::apply(&source, settings)?,
             Filter::HighPass { radius } => sharpen::high_pass(&source, radius)?,
             Filter::UnsharpMask {

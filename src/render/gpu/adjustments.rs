@@ -129,6 +129,10 @@ pub(super) fn encode_extended(
     values: &mut Vec<f32>,
 ) -> u32 {
     match a {
+        crate::adjustment::ExtendedAdjustment::Vibrance(settings) => {
+            values.extend([settings.vibrance(), settings.saturation()]);
+            18
+        }
         crate::adjustment::ExtendedAdjustment::Posterize(settings) => {
             values.push(f32::from(settings.levels()));
             17

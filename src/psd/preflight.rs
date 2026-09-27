@@ -296,6 +296,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
                     | b"hue2"
                     | b"blnc"
                     | b"blwh"
+                    | b"vibA"
                     | b"nvrt"
                     | b"CgEd"
                     | b"vmsk"

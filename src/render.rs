@@ -742,3 +742,6 @@ mod tests {
 mod extended_tests;
 #[cfg(test)]
 mod posterize_tests;
+
+#[cfg(test)]
+mod vibrance_tests;

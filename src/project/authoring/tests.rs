@@ -90,6 +90,36 @@ fn posterize_settings_survive_project_and_recovery_with_native_projection() {
     }
 }
 
+#[test]
+fn vibrance_settings_survive_project_and_recovery_with_native_projection() {
+    use crate::vibrance::Vibrance;
+    let directory = tempfile::tempdir().unwrap();
+    for (vibrance, saturation) in [(-100., 100.), (47.25, -23.75), (0., 0.)] {
+        let mut doc = document();
+        let settings = Vibrance::new(vibrance, saturation).unwrap();
+        doc.layers[1].content =
+            LayerContent::ExtendedAdjustment(Box::new(ExtendedAdjustment::Vibrance(settings)));
+        for recovery in [false, true] {
+            let path = directory
+                .path()
+                .join(format!("{vibrance}-{saturation}-{recovery}.comp"));
+            if recovery {
+                super::super::save_recovery(&doc, &path).unwrap();
+            } else {
+                super::super::save(&doc, &path).unwrap();
+            }
+            assert_eq!(super::super::load(&path).unwrap(), doc);
+            if !recovery {
+                let projection = load_native(&path).unwrap();
+                assert_eq!(
+                    crate::render::render(&projection, 3, 2).unwrap(),
+                    crate::render::render(&doc, 3, 2).unwrap()
+                );
+            }
+        }
+    }
+}
+
 fn document() -> Document {
     let mut document = Document::new(3, 2).unwrap();
     document.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(

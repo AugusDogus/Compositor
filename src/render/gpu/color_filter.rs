@@ -16,6 +16,7 @@ pub(crate) enum Settings {
     SelectiveColor(SelectiveColor),
     Threshold(crate::threshold::Threshold),
     Posterize(crate::posterize::Posterize),
+    Vibrance(crate::vibrance::Vibrance),
 }
 impl Settings {
     fn operation(self) -> super::readback::Operation {
@@ -25,12 +26,19 @@ impl Settings {
             Self::SelectiveColor(_) => super::readback::Operation::SelectiveColor,
             Self::Threshold(_) => super::readback::Operation::Threshold,
             Self::Posterize(_) => super::readback::Operation::Posterize,
+            Self::Vibrance(_) => super::readback::Operation::Vibrance,
         }
     }
     fn parameters(self, count: u32) -> Vec<u32> {
         match self {
             Self::Threshold(settings) => vec![u32::from(settings.level), count, 0, 0],
             Self::Posterize(settings) => vec![u32::from(settings.levels()), count, 0, 0],
+            Self::Vibrance(settings) => vec![
+                settings.vibrance().to_bits(),
+                settings.saturation().to_bits(),
+                count,
+                0,
+            ],
             Self::PhotoFilter(settings) => vec![
                 (settings.color[0] as f32).to_bits(),
                 (settings.color[1] as f32).to_bits(),
@@ -64,6 +72,7 @@ pub(super) struct Pipelines {
     selective_color: wgpu::ComputePipeline,
     threshold: wgpu::ComputePipeline,
     posterize: wgpu::ComputePipeline,
+    vibrance: wgpu::ComputePipeline,
 }
 impl Pipelines {
     pub(super) fn new(device: &wgpu::Device) -> Self {
@@ -84,6 +93,13 @@ impl Pipelines {
         Self {
             threshold: pipeline(include_str!("threshold.wgsl")),
             posterize: pipeline(include_str!("posterize.wgsl")),
+            vibrance: pipeline(
+                &[
+                    include_str!("vibrance.wgsl"),
+                    include_str!("vibrance_math.wgsl"),
+                ]
+                .join("\n"),
+            ),
             photo_filter: pipeline(include_str!("photo_filter.wgsl")),
             channel_mixer: pipeline(include_str!("channel_mixer.wgsl")),
             selective_color: pipeline(
@@ -102,6 +118,7 @@ impl Pipelines {
             Settings::SelectiveColor(_) => &self.selective_color,
             Settings::Threshold(_) => &self.threshold,
             Settings::Posterize(_) => &self.posterize,
+            Settings::Vibrance(_) => &self.vibrance,
         }
     }
 }

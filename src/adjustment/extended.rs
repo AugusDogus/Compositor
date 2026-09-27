@@ -12,6 +12,7 @@ pub enum ExtendedAdjustment {
     SelectiveColor(SelectiveColor),
     Threshold(crate::threshold::Threshold),
     Posterize(crate::posterize::Posterize),
+    Vibrance(crate::vibrance::Vibrance),
 }
 impl ExtendedAdjustment {
     pub fn label(self) -> &'static str {
@@ -21,6 +22,7 @@ impl ExtendedAdjustment {
             Self::SelectiveColor(_) => "Selective Color",
             Self::Threshold(_) => "Threshold",
             Self::Posterize(_) => "Posterize",
+            Self::Vibrance(_) => "Vibrance",
         }
     }
     pub fn validate(self) -> Result<()> {
@@ -28,12 +30,15 @@ impl ExtendedAdjustment {
             Self::PhotoFilter(settings) => settings.validate(),
             Self::ChannelMixer(settings) => settings.validate(),
             Self::SelectiveColor(settings) => settings.validate(),
-            Self::Threshold(_) | Self::Posterize(_) => Ok(()),
+            Self::Threshold(_) | Self::Posterize(_) | Self::Vibrance(_) => Ok(()),
         }
     }
     /// Evaluate continuous backdrop RGB. Quantization belongs to the final output.
     pub fn apply_rgba(self, rgba: [f64; 4]) -> [f64; 4] {
-        if rgba[3] == 0. || matches!(self, Self::Posterize(settings) if settings.levels() == 256) {
+        if rgba[3] == 0.
+            || matches!(self, Self::Posterize(settings) if settings.levels() == 256)
+            || matches!(self, Self::Vibrance(settings) if settings.identity())
+        {
             return rgba;
         }
         let input = [rgba[0] as f32, rgba[1] as f32, rgba[2] as f32];
@@ -43,6 +48,7 @@ impl ExtendedAdjustment {
             Self::SelectiveColor(settings) => settings.apply_rgb(input),
             Self::Threshold(settings) => settings.apply_rgb(input),
             Self::Posterize(settings) => settings.apply_rgb(input),
+            Self::Vibrance(settings) => settings.apply_rgb(input),
         };
         [
             f64::from(rgb[0]),

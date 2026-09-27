@@ -50,6 +50,9 @@ impl Parameter {
         use Scale::{Linear, Logarithmic};
         let (label, range, unit, scale) = match (action, kind, index) {
             (Action::Filter(Filter::Posterize(_)), _, 0) => ("Levels", (2., 256.), "", Linear(0)),
+            (Action::Filter(Filter::Vibrance(_)), _, i @ 0..=1) => {
+                (["Vibrance", "Saturation"][i], (-100., 100.), "%", Linear(1))
+            }
             (Action::Filter(Filter::Threshold(_)), _, 0) => ("Level", (0., 255.), "", Linear(0)),
             (Action::Filter(Filter::SelectiveColor(_)), _, i @ 0..=35) => (
                 ["Cyan", "Magenta", "Yellow", "Black"][i % 4],

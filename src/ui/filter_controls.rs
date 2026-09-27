@@ -3,11 +3,13 @@ use compositor::{filters::Filter, invalid};
 
 pub(super) mod posterize;
 pub(super) mod threshold;
+pub(super) mod vibrance;
 
 impl Editor {
     pub(super) fn filter_fields(filter: Filter) -> (&'static str, Vec<(&'static str, String)>) {
         match filter {
             Filter::Posterize(settings) => ("Posterize", posterize::fields(settings)),
+            Filter::Vibrance(settings) => ("Vibrance", vibrance::fields(settings)),
             Filter::Threshold(settings) => ("Threshold", threshold::fields(settings)),
             Filter::SelectiveColor(settings) => (
                 "Selective Color",
@@ -143,6 +145,7 @@ impl Editor {
         };
         Ok(match filter {
             Filter::Posterize(_) => Filter::Posterize(posterize::parse(values)?),
+            Filter::Vibrance(_) => Filter::Vibrance(vibrance::parse(values)?),
             Filter::Threshold(_) => Filter::Threshold(threshold::parse(values)?),
             Filter::SelectiveColor(_) => {
                 Filter::SelectiveColor(super::selective_color_controls::parse(values)?)
