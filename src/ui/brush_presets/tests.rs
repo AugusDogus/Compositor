@@ -281,3 +281,138 @@ fn gih_library_budget_counts_every_cell_and_keeps_failed_import_atomic() {
     };
     assert_eq!(selected.name(), "Large 2");
 }
+
+#[test]
+fn pending_abr_import_blocks_navigation_reentry_and_escape_until_completion() {
+    use super::super::file_jobs::{Completed, FileJob};
+    let mut editor = Editor::with_test_document();
+    editor.open_brush_pack(abr_pack());
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("ABR import").size(1500., 900.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    cx.click(window, "abr-tip-1").unwrap();
+    let job = cx
+        .update(view, |e, _| {
+            e.import_abr_selection();
+            e.file_job.take().unwrap()
+        })
+        .unwrap();
+    for control in ["abr-back", "abr-tip-0", "abr-import"] {
+        assert!(
+            matches!(
+                cx.click(window, control),
+                Err(quickgui::TestAppError::NotClickable { .. })
+            ),
+            "pending control must be disabled: {control}"
+        );
+    }
+    cx.simulate_keystroke(
+        window,
+        quickgui::Keystroke::new(quickgui::Key::Escape, Modifiers::empty()),
+    )
+    .unwrap();
+    cx.update(view, |e, cx| {
+        e.open_brush_tips();
+        e.open_brush_pack(abr_pack());
+        e.import_abr_selection();
+        e.cancel_form(cx);
+        assert!(e.pending);
+        assert!(
+            e.file_job.is_none(),
+            "cannot queue another import while a file job runs"
+        );
+        assert!(matches!(
+            e.modal,
+            Some(Form::BrushTips(Draft {
+                import: Some(_),
+                ..
+            }))
+        ));
+        assert!(e.brush_presets.tips.is_empty());
+        e.pending = false;
+        e.import_abr_selection();
+        let FileJob::BrushTips { selected, .. } = e.file_job.take().unwrap() else {
+            panic!("brush job");
+        };
+        assert_eq!(
+            selected,
+            [1],
+            "disabled rows must not change the import selection"
+        );
+        e.pending = false;
+        let Completed::BrushTips(tips) = job.run(&[]).unwrap() else {
+            panic!("decoded tips");
+        };
+        e.install_brush_tips(tips).unwrap();
+        cx.invalidate();
+    })
+    .unwrap();
+    cx.simulate_keystroke(
+        window,
+        quickgui::Keystroke::new(quickgui::Key::Escape, Modifiers::empty()),
+    )
+    .unwrap();
+    cx.read(view, |e| {
+        assert!(
+            e.modal.is_none(),
+            "normal dismissal works after the import finishes"
+        );
+        assert_eq!(e.brush_presets.tips.len(), 1);
+        assert_eq!(e.brush_presets.tips[0].brush.name(), "Asymmetric dots");
+    })
+    .unwrap();
+}
+
+#[test]
+fn pending_brush_file_load_preserves_library_selection_and_spacing() {
+    let mut editor = Editor::with_test_document();
+    editor.install_brush_tip(fixture()).unwrap();
+    let selected = editor.tools.brush_shape.clone();
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("Brush import").size(1500., 900.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    cx.update(view, |e, cx| {
+        e.pending = true;
+        e.load_brush_tip(cx);
+        e.brush_spacing_input("90");
+        e.unload_brush_tip();
+        cx.invalidate();
+    })
+    .unwrap();
+    for control in [
+        "brush-tip-round",
+        "brush-tip-load",
+        "brush-tip-unload",
+        "brush-tips-close",
+    ] {
+        assert!(
+            matches!(
+                cx.click(window, control),
+                Err(quickgui::TestAppError::NotClickable { .. })
+            ),
+            "pending control must be disabled: {control}"
+        );
+    }
+    cx.read(view, |e| {
+        let (Shape::Sampled(a), Shape::Sampled(b)) = (&selected, &e.tools.brush_shape) else {
+            panic!("brush selection");
+        };
+        assert!(a.same_source(b));
+        assert_eq!(a.spacing(), b.spacing());
+        assert_eq!(e.brush_presets.tips.len(), 1);
+        assert!(e.errors.is_empty());
+        assert!(e.file_job.is_none());
+        assert!(matches!(e.modal, Some(Form::BrushTips(_))));
+    })
+    .unwrap();
+    cx.update(view, |e, cx| {
+        e.pending = false;
+        cx.invalidate();
+    })
+    .unwrap();
+    cx.click(window, "brush-tip-unload").unwrap();
+    cx.read(view, |e| assert!(e.brush_presets.tips.is_empty()))
+        .unwrap();
+}

@@ -10,6 +10,9 @@ pub(super) struct Import {
 }
 impl Editor {
     pub(in crate::ui) fn open_brush_pack(&mut self, pack: Pack) {
+        if self.pending {
+            return;
+        }
         self.modal = Some(Form::BrushTips(Draft {
             spacing: String::new(),
             error: String::new(),
@@ -21,6 +24,9 @@ impl Editor {
         }));
     }
     fn toggle_abr_tip(&mut self, index: usize) {
+        if self.pending {
+            return;
+        }
         let Some(Form::BrushTips(Draft {
             import: Some(import),
             error,
@@ -57,6 +63,9 @@ impl Editor {
         error.clear();
     }
     pub(super) fn import_abr_selection(&mut self) {
+        if self.pending {
+            return;
+        }
         let Some(Form::BrushTips(Draft {
             import: Some(import),
             ..

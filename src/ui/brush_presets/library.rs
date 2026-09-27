@@ -73,6 +73,9 @@ impl Editor {
         Ok(())
     }
     pub(super) fn unload_brush_tip(&mut self) {
+        if self.pending {
+            return;
+        }
         let Shape::Sampled(sampled) = &self.tools.brush_shape else {
             return;
         };

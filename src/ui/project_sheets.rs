@@ -80,7 +80,8 @@ impl Editor {
     }
 
     pub(super) fn cancel_form(&mut self, cx: &mut EventContext) {
-        if self.panel_applying() {
+        if self.panel_applying() || (self.pending && matches!(self.modal, Some(Form::BrushTips(_))))
+        {
             return;
         }
         if matches!(self.modal, Some(Form::Effects(_))) {

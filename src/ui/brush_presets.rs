@@ -35,6 +35,9 @@ pub(super) struct Draft {
 
 impl Editor {
     pub(super) fn open_brush_tips(&mut self) {
+        if self.pending {
+            return;
+        }
         let spacing = match &self.tools.brush_shape {
             Shape::Round => 25.,
             Shape::Sampled(brush) => brush.spacing() * 100.,
@@ -47,6 +50,9 @@ impl Editor {
     }
 
     fn load_brush_tip(&mut self, cx: &mut EventContext) {
+        if self.pending {
+            return;
+        }
         let options = PathPromptOptions::new().title("Load Brush Tips").filters([
             super::file_dialogs::file_filter("Brush tips (GBR, GIH, ABR)", &["gbr", "gih", "abr"]),
         ]);
@@ -80,6 +86,9 @@ impl Editor {
     }
 
     fn brush_spacing_input(&mut self, value: &str) {
+        if self.pending {
+            return;
+        }
         let Some(Form::BrushTips(draft)) = &mut self.modal else {
             return;
         };
@@ -103,11 +112,15 @@ impl Editor {
     }
 
     pub(super) fn brush_tips_view(&self, cx: &mut ViewContext<'_, Self>, draft: &Draft) -> Element {
-        if let Some(import) = &draft.import {
+        let mut view = if let Some(import) = &draft.import {
             self.brush_import_view(cx, import, &draft.error)
         } else {
             self.loaded_brush_tips_view(cx, draft)
+        };
+        if self.pending {
+            view.disable_subtree();
         }
+        view
     }
     fn loaded_brush_tips_view(&self, cx: &mut ViewContext<'_, Self>, draft: &Draft) -> Element {
         let mut choices = div()
@@ -120,6 +133,9 @@ impl Editor {
                     .selected(matches!(self.tools.brush_shape, Shape::Round))
                     .selected_style(|s| s.bg(Color::rgb8(65, 107, 158)))
                     .on_click(cx.listener("brush-tip-round", |this, cx| {
+                        if this.pending {
+                            return;
+                        }
                         this.tools.brush_shape = Shape::Round;
                         this.open_brush_tips();
                         cx.invalidate();
@@ -154,6 +170,9 @@ impl Editor {
                     )
                     .child(text(entry.label()).truncate().min_w(0.).flex_1())
                     .on_click(cx.listener(format!("brush-tip-{index}"), move |this, cx| {
+                        if this.pending {
+                            return;
+                        }
                         if let Some(entry) = this.brush_presets.tips.get(index) {
                             this.tools.brush_shape = Shape::Sampled(entry.brush.clone());
                             this.open_brush_tips();
