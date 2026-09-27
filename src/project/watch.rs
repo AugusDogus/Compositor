@@ -30,15 +30,22 @@ pub fn fingerprint(path: &Path) -> Result<Option<Fingerprint>> {
         return Err(invalid("The project manifest exceeds 4 MiB."));
     }
     data.hash(&mut hash);
-    let raw_settings = path.join("linux-raw.json");
-    if raw_settings.exists() {
+    for name in ["linux-raw.json", super::editors::NAME] {
+        let settings = path.join(name);
+        match fs::symlink_metadata(&settings) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            result => {
+                result?;
+            }
+        }
         data.clear();
-        checked_file(&root, &raw_settings, MANIFEST_LIMIT)?
+        checked_file(&root, &settings, MANIFEST_LIMIT)?
             .take(MANIFEST_LIMIT + 1)
             .read_to_end(&mut data)?;
         if data.len() as u64 > MANIFEST_LIMIT {
-            return Err(invalid("Project RAW settings exceed 4 MiB."));
+            return Err(invalid(format!("Project settings {name} exceed 4 MiB.")));
         }
+        name.hash(&mut hash);
         data.hash(&mut hash);
     }
     for folder in ["images", "raw"] {

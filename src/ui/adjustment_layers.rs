@@ -42,9 +42,14 @@ impl Editor {
                 ..Grain::default()
             });
         }
+        self.add_adjustment_settings(settings)
+    }
+
+    pub(super) fn add_adjustment_settings(&mut self, settings: Adjustment) -> Result<()> {
+        let title = super::brightness_contrast::title(&settings);
         self.session_mut()
-            .edit(&format!("New {} Adjustment", title(kind)), |doc| {
-                let mut layer = Layer::blank(title(kind), doc.width, doc.height);
+            .edit(&format!("New {title} Adjustment"), |doc| {
+                let mut layer = Layer::blank(title, doc.width, doc.height);
                 layer.parent = doc.active_layer().and_then(|active| {
                     if active.is_group() {
                         Some(active.id)

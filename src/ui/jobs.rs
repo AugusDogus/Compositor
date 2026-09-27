@@ -74,7 +74,7 @@ impl Job {
             Self::DeleteLayersBaked => Completion::DeleteLayers,
             Self::CopyLayers { .. } => Completion::CopyLayers,
             Self::AdjustColors { settings, .. } => {
-                Completion::Pixels(super::adjustment_layers::title(settings.kind))
+                Completion::Pixels(super::brightness_contrast::title(settings))
             }
             Self::CameraRaw { .. } => Completion::CameraRaw,
             Self::Dither { .. } => Completion::Pixels("Dither"),

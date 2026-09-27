@@ -73,6 +73,7 @@ impl Editor {
                 || matches!(
                     action,
                     Action::CameraRaw
+                        | Action::BrightnessContrast
                         | Action::Filter(_)
                         | Action::Dither
                         | Action::RemoveBackground
@@ -121,6 +122,8 @@ impl Editor {
                 Ok(())
             }
             Action::Adjustment(kind) => self.open_adjustment(Some(kind)),
+            Action::BrightnessContrast => self.open_brightness_contrast(false),
+            Action::BrightnessContrastLayer => self.open_brightness_contrast(true),
             Action::Rename => {
                 let result = self.begin_rename();
                 if result.is_ok() {
@@ -460,6 +463,8 @@ impl Editor {
         if matches!(
             action,
             Action::AdjustPixels(_)
+                | Action::BrightnessContrast
+                | Action::BrightnessContrastLayer
                 | Action::Adjustment(_)
                 | Action::EditAdjustment
                 | Action::Filter(_)

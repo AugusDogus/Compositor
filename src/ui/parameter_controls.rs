@@ -157,8 +157,23 @@ impl Editor {
         value: &str,
     ) -> Option<Element> {
         let kind = self.adjustment_edit.as_ref().map(|edit| edit.settings.kind);
-        let parameter = Parameter::for_field(action, kind, index)?;
+        let parameter = if self.editing_brightness_contrast() {
+            let (label, range) = match index {
+                0 => ("Brightness", (-150., 150.)),
+                1 => ("Contrast", (-50., 100.)),
+                _ => return None,
+            };
+            Parameter {
+                label,
+                range,
+                unit: "",
+                scale: Scale::Linear(1),
+            }
+        } else {
+            Parameter::for_field(action, kind, index)?
+        };
         let label_width = match (action, kind, index) {
+            _ if self.editing_brightness_contrast() => 72.,
             (Action::Filter(Filter::UnsharpMask { .. }), _, _) => 72.,
             (Action::Filter(Filter::Lens { .. }), _, _) => 116.,
             (_, Some(Kind::Grain), _) => 72.,

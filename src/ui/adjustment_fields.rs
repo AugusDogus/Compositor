@@ -12,6 +12,12 @@ pub(super) fn channel_index(channel: Channel) -> usize {
 
 pub(super) fn fields(a: &Adjustment) -> Vec<(&'static str, String)> {
     let n = |label, value: f64| (label, value.to_string());
+    if let Some(settings) = a.brightness_contrast() {
+        return vec![
+            n("Brightness", settings.brightness),
+            n("Contrast", settings.contrast),
+        ];
+    }
     let color = |c: Color| {
         format!(
             "#{:02X}{:02X}{:02X}",
@@ -166,7 +172,15 @@ pub(super) fn parse(base: &Adjustment, values: &[String]) -> Result<Adjustment> 
         "1" => Ok(true),
         _ => Err(invalid("Toggle fields accept 0 or 1.")),
     };
+    if base.brightness_contrast().is_some() {
+        return BrightnessContrast {
+            brightness: number(0)?,
+            contrast: number(1)?,
+        }
+        .adjustment();
+    }
     let mut a = base.clone();
+    a.editor_hint = None;
     match a.kind {
         Kind::GaussianBlur => a.blur_radius = Some(number(0)?),
         Kind::MotionBlur => {

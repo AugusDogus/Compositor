@@ -79,6 +79,10 @@ impl Editor {
     }
 
     pub(super) fn open_pixel_adjustment(&mut self, kind: Kind) -> Result<()> {
+        self.open_pixel_adjustment_settings(Adjustment::new(kind))
+    }
+
+    pub(super) fn open_pixel_adjustment_settings(&mut self, settings: Adjustment) -> Result<()> {
         if self.tools.mask_target {
             return Err(invalid(
                 "Color adjustments edit image pixels. Select the layer instead of its mask.",
@@ -90,9 +94,11 @@ impl Editor {
             .filter(|l| l.raster().is_some())
             .cloned()
             .ok_or_else(|| invalid("Select a layer containing pixels to adjust its colors."))?;
-        let histogram = matches!(kind, Kind::Levels | Kind::Curves)
+        let kind = settings.kind;
+        let native_controls = settings.brightness_contrast().is_none();
+        let histogram = (native_controls && matches!(kind, Kind::Levels | Kind::Curves))
             .then(|| AdjustmentHistogram::pixels(original.clone(), doc.selection.clone()));
-        let levels_sampling = (kind == Kind::Levels).then(|| {
+        let levels_sampling = (native_controls && kind == Kind::Levels).then(|| {
             super::levels_sampling::LevelsSampling::pixels(
                 original.clone(),
                 [doc.width, doc.height],
@@ -104,9 +110,9 @@ impl Editor {
             .map(|_| super::adjustment_preview::AdjustmentPreview::new(self.session().id));
         let selection = doc.selection.clone();
         self.session_mut()
-            .begin(super::adjustment_layers::title(kind))?;
+            .begin(super::brightness_contrast::title(&settings))?;
         self.adjustment_edit = Some(AdjustmentEdit {
-            settings: Adjustment::new(kind),
+            settings,
             channel_popup: false,
             original,
             target: Target::Pixels {
@@ -139,6 +145,7 @@ impl Editor {
             Some(LayerContent::Adjustment(settings)) => settings.as_ref().clone(),
             _ => return Err(invalid("Select an adjustment layer to edit its settings.")),
         };
+        settings.editor_hint = settings.valid_editor_hint();
         if settings.kind == Kind::Invert {
             return Ok(());
         }
@@ -158,7 +165,7 @@ impl Editor {
         }
         self.session_mut().begin(format!(
             "Edit {} Adjustment",
-            super::adjustment_layers::title(settings.kind)
+            super::brightness_contrast::title(&settings)
         ))?;
         let original = self
             .session()
@@ -166,9 +173,10 @@ impl Editor {
             .active_layer()
             .cloned()
             .ok_or_else(|| invalid("The adjustment layer is missing."))?;
-        let histogram = matches!(settings.kind, Kind::Levels | Kind::Curves)
+        let native_controls = settings.brightness_contrast().is_none();
+        let histogram = (native_controls && matches!(settings.kind, Kind::Levels | Kind::Curves))
             .then(|| AdjustmentHistogram::below(self.session().document.clone(), original.id));
-        let levels_sampling = (settings.kind == Kind::Levels).then(|| {
+        let levels_sampling = (native_controls && settings.kind == Kind::Levels).then(|| {
             super::levels_sampling::LevelsSampling::composite(
                 self.session().document.clone(),
                 original.id,
@@ -195,7 +203,7 @@ impl Editor {
     pub(super) fn show_adjustment_fields(&mut self) {
         if let Some(edit) = &self.adjustment_edit {
             self.modal = Some(Form::Edit {
-                title: super::adjustment_layers::title(edit.settings.kind),
+                title: super::brightness_contrast::title(&edit.settings),
                 action: Action::EditAdjustment,
                 fields: adjustment_fields::fields(&edit.settings),
                 error: String::new(),
@@ -427,7 +435,9 @@ impl Editor {
     }
     pub(super) fn adjustment_controls(&self, cx: &mut ViewContext<'_, Self>) -> Option<Element> {
         let edit = self.adjustment_edit.as_ref()?;
-        if matches!(edit.settings.kind, Kind::Exposure | Kind::Grain) {
+        if edit.settings.brightness_contrast().is_some()
+            || matches!(edit.settings.kind, Kind::Exposure | Kind::Grain)
+        {
             return None;
         }
         let mut controls = div().flex_col().gap(if edit.settings.kind == Kind::Levels {
@@ -523,7 +533,7 @@ impl Editor {
             }
             return controls.child(Self::divider());
         }
-        if edit.settings.kind == Kind::Levels {
+        if edit.settings.kind == Kind::Levels && edit.settings.brightness_contrast().is_none() {
             controls = controls.child(self.levels_sample_controls(cx));
             let mut row = div().flex_row().gap(5.);
             for (index, (label, mode)) in [
@@ -595,7 +605,7 @@ impl Editor {
                 |this, cx| {
                     this.stop_adjustment_sampling();
                     if let Some(edit) = &mut this.adjustment_edit {
-                        edit.settings = Adjustment::new(edit.settings.kind);
+                        edit.settings = super::brightness_contrast::reset(&edit.settings);
                     }
                     this.show_adjustment_fields();
                     this.refresh_adjustment();
@@ -604,7 +614,7 @@ impl Editor {
             )));
         }
         controls = controls.child(row);
-        if edit.settings.kind == Kind::Levels {
+        if edit.settings.kind == Kind::Levels && edit.settings.brightness_contrast().is_none() {
             controls = controls.child(
                 text(match &edit.target {
                     Target::Layer => "Underlying pixels · alpha-weighted histogram",

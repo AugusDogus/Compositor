@@ -168,6 +168,9 @@ impl Editor {
             return None;
         }
         if let Some(edit) = &self.adjustment_edit {
+            if edit.settings.brightness_contrast().is_some() {
+                return Some(PanelKind::Filter);
+            }
             Some(match edit.settings.kind {
                 Kind::Levels => PanelKind::Levels,
                 Kind::HueSaturation => PanelKind::HueSaturation,

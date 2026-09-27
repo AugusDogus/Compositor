@@ -17,6 +17,7 @@ use std::{
 use uuid::Uuid;
 
 const MANIFEST_LIMIT: u64 = 4 * 1024 * 1024;
+mod editors;
 mod raw;
 mod watch;
 pub use watch::{Fingerprint, fingerprint, load_verified, save_if_unchanged};
@@ -263,6 +264,7 @@ pub fn load(path: &Path) -> Result<Document> {
         layer.text = record.text;
     }
     raw::load(&mut doc, path, &root)?;
+    editors::load(&mut doc, path, &root)?;
     doc.validate()?;
     Ok(doc)
 }
@@ -342,6 +344,7 @@ fn save_checked(
         });
     }
     raw::save(document, staged.path())?;
+    editors::save(document, staged.path())?;
     let manifest = Manifest {
         format: "com.compositor.project".into(),
         version: 10,

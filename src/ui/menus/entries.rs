@@ -66,6 +66,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
         4 => vec![
             command("Curves…", "Ctrl+M", Action::AdjustPixels(Kind::Curves)),
             command("Levels…", "Ctrl+L", Action::AdjustPixels(Kind::Levels)),
+            command("Brightness/Contrast…", "", Action::BrightnessContrast),
             command(
                 "Hue/Saturation…",
                 "Ctrl+U",
@@ -246,6 +247,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 Action::Adjustment(Kind::HueSaturation),
             ),
             command("Levels…", "", Action::Adjustment(Kind::Levels)),
+            command("Brightness/Contrast…", "", Action::BrightnessContrastLayer),
             command("Curves…", "", Action::Adjustment(Kind::Curves)),
             command("Exposure…", "", Action::Adjustment(Kind::Exposure)),
             command("Gradient Map…", "", Action::Adjustment(Kind::GradientMap)),

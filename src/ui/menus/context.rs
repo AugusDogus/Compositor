@@ -228,6 +228,7 @@ impl Editor {
             Command::Edit(
                 Action::CameraRaw
                 | Action::AdjustPixels(_)
+                | Action::BrightnessContrast
                 | Action::Filter(_)
                 | Action::Dither
                 | Action::RemoveBackground,

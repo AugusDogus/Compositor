@@ -13,6 +13,7 @@ mod alerts;
 mod appearance;
 mod autoscroll;
 mod background_controls;
+mod brightness_contrast;
 mod brush_controls;
 mod brush_cursor;
 mod brush_smoothing;
@@ -335,6 +336,8 @@ pub enum Action {
     Blend,
     Adjustment(Kind),
     AdjustPixels(Kind),
+    BrightnessContrast,
+    BrightnessContrastLayer,
     EditAdjustment,
     CloseTab,
     Filter(compositor::filters::Filter),

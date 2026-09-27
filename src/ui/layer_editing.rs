@@ -29,6 +29,7 @@ impl Action {
                 | Self::RotateCanvas(_)
                 | Self::Blend
                 | Self::Adjustment(_)
+                | Self::BrightnessContrastLayer
                 | Self::EditAdjustment
         )
     }

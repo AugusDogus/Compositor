@@ -182,7 +182,7 @@ impl Editor {
             return self.dither_fields(cx, fields);
         }
         let kind = self.adjustment_edit.as_ref().map(|e| e.settings.kind);
-        if kind == Some(Kind::Levels) {
+        if kind == Some(Kind::Levels) && !self.editing_brightness_contrast() {
             return self.levels_fields_view(cx, fields);
         }
         let mut rows = div().flex_col().gap(16.).flex_shrink_0();

@@ -1,7 +1,9 @@
 mod color;
+mod editor;
 mod noise;
 use crate::{Result, invalid};
 pub use color::{BlackWhite, ColorBalance};
+pub use editor::{BrightnessContrast, EditorHint};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -31,6 +33,9 @@ pub enum Kind {
 #[serde(rename_all = "camelCase")]
 pub struct Adjustment {
     pub kind: Kind,
+    /// Optional Linux controls, never part of the native rendering record.
+    #[serde(skip)]
+    pub editor_hint: Option<EditorHint>,
     #[serde(default)]
     pub hue: f64,
     #[serde(default)]
@@ -75,6 +80,7 @@ impl Adjustment {
     pub fn new(kind: Kind) -> Self {
         Self {
             kind,
+            editor_hint: None,
             hue: 0.,
             saturation: 0.,
             lightness: 0.,

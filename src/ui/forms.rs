@@ -269,10 +269,11 @@ impl Editor {
             }
         ) || (panel_kind.is_some()
             && self.adjustment_edit.as_ref().is_some_and(|e| {
-                matches!(
-                    e.settings.kind,
-                    Kind::Exposure | Kind::Grain | Kind::Curves | Kind::GradientMap
-                )
+                e.settings.brightness_contrast().is_some()
+                    || matches!(
+                        e.settings.kind,
+                        Kind::Exposure | Kind::Grain | Kind::Curves | Kind::GradientMap
+                    )
             }));
         let jpeg_sheet = matches!(
             form,

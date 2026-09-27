@@ -93,7 +93,9 @@ impl Editor {
                     && self.can_edit_layers()
             }
             Action::FeatherSelection => self.can_modify_selection(),
-            Action::AdjustPixels(_) | Action::RemoveBackground => self.can_adjust_colors(),
+            Action::AdjustPixels(_) | Action::BrightnessContrast | Action::RemoveBackground => {
+                self.can_adjust_colors()
+            }
             Action::Filter(compositor::filters::Filter::Vignette(_)) => {
                 !self.tools.mask_target && self.can_edit_pixels()
             }
