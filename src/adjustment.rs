@@ -1,9 +1,11 @@
 mod color;
 mod editor;
 mod noise;
+mod photo_filter;
 use crate::{Result, invalid};
 pub use color::{BlackWhite, ColorBalance};
 pub use editor::{BrightnessContrast, EditorHint};
+pub use photo_filter::PhotoFilter;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]

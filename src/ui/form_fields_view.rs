@@ -181,6 +181,12 @@ impl Editor {
         if matches!(action, Action::Dither) {
             return self.dither_fields(cx, fields);
         }
+        if matches!(
+            action,
+            Action::Filter(compositor::filters::Filter::PhotoFilter(_))
+        ) {
+            return self.photo_filter_fields(cx, action, fields);
+        }
         let kind = self.adjustment_edit.as_ref().map(|e| e.settings.kind);
         if kind == Some(Kind::Levels) && !self.editing_brightness_contrast() {
             return self.levels_fields_view(cx, fields);

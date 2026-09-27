@@ -50,6 +50,9 @@ impl Parameter {
         use Scale::{Linear, Logarithmic};
         let (label, range, unit, scale) = match (action, kind, index) {
             (Action::Fade, _, 0) => ("Opacity", (0., 100.), "%", Linear(1)),
+            (Action::Filter(Filter::PhotoFilter(_)), _, 0) => {
+                ("Density", (0., 100.), "%", Linear(0))
+            }
             (Action::Filter(Filter::Radial(_)), _, 1) => ("Amount", (0., 100.), "", Linear(1)),
             (Action::Filter(Filter::Radial(_)), _, 2) => ("Center X", (0., 100.), "%", Linear(1)),
             (Action::Filter(Filter::Radial(_)), _, 3) => ("Center Y", (0., 100.), "%", Linear(1)),

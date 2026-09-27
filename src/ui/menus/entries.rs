@@ -82,6 +82,11 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 "",
                 Action::AdjustPixels(Kind::ColorBalance),
             ),
+            command(
+                "Photo Filter…",
+                "",
+                Action::Filter(compositor::filters::Filter::PhotoFilter(Default::default())),
+            ),
             command("Invert", "Ctrl+I", Action::InvertPixels),
             Sep,
             command("Canvas Size…", "Ctrl+Alt+C", Action::CanvasSize),

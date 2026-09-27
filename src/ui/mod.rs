@@ -109,6 +109,7 @@ mod palette_controls;
 mod panel_activation;
 mod panel_layout;
 mod parameter_controls;
+mod photo_filter_controls;
 mod pixel_clipboard;
 mod pixel_editing;
 mod pixel_grid;

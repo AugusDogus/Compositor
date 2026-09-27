@@ -71,6 +71,10 @@ enum Purpose {
     JpegBackground {
         form: Box<Form>,
     },
+    PhotoFilter {
+        form: Box<Form>,
+        index: usize,
+    },
     Dither {
         form: Box<Form>,
         index: usize,
@@ -105,6 +109,29 @@ impl Picker {
 }
 
 impl Editor {
+    pub(super) fn open_photo_filter_picker(&mut self) {
+        let Some(
+            form @ Form::Edit {
+                action: Action::Filter(compositor::filters::Filter::PhotoFilter(_)),
+                ..
+            },
+        ) = self.modal.clone()
+        else {
+            return;
+        };
+        let Form::Edit { fields, .. } = &form else {
+            return;
+        };
+        let Some(rgb) = fields.get(2).and_then(|(_, value)| parse_hex(value).ok()) else {
+            return;
+        };
+        let mut picker = Picker::new(rgb, [255; 4]);
+        picker.purpose = Purpose::PhotoFilter {
+            form: Box::new(form),
+            index: 2,
+        };
+        self.modal = Some(Form::Color(Box::new(picker)));
+    }
     pub(super) fn open_dither_color_picker(&mut self, index: usize) {
         let Some(
             form @ Form::Edit {
@@ -308,7 +335,9 @@ impl Editor {
             }
             return Ok(());
         }
-        if let Purpose::Dither { form, index } = &picker.purpose {
+        if let Purpose::Dither { form, index } | Purpose::PhotoFilter { form, index } =
+            &picker.purpose
+        {
             let original = form.clone();
             let index = *index;
             let [r, g, b, _] = picker.colors[0].hsb.rgb();
@@ -380,7 +409,7 @@ impl Editor {
                     }
                 });
             }
-            Purpose::Dither { form, index } => {
+            Purpose::Dither { form, index } | Purpose::PhotoFilter { form, index } => {
                 let [r, g, b, _] = chosen;
                 self.modal = Some(*form);
                 if apply {

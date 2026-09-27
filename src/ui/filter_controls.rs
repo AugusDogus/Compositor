@@ -4,6 +4,21 @@ use compositor::{filters::Filter, invalid};
 impl Editor {
     pub(super) fn filter_fields(filter: Filter) -> (&'static str, Vec<(&'static str, String)>) {
         match filter {
+            Filter::PhotoFilter(settings) => {
+                let [r, g, b] = settings.color.map(|v| (v * 255.).round() as u8);
+                (
+                    "Photo Filter",
+                    vec![
+                        ("Density", settings.density.to_string()),
+                        (
+                            "Preserve luminosity (0 or 1)",
+                            u8::from(settings.preserve_luminosity).to_string(),
+                        ),
+                        ("Color", format!("#{r:02X}{g:02X}{b:02X}")),
+                    ],
+                )
+            }
+
             Filter::Radial(settings) => (
                 "Radial Blur",
                 vec![
@@ -115,6 +130,20 @@ impl Editor {
             }
         };
         Ok(match filter {
+            Filter::PhotoFilter(_) => {
+                let color = values
+                    .get(2)
+                    .ok_or_else(|| invalid("Choose a Photo Filter color."))?;
+                let [r, g, b, _] = compositor::palette::parse_hex(color)?;
+                let settings = compositor::adjustment::PhotoFilter {
+                    color: [r, g, b].map(|v| f64::from(v) / 255.),
+                    density: n(0)?,
+                    preserve_luminosity: flag(1)?,
+                };
+                settings.validate()?;
+                Filter::PhotoFilter(settings)
+            }
+
             Filter::Radial(_) => {
                 let mode = match values.first().map(String::as_str) {
                     Some("spin") => compositor::filters::radial::Mode::Spin,

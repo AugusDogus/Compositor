@@ -3,6 +3,7 @@ use super::*;
 #[test]
 fn spatial_filter_previews_apply_once_and_support_undo_redo_and_cancel() {
     for filter in [
+        Filter::PhotoFilter(Default::default()),
         Filter::UnsharpMask {
             amount: 100.,
             radius: 2.,
