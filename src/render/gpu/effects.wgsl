@@ -1,4 +1,4 @@
-struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32>, insideGlow: vec4<f32>, pattern: vec4<u32>, tile: vec4<f32> }
+struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32>, insideGlow: vec4<f32>, pattern: vec4<u32>, tile: vec4<f32>, gradient: vec4<u32>, gradientSettings:vec4<f32>, gradientGeometry:vec4<i32>, gradientBounds:vec4<i32>, gradientColors:array<vec4<f32>,32>, gradientOpacity:array<vec4<f32>,32>, gradientKeys:array<vec4<i32>,16> }
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var<storage,read> pixels: array<u32>;
 @group(0) @binding(2) var<storage,read> input: array<f32>;
@@ -23,6 +23,43 @@ fn pattern_sample(point:vec2<f32>) -> vec4<f32> {
  }}
  if total.a>0. {return vec4(total.rgb/total.a,total.a);}
  return total;
+}
+fn gradient_boundary(index:u32,opacity:bool) -> i32 {
+ let at=index+select(0u,32u,opacity);
+ return p.gradientKeys[at/4u][at%4u];
+}
+fn gradient_stop(stops:array<vec4<f32>,32>,count:u32,t:f32,key:i32,opacity:bool) -> vec3<f32> {
+ var left=stops[0];
+ var boundary=gradient_boundary(0u,opacity);
+ if key<boundary {return left.yzw;}
+ for(var i=1u;i<count;i++) {
+  let next=stops[i];
+  boundary=gradient_boundary(i,opacity);
+  if key<boundary {
+   if next.x<=left.x {return left.yzw;}
+   return mix(left.yzw,next.yzw,clamp((t-left.x)/(next.x-left.x),0.,1.));
+  }
+  left=next;
+ }
+ return left.yzw;
+}
+fn gradient_sample(point:vec2<f32>) -> vec4<f32> {
+ let size=vec2<i32>(p.gradientSettings.zw);
+ let at=vec2<i32>(clamp(round(point*2.),vec2(0.),vec2<f32>(size*2)));
+ let direction=p.gradientGeometry.xy;
+ let extent=p.gradientBounds.x;
+ var key=at.x*direction.x+at.y*direction.y-p.gradientBounds.y;
+ if p.gradientSettings.y==1. {key=extent-key;}
+ var t=f32(key)/f32(extent);
+ if p.gradient.y==1u {
+  let centered=at-size;
+  let radius=min(size.x,size.y);
+  key=min(centered.x*centered.x+centered.y*centered.y,radius*radius);
+  t=sqrt(f32(key))/f32(min(size.x,size.y));
+  if p.gradientSettings.y==1. {key=-key;t=1.-t;}
+ }
+ t=clamp(t,0.,1.);
+ return vec4(gradient_stop(p.gradientColors,p.gradient.z,t,key,false),gradient_stop(p.gradientOpacity,p.gradient.w,t,key,true).x);
 }
 @compute @workgroup_size(16,16)
 fn effects(@builtin(global_invocation_id) gid:vec3<u32>) {
@@ -62,6 +99,10 @@ fn effects(@builtin(global_invocation_id) gid:vec3<u32>) {
  if p.pattern.w==1u {
   let tile=pattern_sample(vec2<f32>(gid.xy)+vec2(0.5-p.tile.z));
   source=vec4(mix(source.rgb,tile.rgb,tile.a*p.tile.y),source.a);
+ }
+ if p.gradient.x==1u {
+  let g=gradient_sample(vec2<f32>(gid.xy)+vec2(0.5-bitcast<f32>(p.gradientGeometry.z)));
+  source=vec4(mix(source.rgb,g.rgb,g.a*p.gradientSettings.x),source.a);
  }
  source=vec4<f32>(mix(source.xyz,p.overlay.xyz,p.overlay.w),source.a);
  if p.more.y==1u {

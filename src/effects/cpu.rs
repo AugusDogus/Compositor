@@ -126,7 +126,7 @@ fn over(base: [f32; 4], color: [f64; 3], coverage: f32) -> [f32; 4] {
         coverage + base[3] * (1. - coverage),
     ]
 }
-pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
+pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> crate::Result<RgbaImage> {
     let (width, height) = (image.width() as usize, image.height() as usize);
     let shape: Vec<_> = image.pixels().map(|p| p[3] as f32 / 255.).collect();
     let ring = effects.stroke.as_ref().map(|s| {
@@ -184,7 +184,18 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
             }
         });
     let inset = f64::from(effects.margin());
-    RgbaImage::from_fn(image.width(), image.height(), |x, y| {
+    let gradient = effects
+        .gradient_overlay
+        .as_ref()
+        .map(|overlay| {
+            crate::gradient_overlay::Prepared::new(
+                overlay,
+                [image.width(), image.height()],
+                effects.margin(),
+            )
+        })
+        .transpose()?;
+    Ok(RgbaImage::from_fn(image.width(), image.height(), |x, y| {
         let i = y as usize * width + x as usize;
         let mut out = [0.; 4];
         if let (Some(s), Some(plane)) = (&effects.shadow, &shadow) {
@@ -215,6 +226,15 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
                 &mut source,
                 [rgba[0], rgba[1], rgba[2]],
                 (rgba[3] * s.settings.opacity) as f32,
+            );
+        }
+        if let (Some(overlay), Some(geometry)) = (&effects.gradient_overlay, &gradient) {
+            let rgba = geometry.sample([f64::from(x) + 0.5 - inset, f64::from(y) + 0.5 - inset]);
+            let rgba = rgba.map(f64::from);
+            tint(
+                &mut source,
+                [rgba[0], rgba[1], rgba[2]],
+                (rgba[3] * overlay.opacity) as f32,
             );
         }
         if let Some(s) = &effects.color_overlay {
@@ -261,5 +281,5 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
             }
         }
         Rgba(out.map(|v| (v.clamp(0., 1.) * 255.).round() as u8))
-    })
+    }))
 }

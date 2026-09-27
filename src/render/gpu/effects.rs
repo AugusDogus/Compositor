@@ -3,8 +3,9 @@ use crate::{Result, effects::LayerEffects, invalid};
 use image::RgbaImage;
 use wgpu::util::DeviceExt;
 
-// Twelve vec4 blocks in effects.wgsl, shared by every effects-pipeline caller.
-pub(super) const PARAMETER_WORDS: usize = 48;
+mod gradient;
+// Shared by effects and coverage blur, matching the full effects.wgsl layout.
+pub(super) const PARAMETER_WORDS: usize = gradient::PARAMETER_WORDS;
 
 pub(in crate::render) fn render(
     image: &RgbaImage,
@@ -96,6 +97,7 @@ impl Engine {
             .as_ref()
             .filter(|s| s.size > 0. && s.opacity > 0.);
         let mut params = [0u32; PARAMETER_WORDS];
+        gradient::encode(&mut params, [image.width(), image.height()], effects)?;
         if let Some(s) = pattern {
             params[40] = (bytes / 4) as u32;
             params[41] = s.pattern.pixels().width();
@@ -268,7 +270,7 @@ mod tests {
                 ..Default::default()
             };
             let gpu = engine.effects(&image, &effects).unwrap().unwrap();
-            let cpu = crate::effects::cpu::render(&image, &effects);
+            let cpu = crate::effects::cpu::render(&image, &effects).unwrap();
             for (i, (a, b)) in gpu.as_raw().iter().zip(cpu.as_raw()).enumerate() {
                 assert!(
                     a.abs_diff(*b) <= 1,
@@ -296,6 +298,7 @@ mod tests {
         for inside in [false, true] {
             let effects = LayerEffects {
                 pattern_overlay: None,
+                gradient_overlay: None,
                 inner_glow: Some(InnerGlowEffect {
                     size: 6.3,
                     red: 0.4,
@@ -337,7 +340,7 @@ mod tests {
                 }),
             };
             let gpu = engine.effects(&image, &effects).unwrap().unwrap();
-            let cpu = crate::effects::cpu::render(&image, &effects);
+            let cpu = crate::effects::cpu::render(&image, &effects).unwrap();
             for (i, (a, b)) in gpu.as_raw().iter().zip(cpu.as_raw()).enumerate() {
                 assert!(
                     a.abs_diff(*b) <= 1,

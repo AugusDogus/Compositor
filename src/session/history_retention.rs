@@ -76,6 +76,14 @@ fn visit_assets(document: &Document, seen: &mut HashSet<usize>) -> usize {
         if let Some(overlay) = layer
             .effects
             .as_ref()
+            .and_then(|e| e.gradient_overlay.as_ref())
+            && seen.insert(std::ptr::from_ref(overlay.as_ref()) as usize)
+        {
+            bytes = bytes.saturating_add(overlay.retained_bytes());
+        }
+        if let Some(overlay) = layer
+            .effects
+            .as_ref()
             .and_then(|e| e.pattern_overlay.as_ref())
         {
             let tile = overlay.pattern.pixels();

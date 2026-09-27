@@ -15,6 +15,8 @@ pub struct LayerEffects {
     pub color_overlay: Option<ColorOverlayEffect>,
     #[serde(skip)]
     pub pattern_overlay: Option<Box<crate::pattern::Overlay>>,
+    #[serde(skip)]
+    pub gradient_overlay: Option<Box<crate::gradient_overlay::Overlay>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inner_shadow: Option<ShadowEffect>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -171,9 +173,13 @@ impl ShadowEffect {
 }
 impl LayerEffects {
     pub fn validate(&self) -> bool {
-        self.pattern_overlay
+        self.gradient_overlay
             .as_ref()
             .is_none_or(|s| s.validate().is_ok())
+            && self
+                .pattern_overlay
+                .as_ref()
+                .is_none_or(|s| s.validate().is_ok())
             && self.stroke.as_ref().is_none_or(|s| {
                 s.size.is_finite()
                     && (0. ..=500.).contains(&s.size)
@@ -210,6 +216,7 @@ impl LayerEffects {
             && self.shadow.is_none()
             && self.color_overlay.is_none()
             && self.pattern_overlay.is_none()
+            && self.gradient_overlay.is_none()
             && self.inner_shadow.is_none()
             && self.outer_glow.is_none()
             && self.inner_glow.is_none()
@@ -217,6 +224,7 @@ impl LayerEffects {
     pub fn visible(&self) -> Self {
         Self {
             pattern_overlay: self.pattern_overlay.clone().filter(|s| s.settings.enabled),
+            gradient_overlay: self.gradient_overlay.clone().filter(|s| s.enabled),
             outer_glow: self.outer_glow.clone().filter(|s| s.enabled != Some(false)),
             inner_glow: self.inner_glow.clone().filter(|s| s.enabled != Some(false)),
             stroke: self.stroke.clone().filter(|s| s.enabled != Some(false)),

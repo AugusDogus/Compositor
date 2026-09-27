@@ -148,6 +148,7 @@ fn effect_settings_and_disabled_flags_round_trip_with_undo() {
         .edit("Layer Effects", |doc| {
             doc.layers[0].effects = Some(LayerEffects {
                 pattern_overlay: None,
+                gradient_overlay: None,
                 stroke: Some(StrokeEffect {
                     enabled: Some(false),
                     size: 500.,
@@ -291,7 +292,7 @@ fn outer_glow_is_symmetric_preserves_opaque_pixels_and_fills_holes() {
         }),
         ..Default::default()
     };
-    let result = cpu::render(&image, &effects);
+    let result = cpu::render(&image, &effects).unwrap();
     assert_eq!(result[(10, 10)], image[(10, 10)]);
     assert!(result[(15, 15)][3] > 150);
     assert_eq!(result[(15, 15)].0[..3], [255; 3]);
@@ -301,7 +302,7 @@ fn outer_glow_is_symmetric_preserves_opaque_pixels_and_fills_holes() {
     assert_eq!(result[(0, 0)][3], 0);
     let mut zero = effects;
     zero.outer_glow.as_mut().unwrap().size = 0.;
-    assert_eq!(cpu::render(&image, &zero), image);
+    assert_eq!(cpu::render(&image, &zero).unwrap(), image);
 }
 
 #[test]
@@ -327,10 +328,10 @@ fn outer_glow_respects_partial_alpha_and_composites_between_shadow_and_stroke() 
         }),
         ..Default::default()
     };
-    let result = cpu::render(&image, &effects);
+    let result = cpu::render(&image, &effects).unwrap();
     let mut tiny = effects.clone();
     tiny.outer_glow.as_mut().unwrap().size = 1e-30;
-    assert_eq!(cpu::render(&image, &tiny), result);
+    assert_eq!(cpu::render(&image, &tiny).unwrap(), result);
     let alpha = 128. / 255.;
     let coverage = alpha * (1. - alpha);
     let expected_alpha = alpha + (coverage + alpha * (1. - coverage)) * (1. - alpha);
@@ -360,7 +361,7 @@ fn outer_glow_respects_partial_alpha_and_composites_between_shadow_and_stroke() 
         }),
         ..Default::default()
     };
-    let result = cpu::render(&image, &effects);
+    let result = cpu::render(&image, &effects).unwrap();
     assert_eq!(result[(2, 3)], Rgba([255, 0, 0, 255]));
     assert_eq!(result[(3, 3)], Rgba([0, 0, 255, 255]));
     assert!(result[(1, 3)][3] > 0);
@@ -417,7 +418,7 @@ fn inner_glow_is_clipped_to_shape_and_preserves_editable_schema() {
             image::Rgba([0; 4])
         }
     });
-    let result = super::cpu::render(&image, &effects);
+    let result = super::cpu::render(&image, &effects).unwrap();
     assert_eq!(result[(0, 0)][3], 0);
     assert_eq!(result[(8, 20)][3], 255);
     assert!(result[(8, 20)][0] > result[(20, 20)][0]);
@@ -481,4 +482,48 @@ fn pattern_origin_survives_effect_padding_and_follows_layer_transform() {
         .enabled = false;
     let hidden = crate::render::render(&doc, 12, 8).unwrap();
     assert_eq!(hidden[(3, 2)], Rgba([40, 80, 120, 128]));
+}
+
+#[test]
+fn gradient_overlay_preserves_coverage_mask_padding_transform_and_source_pixels() {
+    use crate::gradient_overlay::Overlay;
+    let mut doc = crate::document::Document::new(12, 8).unwrap();
+    doc.layers[0].content = crate::document::LayerContent::Raster(Some(std::sync::Arc::new(
+        RgbaImage::from_pixel(4, 2, Rgba([40, 80, 120, 128])),
+    )));
+    doc.layers[0].transform = crate::geometry::Transform::new(4, 2);
+    let source = doc.layers[0].raster().cloned().unwrap();
+    doc.layers[0].effects = Some(LayerEffects {
+        gradient_overlay: Some(Box::new(Overlay {
+            angle: 0.,
+            ..Default::default()
+        })),
+        ..Default::default()
+    });
+    let before = crate::render::render(&doc, 12, 8).unwrap();
+    assert_eq!(before[(0, 0)], Rgba([32, 32, 32, 128]));
+    assert_eq!(before[(3, 0)], Rgba([223, 223, 223, 128]));
+    doc.layers[0].effects.as_mut().unwrap().shadow = Some(ShadowEffect {
+        distance: 7.,
+        blur: 1.,
+        opacity: 0.,
+        ..Default::default()
+    });
+    assert_eq!(crate::render::render(&doc, 12, 8).unwrap(), before);
+    doc.layers[0].mask = Some(crate::document::Mask {
+        pixels: std::sync::Arc::new(image::GrayImage::from_fn(4, 2, |x, _| {
+            image::Luma([if x == 0 { 0 } else { 128 }])
+        })),
+        enabled: true,
+        linked: true,
+        placement: None,
+    });
+    let masked = crate::render::render(&doc, 12, 8).unwrap();
+    assert_eq!(masked[(0, 0)][3], 0);
+    assert_eq!(&masked[(3, 0)].0[..3], &before[(3, 0)].0[..3]);
+    assert_eq!(masked[(3, 0)][3], 64);
+    doc.layers[0].transform.origin = [3., 2.];
+    let moved = crate::render::render(&doc, 12, 8).unwrap();
+    assert_eq!(moved[(6, 2)], masked[(3, 0)]);
+    assert_eq!(doc.layers[0].raster().unwrap(), &source);
 }

@@ -39,6 +39,10 @@ impl Stops {
         ])
     }
 
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.0.capacity() * std::mem::size_of::<Stop>()
+    }
+
     pub fn as_slice(&self) -> &[Stop] {
         &self.0
     }

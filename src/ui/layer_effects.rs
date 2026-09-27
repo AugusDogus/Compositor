@@ -1,6 +1,7 @@
 //! Nondestructive layer effects with one undo entry per confirmed editing session.
 mod buttons;
 mod controls;
+mod gradient;
 pub(super) mod pattern;
 #[cfg(test)]
 mod tests;
@@ -17,9 +18,10 @@ pub(super) enum EffectKind {
     Glow,
     InnerGlow,
     Pattern,
+    Gradient,
 }
 impl EffectKind {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Stroke,
         Self::Shadow,
         Self::Overlay,
@@ -27,9 +29,11 @@ impl EffectKind {
         Self::Glow,
         Self::InnerGlow,
         Self::Pattern,
+        Self::Gradient,
     ];
     fn label(self) -> &'static str {
         match self {
+            Self::Gradient => "Gradient Overlay",
             Self::Pattern => "Pattern Overlay",
             Self::Stroke => "Stroke",
             Self::Shadow => "Drop Shadow",
@@ -41,6 +45,7 @@ impl EffectKind {
     }
     fn enabled(self, e: &LayerEffects) -> Option<bool> {
         match self {
+            Self::Gradient => e.gradient_overlay.as_ref().map(|s| s.enabled),
             Self::Pattern => e.pattern_overlay.as_ref().map(|s| s.settings.enabled),
             Self::Stroke => e.stroke.as_ref().map(|s| s.enabled != Some(false)),
             Self::Shadow => e.shadow.as_ref().map(|s| s.enabled != Some(false)),
@@ -52,7 +57,7 @@ impl EffectKind {
     }
     fn color(self, e: &LayerEffects) -> [f64; 3] {
         match self {
-            Self::Pattern => None,
+            Self::Pattern | Self::Gradient => None,
             Self::Stroke => e.stroke.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Shadow => e.shadow.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Overlay => e.color_overlay.as_ref().map(|s| [s.red, s.green, s.blue]),
@@ -72,6 +77,7 @@ pub(super) struct EffectsEditor {
     error: String,
     copy_to: bool,
     patterns: pattern::Choices,
+    gradient: gradient::Draft,
 }
 #[derive(Clone, Copy)]
 pub(super) enum Parameter {
@@ -115,6 +121,7 @@ impl EffectsEditor {
         let [r, g, b, _] = rgb.map(|v| f64::from(v) / 255.);
         match self.kind {
             EffectKind::Pattern => {}
+            EffectKind::Gradient => self.set_overlay_color(rgb),
             EffectKind::Stroke => {
                 if let Some(s) = &mut self.effects.stroke {
                     (s.red, s.green, s.blue) = (r, g, b);
@@ -149,6 +156,9 @@ impl EffectsEditor {
         self.color_text();
     }
     pub(super) fn rgb(&self) -> [u8; 4] {
+        if self.kind == EffectKind::Gradient {
+            return self.overlay_color();
+        }
         let [r, g, b] = self
             .kind
             .color(&self.effects)
@@ -157,6 +167,16 @@ impl EffectsEditor {
     }
     pub(super) fn number(&self, p: Parameter) -> f64 {
         match self.kind {
+            EffectKind::Gradient => {
+                self.effects
+                    .gradient_overlay
+                    .as_ref()
+                    .map_or(0., |s| match p {
+                        Parameter::Angle => s.angle,
+                        Parameter::Opacity => s.opacity * 100.,
+                        _ => 0.,
+                    })
+            }
             EffectKind::Pattern => self
                 .effects
                 .pattern_overlay
@@ -205,6 +225,15 @@ impl EffectsEditor {
     }
     pub(super) fn set_number(&mut self, p: Parameter, value: f64) {
         match self.kind {
+            EffectKind::Gradient => {
+                if let Some(s) = &mut self.effects.gradient_overlay {
+                    match p {
+                        Parameter::Angle => s.angle = value,
+                        Parameter::Opacity => s.opacity = value / 100.,
+                        _ => {}
+                    }
+                }
+            }
             EffectKind::Pattern => {
                 if let Some(s) = &mut self.effects.pattern_overlay {
                     match p {
@@ -313,12 +342,14 @@ impl Editor {
             error: String::new(),
             copy_to: false,
             patterns: pattern::Choices::default(),
+            gradient: gradient::Draft::default(),
         };
         edit.kind = EffectKind::ALL
             .into_iter()
             .find(|k| k.enabled(&edit.effects).is_some())
             .unwrap_or(EffectKind::Stroke);
         edit.color_text();
+        edit.sync_overlay_stop();
         self.session_mut().begin("Layer Effects")?;
         self.modal = Some(Form::Effects(Box::new(edit)));
         Ok(())
@@ -331,11 +362,15 @@ impl Editor {
             return;
         };
         change(edit);
-        if edit.kind != EffectKind::Pattern
+        if !matches!(edit.kind, EffectKind::Pattern | EffectKind::Gradient)
             && edit.kind.enabled(&edit.effects).is_some()
             && compositor::palette::parse_hex(&edit.color).is_err()
         {
             edit.error = "Enter an RGB color such as #336699.".into();
+            return;
+        }
+        if edit.effects.gradient_overlay.is_some() && !edit.gradient.error.is_empty() {
+            edit.error.clone_from(&edit.gradient.error);
             return;
         }
         let (id, effects) = (edit.id, edit.effects.clone());
@@ -374,6 +409,7 @@ impl Editor {
             })?;
         let effects = layer.effects.get_or_insert_default();
         match kind {
+            EffectKind::Gradient => effects.gradient_overlay = source.gradient_overlay,
             EffectKind::Pattern => effects.pattern_overlay = source.pattern_overlay,
             EffectKind::Stroke => effects.stroke = source.stroke,
             EffectKind::Shadow => effects.shadow = source.shadow,

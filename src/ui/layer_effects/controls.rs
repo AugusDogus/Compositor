@@ -30,7 +30,10 @@ impl Editor {
             content = content.child(self.pattern_controls(cx, edit));
         }
         if enabled.is_some() {
-            if kind != EffectKind::Pattern {
+            if kind == EffectKind::Gradient {
+                content = content.child(self.gradient_overlay_controls(cx, edit));
+            }
+            if !matches!(kind, EffectKind::Pattern | EffectKind::Gradient) {
                 content = content.child(self.effect_color_controls(cx, edit));
             }
             let parameters = match kind {
@@ -38,6 +41,7 @@ impl Editor {
                     vec![Parameter::Size, Parameter::Opacity]
                 }
                 EffectKind::Pattern => vec![Parameter::Scale, Parameter::Opacity],
+                EffectKind::Gradient => vec![Parameter::Angle, Parameter::Opacity],
                 EffectKind::Overlay => vec![Parameter::Opacity],
                 _ => vec![
                     Parameter::Opacity,

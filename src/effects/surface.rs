@@ -19,6 +19,10 @@ struct Entry {
 fn retained_bytes(effects: &LayerEffects, rendered: &RgbaImage) -> usize {
     rendered.len()
         + effects
+            .gradient_overlay
+            .as_ref()
+            .map_or(0, |s| s.retained_bytes())
+        + effects
             .pattern_overlay
             .as_ref()
             .map_or(0, |s| s.pattern.pixels().len())
@@ -84,7 +88,10 @@ fn surface(
     } else {
         None
     };
-    let rendered = Arc::new(gpu.unwrap_or_else(|| super::cpu::render(&padded, effects)));
+    let rendered = Arc::new(match gpu {
+        Some(image) => image,
+        None => super::cpu::render(&padded, effects)?,
+    });
     let retained = retained_bytes(effects, &rendered);
     if retained <= 64 * 1024 * 1024
         && let Ok(mut entries) = cache().lock()

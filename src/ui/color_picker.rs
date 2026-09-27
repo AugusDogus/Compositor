@@ -51,6 +51,7 @@ enum Purpose {
     Palette,
     LayerEffect {
         form: Box<Form>,
+        preview: Box<Document>,
     },
     LayerText {
         form: Box<Form>,
@@ -220,6 +221,7 @@ impl Editor {
         let mut picker = Picker::new(rgb, [255; 4]);
         picker.purpose = Purpose::LayerEffect {
             form: Box::new(form),
+            preview: Box::new(self.session().document.clone()),
         };
         self.modal = Some(Form::Color(Box::new(picker)));
     }
@@ -349,7 +351,7 @@ impl Editor {
             self.modal = picker_form;
             return Ok(());
         }
-        if let Purpose::LayerEffect { form } = &picker.purpose {
+        if let Purpose::LayerEffect { form, .. } = &picker.purpose {
             let original_form = form.clone();
             let color = picker.colors[0].hsb.rgb();
             let picker_form = self.modal.take();
@@ -402,14 +404,14 @@ impl Editor {
                 }
                 self.modal = Some(*form);
             }
-            Purpose::LayerEffect { form } => {
+            Purpose::LayerEffect { form, preview } => {
                 let color = picker.colors[0].hsb.rgb();
                 self.modal = Some(*form);
-                self.change_effect(|edit| {
-                    if apply {
-                        edit.set_color(color);
-                    }
-                });
+                if apply {
+                    self.change_effect(|edit| edit.set_color(color));
+                } else {
+                    self.session_mut().document = *preview;
+                }
             }
             Purpose::Dither { form, index } | Purpose::PhotoFilter { form, index } => {
                 let [r, g, b, _] = chosen;

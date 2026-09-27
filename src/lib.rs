@@ -19,6 +19,7 @@ pub mod floating;
 pub mod geometry;
 mod gpu;
 pub mod gradient;
+pub mod gradient_overlay;
 pub mod guides;
 pub mod histogram;
 pub mod hue_band;

@@ -210,3 +210,24 @@ fn pattern_history_counts_shared_tiles_once_and_excludes_live_tiles() {
             .is_some()
     );
 }
+
+#[test]
+fn gradient_overlay_owned_stop_allocations_count_toward_history_budget() {
+    let mut doc = document(1);
+    let overlay = crate::gradient_overlay::Overlay::default();
+    let bytes = overlay.retained_bytes();
+    doc.layers[0].effects = Some(crate::effects::LayerEffects {
+        gradient_overlay: Some(Box::new(overlay)),
+        ..Default::default()
+    });
+    let mut session = Session::new(doc, None);
+    session
+        .edit("Remove gradient", |doc| {
+            doc.layers[0].effects = None;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(session.retained_history_bytes(Canvas::Visible), bytes);
+    session.trim_history_to(Canvas::Visible, 100, bytes - 1);
+    assert!(session.undo_label().is_none());
+}

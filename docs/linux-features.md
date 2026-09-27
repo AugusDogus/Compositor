@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Gradient Overlay recolors a layer with linear or radial gradients. Edit color and opacity stops independently, with angle, reverse, opacity, preview and undo. Linux projects keep the settings; macOS and PSD receive rendered layers.
+
 - Pattern Overlay tiles imported Photoshop PAT patterns over a layer, with scale, opacity, preview and undo. Import supports 8-bit RGB and grayscale packs. Linux projects embed selected patterns; macOS and PSD receive rendered layers. Unused patterns remain available while the effects dialog is open.
 
 - Posterize reduces each color channel to 2–256 levels; 256 leaves colors unchanged. Direct pixel edits and editable adjustment layers support preview, masks and undo. Linux projects and PSD exports retain the settings.
