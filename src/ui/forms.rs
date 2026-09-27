@@ -244,16 +244,6 @@ impl Editor {
             Form::Blend => "Blend Mode",
             Form::MaskColor(target) => target.title(),
         };
-        let cancel = cx.listener(
-            if retained {
-                "retained-panel-cancel"
-            } else {
-                "form-cancel"
-            },
-            |this, cx| {
-                this.cancel_form(cx);
-            },
-        );
         let size_sheet = matches!(
             form,
             Form::Edit {
@@ -348,7 +338,7 @@ impl Editor {
             Form::Updates => {
                 contents = contents
                     .child(self.update_controls(cx))
-                    .child(self.control("Close").on_click(cancel));
+                    .child(self.form_cancel_button(cx, retained, "Close"));
             }
             Form::GradientStops(draft) => {
                 contents = contents.child(self.gradient_stops_controls(cx, &draft));
@@ -359,7 +349,7 @@ impl Editor {
             Form::History => {
                 contents = contents
                     .child(self.history_controls(cx))
-                    .child(self.control("Close").on_click(cancel));
+                    .child(self.form_cancel_button(cx, retained, "Close"));
             }
             Form::Close | Form::DeleteLayers => return self.confirmation_view(cx, &form),
             Form::MaskColor(target) => return self.mask_color_popover(cx, target),
@@ -498,43 +488,75 @@ impl Editor {
                             .text_color(self.colors.error([255, 160, 135])),
                     );
                 }
-                let apply = cx.listener(
-                    if retained {
-                        "retained-panel-apply"
-                    } else {
-                        "form-apply"
-                    },
-                    move |this, cx| {
-                        this.size_menus.close(cx);
-                        this.submit_form(cx);
-                        this.changed(cx);
-                    },
-                );
-                let mut footer = div().flex_row().items_center().gap(8.).flex_shrink_0();
-                if jpeg_sheet {
-                    footer = footer.child(self.jpeg_status(&error).flex_1().min_w(0.));
-                }
-                footer = footer.child(
-                    self.control("Cancel")
-                        .opacity(if self.panel_applying() { 0.4 } else { 1. })
-                        .on_click(cancel),
-                );
-                if !jpeg_sheet {
-                    footer = footer.child(div().flex_1());
-                }
-                if let Some(progress) = self.panel_progress(action) {
-                    footer = footer.child(progress);
-                }
                 let unavailable = self.panel_applying()
                     || self.automatic_filter_unavailable(action)
                     || (size_sheet && self.size_result(action, &fields).is_err())
                     || (jpeg_sheet && !self.jpeg_ready());
-                contents = contents.child(
-                    footer.child(self.form_apply_button(action, unavailable).on_click(apply)),
-                );
+                contents = contents.child(self.edit_form_footer(
+                    cx,
+                    action,
+                    unavailable,
+                    retained,
+                    &error,
+                ));
             }
         }
         self.mount_form(cx, dialog, contents, width, title, panel_kind)
+    }
+
+    fn form_cancel_button(
+        &self,
+        cx: &mut ViewContext<'_, Self>,
+        retained: bool,
+        label: &'static str,
+    ) -> Element {
+        let cancel = cx.listener(
+            if retained {
+                "retained-panel-cancel"
+            } else {
+                "form-cancel"
+            },
+            |this, cx| this.cancel_form(cx),
+        );
+        self.control(label).on_click(cancel)
+    }
+
+    fn edit_form_footer(
+        &self,
+        cx: &mut ViewContext<'_, Self>,
+        action: Action,
+        unavailable: bool,
+        retained: bool,
+        error: &str,
+    ) -> Element {
+        let jpeg_sheet = matches!(action, Action::ExportJpeg);
+        let apply = cx.listener(
+            if retained {
+                "retained-panel-apply"
+            } else {
+                "form-apply"
+            },
+            |this, cx| {
+                this.size_menus.close(cx);
+                this.submit_form(cx);
+                this.changed(cx);
+            },
+        );
+        let mut footer = div().flex_row().items_center().gap(8.).flex_shrink_0();
+        if jpeg_sheet {
+            footer = footer.child(self.jpeg_status(error).flex_1().min_w(0.));
+        }
+        footer = footer.child(
+            self.form_cancel_button(cx, retained, "Cancel")
+                .opacity(if self.panel_applying() { 0.4 } else { 1. }),
+        );
+        if !jpeg_sheet {
+            footer = footer.child(div().flex_1());
+        }
+        if let Some(progress) = self.panel_progress(action) {
+            footer = footer.child(progress);
+        }
+        footer.child(self.form_apply_button(action, unavailable).on_click(apply))
     }
 
     // Keep the button's large Element temporaries out of the frame that also
