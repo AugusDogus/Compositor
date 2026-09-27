@@ -6,7 +6,9 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 - Channel Mixer adjusts each output channel with signed red, green and blue contributions plus a constant, or produces monochrome output. It edits pixels with selection-aware preview and undo; it is not an editable adjustment layer.
 - Photo Filter adds warming, cooling, sepia and custom-color filtration, with density and Preserve Luminosity controls. It edits pixels with preview and undo; it is not an editable adjustment layer. Vulkan accelerates processing when available.
-- GBR v2 brush tips support imported shapes, spacing, pressure, tilt, selections and undo. Paint and Erase use the foreground color or mask coverage; embedded RGB colors are not used. Tips stay loaded for the current session.
+- ABR import lets you choose sampled tip shapes from Photoshop brush packs, with a shape preview and original spacing. Photoshop dynamics, dual brushes, tip transforms and embedded texture patterns are not imported.
+- GIH image pipes choose among brush cells using incremental, random, angular, pressure or tilt rules. Velocity rules are unsupported. Like GBR tips, embedded colors supply alpha coverage; painting uses the foreground color.
+- GBR v2 brush tips support imported shapes, spacing, pressure, tilt, selections and undo. Paint and Erase use the foreground color or mask coverage; embedded RGB colors are not used. ABR, GBR and GIH brushes stay loaded for the current session and can be unloaded from Brush Tips.
 - Brightness/Contrast provides direct pixel edits and adjustment layers with preview and undo. It saves as native Levels; Mac saves retain those Levels but remove the Linux slider settings.
 - Radial Blur provides Spin and Zoom modes with center controls, selection-aware preview and undo. Vulkan accelerates supported image sizes, with a CPU path when unavailable.
 - Edit > Fade adjusts the opacity of the last raster edit with preview and undo. It requires unchanged pixel dimensions and layer placement; geometry, mask and multi-layer edits cannot be faded.
