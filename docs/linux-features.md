@@ -1,8 +1,8 @@
 # Linux features and compatibility
 
-Linux **v0.6.0** targets feature parity with **Compositor for macOS 1.3.3**. See the [feature comparison](../README.md#features-and-parity) for supported editing tools, or [release notes](https://github.com/AugusDogus/Compositor/releases) for a specific download.
+Linux **v0.6.1** targets feature parity with **Compositor for macOS 1.3.3**. See the [feature comparison](../README.md#features-and-parity) for supported editing tools, or [release notes](https://github.com/AugusDogus/Compositor/releases) for a specific download.
 
-## New in v0.6.0
+## New in v0.6.1
 
 Changes since v0.5.0:
 
@@ -23,7 +23,7 @@ Recovery preserves committed document contents, not undo history or unfinished d
 
 ## File compatibility
 
-- **Compositor projects:** v0.6.0 reads `.comp` versions 1–10 and writes v10. Linux v0.5.0 reads v1–9 and writes v9. Older applications may not open newly saved projects. [Mac reader/writer tests](macos-compatibility.md) preserved document data and cached pixels; full macOS application round trips remain unverified.
+- **Compositor projects:** v0.6.1 reads `.comp` versions 1–10 and writes v10. Linux v0.5.0 reads v1–9 and writes v9. Older applications may not open newly saved projects. [Mac reader/writer tests](macos-compatibility.md) preserved document data and cached pixels; full macOS application round trips remain unverified.
 - **Camera RAW:** original camera data and development settings stay editable in Linux projects. Saving through the upstream Mac writer discards this Linux extension while preserving the developed pixels. Keep the original Linux package for redevelopment. Camera support depends on the bundled decoders; Foveon X3F is unsupported. See [RAW workflow and limits](linux-raw.md).
 - **PSD/PSB import:** accepts 8-bit RGB and grayscale files. Supported primitives and simple point/paragraph text remain editable. Unsupported text, smart objects and some vector content use cached pixels. Missing fonts and unsupported styles or transforms are reported. CMYK and non-8-bit files are unsupported.
 - **PSD export:** rasterizes text and shapes, preserves supported adjustment layers, masks and clipping, and reports conversions. Imports have been tested with Photoshop-created files; reopening exports in Photoshop remains unverified.

@@ -7,8 +7,8 @@
 Make the downloaded file executable, then run it. Substitute its filename below:
 
 ```sh
-chmod +x Compositor-0.6.0-x86_64.AppImage
-./Compositor-0.6.0-x86_64.AppImage
+chmod +x Compositor-0.6.1-x86_64.AppImage
+./Compositor-0.6.1-x86_64.AppImage
 ```
 
 If FUSE is unavailable, add `--appimage-extract-and-run`. [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and icon to your application menu.
