@@ -14,8 +14,16 @@ pub(super) struct Library {
     tips: Vec<Entry>,
 }
 struct Entry {
-    tip: Arc<Tip>,
+    brush: Sampled,
     thumbnail: Image,
+}
+impl Entry {
+    fn label(&self) -> String {
+        self.brush.hose().map_or_else(
+            || self.brush.name().to_string(),
+            |hose| format!("{} · {} cells", hose.name(), hose.cells().len()),
+        )
+    }
 }
 #[derive(Clone)]
 pub(super) struct Draft {
@@ -39,7 +47,7 @@ impl Editor {
 
     fn load_brush_tip(&mut self, cx: &mut EventContext) {
         let options = PathPromptOptions::new().title("Load Brush Tips").filters([
-            super::file_dialogs::file_filter("Brush tips (GBR, ABR)", &["gbr", "abr"]),
+            super::file_dialogs::file_filter("Brush tips (GBR, GIH, ABR)", &["gbr", "gih", "abr"]),
         ]);
         let operation = alerts::Operation::Import;
         match cx.prompt_for_paths(options) {
@@ -117,8 +125,8 @@ impl Editor {
                     })),
             );
         for (index, entry) in self.brush_presets.tips.iter().enumerate() {
-            let selected = matches!(&self.tools.brush_shape, Shape::Sampled(brush) if Arc::ptr_eq(brush.tip(), &entry.tip));
-            let (width, height) = entry.tip.pixels().dimensions();
+            let selected = matches!(&self.tools.brush_shape, Shape::Sampled(brush) if brush.same_source(&entry.brush));
+            let (width, height) = entry.brush.tip().pixels().dimensions();
             let scale = 40. / width.max(height) as f32;
             choices = choices.child(
                 Self::control("")
@@ -143,11 +151,10 @@ impl Editor {
                                     .h(height as f32 * scale),
                             ),
                     )
-                    .child(text(entry.tip.name()).truncate().min_w(0.).flex_1())
+                    .child(text(entry.label()).truncate().min_w(0.).flex_1())
                     .on_click(cx.listener(format!("brush-tip-{index}"), move |this, cx| {
                         if let Some(entry) = this.brush_presets.tips.get(index) {
-                            this.tools.brush_shape =
-                                Shape::Sampled(Sampled::new(entry.tip.clone()));
+                            this.tools.brush_shape = Shape::Sampled(entry.brush.clone());
                             this.open_brush_tips();
                             cx.invalidate();
                         }
@@ -157,7 +164,7 @@ impl Editor {
         let sampled = matches!(self.tools.brush_shape, Shape::Sampled(_));
         div().flex_col().gap(12.).child(choices)
             .child(Self::control("Load Brushes…").on_click(cx.listener("brush-tip-load", |this, cx| this.load_brush_tip(cx))))
-            .child(text("GBR v2 and ABR sampled tips use the foreground color. Embedded colors are not used. Tips stay loaded until Compositor closes.").wrap().text_size(12.))
+            .child(text("GBR, GIH and ABR brushes use the foreground color. Embedded colors are not used. Brushes stay loaded until Compositor closes.").wrap().text_size(12.))
             .child(div().flex_row().items_center().gap(8.).child(text("Spacing (%)"))
                 .child(Self::text_field(draft.spacing.clone()).id("brush-tip-spacing").w(90.).disabled(!sampled)
                     .on_input(cx.input_listener("brush-tip-spacing", |this, value, cx| { this.brush_spacing_input(value); cx.invalidate(); }))))

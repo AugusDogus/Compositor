@@ -1,10 +1,15 @@
 //! Immutable sampled tip shapes. File colors are deliberately reduced to alpha.
 pub mod abr;
 mod gbr;
+pub mod gih;
 pub(super) mod segment;
+mod source;
+mod state;
 use crate::{Result, invalid};
 pub use gbr::read;
 use image::GrayImage;
+pub(super) use source::{Source, Stamp};
+pub(super) use state::State;
 use std::sync::Arc;
 
 pub const MAX_TIP_PIXELS: usize = 4 * 1024 * 1024;
@@ -40,16 +45,55 @@ pub enum Shape {
 
 #[derive(Clone, Debug)]
 pub struct Sampled {
-    tip: Arc<Tip>,
+    source: Source,
     spacing: f64,
+    counter: Arc<std::sync::atomic::AtomicU32>,
 }
 impl Sampled {
     pub fn new(tip: Arc<Tip>) -> Self {
         let spacing = tip.spacing;
-        Self { tip, spacing }
+        Self {
+            source: Source::Tip(tip),
+            spacing,
+            counter: Arc::default(),
+        }
     }
     pub fn tip(&self) -> &Arc<Tip> {
-        &self.tip
+        match &self.source {
+            Source::Tip(tip) => tip,
+            Source::Hose(hose) => &hose.cells()[0],
+        }
+    }
+    pub fn from_hose(hose: Arc<gih::Hose>) -> Self {
+        let spacing = hose.spacing();
+        Self {
+            source: Source::Hose(hose),
+            spacing,
+            counter: Arc::default(),
+        }
+    }
+    pub fn hose(&self) -> Option<&Arc<gih::Hose>> {
+        match &self.source {
+            Source::Hose(hose) => Some(hose),
+            Source::Tip(_) => None,
+        }
+    }
+    pub fn name(&self) -> &str {
+        self.hose()
+            .map_or_else(|| self.tip().name(), |hose| hose.name())
+    }
+    pub fn pixel_count(&self) -> usize {
+        self.source
+            .cells()
+            .iter()
+            .map(|tip| tip.pixels().len())
+            .sum()
+    }
+    pub fn embedded_colors(&self) -> bool {
+        self.source.cells().iter().any(|tip| tip.embedded_colors())
+    }
+    pub fn same_source(&self, other: &Self) -> bool {
+        self.source.same(&other.source)
     }
     pub fn spacing(&self) -> f64 {
         self.spacing
@@ -62,30 +106,5 @@ impl Sampled {
         }
         self.spacing = fraction;
         Ok(())
-    }
-}
-
-pub(super) struct State {
-    pub brush: Sampled,
-    /// Distance until the next stamp, measured in brush diameters.
-    pub next: f64,
-}
-impl State {
-    pub fn kernel(&self, diameter: f64) -> super::coverage::Kernel {
-        super::coverage::Kernel::Sampled {
-            tip: self.brush.tip.clone(),
-            diameter,
-            first: self.next * diameter,
-            spacing: self.brush.spacing * diameter,
-        }
-    }
-    pub fn advance(&mut self, length: f64, diameter: f64) {
-        let length = length / diameter;
-        if self.next <= length {
-            self.next += ((length - self.next) / self.brush.spacing).floor().max(0.)
-                * self.brush.spacing
-                + self.brush.spacing;
-        }
-        self.next = (self.next - length).max(0.);
     }
 }

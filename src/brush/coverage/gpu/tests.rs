@@ -208,10 +208,7 @@ fn sampled_gpu_matches_cpu_for_real_bristles_tilt_and_pixel_operations() {
             opacity: 0.4,
             color: [210, 30, 160, 180],
         };
-        let mut state = State {
-            brush: Sampled::new(tip.clone()),
-            next: 0.,
-        };
+        let mut state = State::new(Sampled::new(tip.clone()));
         let original = image::RgbaImage::from_fn(700, 600, |x, y| {
             image::Rgba([x as u8, y as u8, 80, (x + y) as u8])
         });
@@ -231,7 +228,12 @@ fn sampled_gpu_matches_cpu_for_real_bristles_tilt_and_pixel_operations() {
             ([280., 150.], [500., 350.]),
             ([500., 350.], [500., 350.]),
         ] {
-            let kernel = state.kernel(brush.diameter);
+            let kernel = state
+                .kernel(
+                    brush.diameter,
+                    sampled::gih::Dynamics::new(None, None, [1., 0.]).unwrap(),
+                )
+                .unwrap();
             let segment = kernel
                 .segment(start, end, 1.)
                 .with_metric(crate::brush::Tip::new(Some(1.), Some([45., 35.])).metric());
@@ -272,6 +274,75 @@ fn sampled_gpu_matches_cpu_for_real_bristles_tilt_and_pixel_operations() {
                 .unwrap();
             for (index, (a, b)) in actual.as_raw().iter().zip(expected.as_raw()).enumerate() {
                 assert!(a.abs_diff(*b) <= 1, "{mode:?} byte {index}: {a} vs {b}");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn gih_gpu_matches_cpu_for_mixed_cells_and_all_selection_modes() {
+    use crate::brush::sampled::{
+        Sampled, State,
+        gih::{Dynamics, Hose},
+    };
+    use std::sync::Arc;
+    let mut engine = Engine::new().unwrap();
+    let brush = Brush {
+        diameter: 120.,
+        hardness: 1.,
+        ..Brush::default()
+    };
+    for mode in [
+        "incremental",
+        "random",
+        "angular",
+        "pressure",
+        "xtilt",
+        "ytilt",
+    ] {
+        let mut bytes = format!("Test\n4 dim:1 rank0:4 sel0:{mode}\n").into_bytes();
+        for i in 0..4u32 {
+            let (w, h) = (5 + i, 4 + i);
+            for value in [30, 2, w, h, 1, 0x47494d50, 20] {
+                bytes.extend_from_slice(&value.to_be_bytes());
+            }
+            bytes.extend_from_slice(b"x\0");
+            bytes.extend((0..w * h).map(|p| (p * 11 + i * 53) as u8));
+        }
+        let mut state = State::new(Sampled::from_hose(Arc::new(
+            Hose::from_bytes(&bytes).unwrap(),
+        )));
+        let mut cpu = Plane::new(400, 400);
+        let mut gpu = cpu.clone();
+        let region = Region {
+            bounds: [0, 0, 400, 400],
+            origin: [0.5, 0.5],
+            dx: [1., 0.],
+            dy: [0., 1.],
+            canvas: [400., 400.],
+        };
+        for (start, end, pressure, tilt) in [
+            ([40., 50.], [220., 150.], 0.2, [-45., 30.]),
+            ([220., 150.], [170., 310.], 0.8, [20., -40.]),
+        ] {
+            let dynamics = Dynamics::new(
+                Some(pressure),
+                Some(tilt),
+                [end[0] - start[0], end[1] - start[1]],
+            )
+            .unwrap();
+            let kernel = state.kernel(brush.diameter, dynamics).unwrap();
+            let segment = kernel
+                .segment(start, end, 1.)
+                .with_metric(crate::brush::Tip::new(Some(1.), Some(tilt)).metric());
+            state.advance((end[0] - start[0]).hypot(end[1] - start[1]), brush.diameter);
+            let reference = region.rasterize(&mut cpu, &segment, brush).unwrap();
+            let actual = engine
+                .rasterize(&region, &mut gpu, &segment, brush)
+                .unwrap();
+            for (index, (a, b)) in actual.as_raw().iter().zip(reference.as_raw()).enumerate() {
+                assert!(a.abs_diff(*b) <= 1, "{mode} pixel {index}: {a} vs {b}");
             }
         }
     }

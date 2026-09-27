@@ -227,7 +227,7 @@ impl Stroke {
         };
         let sampled = match shape {
             sampled::Shape::Round => None,
-            sampled::Shape::Sampled(brush) => Some(sampled::State { brush, next: 0. }),
+            sampled::Shape::Sampled(brush) => Some(sampled::State::new(brush)),
         };
         // Sampled alpha always uses strongest-dab coverage, independent of the
         // round tip's hardness. Keep the caller's numerical brush settings intact.
@@ -289,6 +289,9 @@ impl Stroke {
 
     pub fn finish(&mut self, doc: &mut Document) -> Result<()> {
         self.flush(doc)?;
+        if let Some(state) = &self.sampled {
+            state.commit();
+        }
         if !self.changed && !matches!(self.mode, PaintMode::Heal(_)) {
             if let Some(layer) = doc
                 .layers
@@ -397,7 +400,15 @@ impl Stroke {
                 0.5
             };
         if let Some(sampled) = &mut self.sampled {
-            self.kernel = sampled.kernel(self.brush.diameter);
+            let dynamics = sampled::gih::Dynamics::new(
+                self.tip.and_then(|tip| tip.pressure),
+                self.tip.and_then(|tip| tip.tilt),
+                [end[0] - start[0], end[1] - start[1]],
+            )?;
+            let Some(kernel) = sampled.kernel(self.brush.diameter, dynamics) else {
+                return Ok(());
+            };
+            self.kernel = kernel;
             sampled.advance(
                 (end[0] - start[0]).hypot(end[1] - start[1]),
                 self.brush.diameter,

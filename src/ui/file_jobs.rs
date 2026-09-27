@@ -34,6 +34,7 @@ pub(super) enum FileJob {
 pub(super) enum Completed {
     BrushTip(compositor::brush::sampled::Tip),
     BrushPack(compositor::brush::sampled::abr::Pack),
+    BrushHose(compositor::brush::sampled::gih::Hose),
     BrushTips(Vec<compositor::brush::sampled::Tip>),
     Opened {
         projects: Vec<OpenedProject>,
@@ -84,6 +85,12 @@ impl FileJob {
                     .is_some_and(|ext| ext.eq_ignore_ascii_case("abr"))
                 {
                     compositor::brush::sampled::abr::Pack::read(&path).map(Completed::BrushPack)
+                } else if path
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("gih"))
+                {
+                    compositor::brush::sampled::gih::Hose::read(&path).map(Completed::BrushHose)
                 } else {
                     compositor::brush::sampled::read(&path).map(Completed::BrushTip)
                 }
@@ -247,6 +254,7 @@ impl Editor {
     ) -> Result<()> {
         match completed {
             Completed::BrushTip(tip) => self.install_brush_tip(tip)?,
+            Completed::BrushHose(hose) => self.install_brush_hose(hose)?,
             Completed::BrushPack(pack) => self.open_brush_pack(pack),
             Completed::BrushTips(tips) => self.install_brush_tips(tips)?,
             Completed::Opened { projects, failures } => {

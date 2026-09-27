@@ -162,8 +162,8 @@ fn abr_picker_imports_only_selected_tips_through_file_job_and_keeps_history_clea
     .unwrap();
     cx.read(view, |e| {
         assert_eq!(e.brush_presets.tips.len(), 1);
-        assert_eq!(e.brush_presets.tips[0].tip.name(), "Asymmetric dots");
-        assert_eq!(e.brush_presets.tips[0].tip.spacing(), 0.75);
+        assert_eq!(e.brush_presets.tips[0].brush.name(), "Asymmetric dots");
+        assert_eq!(e.brush_presets.tips[0].brush.spacing(), 0.75);
         assert_eq!(e.session().document, original);
         assert!(e.session().undo_label().is_none());
     })
@@ -207,4 +207,77 @@ fn capacity_failure_is_atomic_and_unload_releases_parked_project_references() {
     assert_eq!(e.brush_presets.tips.len(), 32);
     assert_eq!(e.session().document, original);
     assert!(e.session().undo_label().is_none());
+}
+
+#[test]
+fn gih_file_import_keeps_cells_together_and_unloads_all_project_references() {
+    use super::super::file_jobs::{Completed, FileJob};
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/gih/fine-grain.gih");
+    let mut editor = Editor::with_test_document();
+    let before = editor.session().document.clone();
+    for _ in 0..2 {
+        let Completed::BrushHose(hose) = FileJob::BrushTip(path.clone()).run(&[]).unwrap() else {
+            panic!("GIH file job must preserve the hose");
+        };
+        editor.install_brush_hose(hose).unwrap();
+    }
+    assert_eq!(editor.brush_presets.tips.len(), 1);
+    assert_eq!(editor.brush_presets.pixels(), 3 * 256 * 256);
+    assert_eq!(editor.brush_presets.tips[0].label(), "Fine Grain · 3 cells");
+    let selected = editor.tools.brush_shape.clone();
+    editor.tabs[0].parked_tools.brush_shape = selected.clone();
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("GIH Brushes").size(1500., 900.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    cx.click(window, "brush-tip-round").unwrap();
+    cx.click(window, "brush-tip-0").unwrap();
+    cx.read(view, |e| {
+        let (Shape::Sampled(a), Shape::Sampled(b)) = (&e.tools.brush_shape, &selected) else {
+            panic!("hose selection");
+        };
+        assert!(a.same_source(b));
+        assert_eq!(a.hose().unwrap().cells().len(), 3);
+        assert_eq!(a.spacing(), 0.2);
+    })
+    .unwrap();
+
+    cx.click(window, "brush-tip-unload").unwrap();
+    cx.read(view, |e| {
+        assert!(e.brush_presets.tips.is_empty());
+        assert!(matches!(e.tools.brush_shape, Shape::Round));
+        assert!(matches!(e.tabs[0].parked_tools.brush_shape, Shape::Round));
+        assert_eq!(e.session().document, before);
+        assert!(e.session().undo_label().is_none());
+    })
+    .unwrap();
+}
+
+#[test]
+fn gih_library_budget_counts_every_cell_and_keeps_failed_import_atomic() {
+    use compositor::brush::sampled::gih::Hose;
+    let mut editor = Editor::with_test_document();
+    editor.install_brush_tip(fixture()).unwrap();
+    for i in 0..4 {
+        let mut bytes = format!("Large {i}\n4 dim:1 rank0:4 sel0:incremental\n").into_bytes();
+        for _ in 0..4 {
+            for value in [30u32, 2, 1024, 1024, 1, 0x47494d50, 20] {
+                bytes.extend_from_slice(&value.to_be_bytes());
+            }
+            bytes.extend_from_slice(b"x\0");
+            bytes.resize(bytes.len() + 1024 * 1024, 255);
+        }
+        let result = editor.install_brush_hose(Hose::from_bytes(&bytes).unwrap());
+        if i < 3 {
+            result.unwrap();
+        } else {
+            assert!(result.is_err());
+        }
+    }
+    assert_eq!(editor.brush_presets.tips.len(), 4);
+    assert_eq!(editor.brush_presets.pixels(), 12 * 1024 * 1024 + 1);
+    let Shape::Sampled(selected) = &editor.tools.brush_shape else {
+        panic!("previous brush");
+    };
+    assert_eq!(selected.name(), "Large 2");
 }

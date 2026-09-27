@@ -156,11 +156,11 @@ impl Stroke {
             self.tail = self.backup_tail(doc, bounds)?;
         }
         let saved = self.last;
-        let phase = self.sampled.as_ref().map(|state| state.next);
+        let phase = self.sampled.as_ref().map(|state| (state.next, state.dab));
         let result = self.walk(doc, end);
         self.last = saved;
         if let (Some(state), Some(phase)) = (&mut self.sampled, phase) {
-            state.next = phase;
+            (state.next, state.dab) = phase;
         }
         result
     }

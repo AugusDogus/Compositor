@@ -17,7 +17,7 @@ static DENSITY: std::sync::OnceLock<[f32; TABLE_STEPS + 1]> = std::sync::OnceLoc
 
 pub(super) enum Kernel {
     Sampled {
-        tip: std::sync::Arc<super::sampled::Tip>,
+        stamp: super::sampled::Stamp,
         diameter: f64,
         first: f64,
         spacing: f64,
@@ -118,13 +118,13 @@ impl Segment<'_> {
         let projection = offset[0] * self.direction[0] + offset[1] * self.direction[1];
         let (radius, hardness, softness, spacing, table) = match self.kernel {
             Kernel::Sampled {
-                tip,
+                stamp,
                 diameter,
                 first,
                 spacing,
             } => {
                 return super::sampled::segment::deposit(
-                    tip,
+                    stamp,
                     *diameter,
                     first * self.spacing_scale,
                     spacing * self.spacing_scale,

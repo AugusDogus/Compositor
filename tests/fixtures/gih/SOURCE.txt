@@ -1,0 +1,11 @@
+Fine Grain and Wood Brush(2), by rubberduck (2015).
+Unmodified files from "60 free gimp / krita brushes".
+Source: https://opengameart.org/content/60-free-gimp-krita-brushes
+License: CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/
+
+SHA-256:
+aa4e55654c3302a8ebcd441d1122bdcce73e205080cb20a574d61bb865e28044  fine-grain.gih
+28a649fdc73f03a2a0c56fb301aa0f40a8178c102c2b4d5970cb82a306a5fd34  wood1b.gih
+
+Fine Grain exercises a three-cell random image pipe and embedded GBR spacing.
+Wood Brush(2) exercises a partially populated rank grid from a real export.

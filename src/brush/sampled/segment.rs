@@ -33,7 +33,7 @@ impl Tip {
 }
 
 pub(in crate::brush) fn deposit(
-    tip: &Tip,
+    stamp: &super::Stamp,
     diameter: f64,
     first: f64,
     spacing: f64,
@@ -55,7 +55,7 @@ pub(in crate::brush) fn deposit(
     let mut coverage: f32 = 0.;
     for index in low..=high as u64 {
         let distance = first + index as f64 * spacing;
-        coverage = coverage.max(tip.sample(
+        coverage = coverage.max(stamp.cell(index as u32).sample(
             [
                 offset[0] - direction[0] * distance,
                 offset[1] - direction[1] * distance,

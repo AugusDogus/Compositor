@@ -1,7 +1,7 @@
 use super::*;
 impl Library {
     pub(super) fn pixels(&self) -> usize {
-        self.tips.iter().map(|e| e.tip.pixels().len()).sum()
+        self.tips.iter().map(|e| e.brush.pixel_count()).sum()
     }
 }
 impl Editor {
@@ -9,29 +9,44 @@ impl Editor {
         self.install_brush_tips(vec![tip])
     }
     pub(in crate::ui) fn install_brush_tips(&mut self, tips: Vec<Tip>) -> Result<()> {
+        self.install_sampled_brushes(
+            tips.into_iter()
+                .map(|tip| Sampled::new(Arc::new(tip)))
+                .collect(),
+        )
+    }
+    pub(in crate::ui) fn install_brush_hose(
+        &mut self,
+        hose: compositor::brush::sampled::gih::Hose,
+    ) -> Result<()> {
+        self.install_sampled_brushes(vec![Sampled::from_hose(Arc::new(hose))])
+    }
+    fn install_sampled_brushes(&mut self, brushes: Vec<Sampled>) -> Result<()> {
         let mut additions: Vec<Entry> = Vec::new();
         let mut selected = None;
         let mut pixels = self.brush_presets.pixels();
-        for tip in tips {
-            if let Some(existing) = self
-                .brush_presets
-                .tips
-                .iter()
-                .chain(&additions)
-                .find(|e| *e.tip == tip)
+        for brush in brushes {
+            if let Some(existing) =
+                self.brush_presets.tips.iter().chain(&additions).find(|e| {
+                    match (e.brush.hose(), brush.hose()) {
+                        (Some(a), Some(b)) => a == b,
+                        (None, None) => e.brush.tip() == brush.tip(),
+                        _ => false,
+                    }
+                })
             {
-                selected = Some(existing.tip.clone());
+                selected = Some(existing.brush.clone());
                 continue;
             }
-            pixels += tip.pixels().len();
+            pixels += brush.pixel_count();
             if self.brush_presets.tips.len() + additions.len() >= MAX_TIPS
                 || pixels > MAX_TOTAL_PIXELS
             {
                 return Err(invalid(
-                    "The session brush library is full (32 tips or 16 million pixels). No tips were added. Unload a tip in Brush Tips, then retry the import.",
+                    "The session brush library is full (32 brushes or 16 million pixels). No brushes were added. Unload a brush in Brush Tips, then retry the import.",
                 ));
             }
-            let thumb = image::DynamicImage::ImageLuma8(tip.pixels().clone())
+            let thumb = image::DynamicImage::ImageLuma8(brush.tip().pixels().clone())
                 .thumbnail(40, 40)
                 .into_luma8();
             let rgba = image::RgbaImage::from_fn(thumb.width(), thumb.height(), |x, y| {
@@ -40,21 +55,20 @@ impl Editor {
             let thumbnail = Image::from_rgba(rgba.width(), rgba.height(), rgba.into_raw())
                 .map_err(|e| {
                     invalid(format!(
-                        "Could not display the imported tip: {e}. No tips were added."
+                        "Could not display the imported tip: {e}. No brushes were added."
                     ))
                 })?;
-            let tip = Arc::new(tip);
-            selected = Some(tip.clone());
-            additions.push(Entry { tip, thumbnail });
+            selected = Some(brush.clone());
+            additions.push(Entry { brush, thumbnail });
         }
         let count = additions.len();
         self.brush_presets.tips.extend(additions);
-        if let Some(tip) = selected {
-            self.tools.brush_shape = Shape::Sampled(Sampled::new(tip));
+        if let Some(brush) = selected {
+            self.tools.brush_shape = Shape::Sampled(brush);
         }
         self.open_brush_tips();
         self.status = format!(
-            "{count} brush tips added for this session. Painting uses the foreground color and current brush size."
+            "{count} brushes added for this session. Painting uses the foreground color and current brush size."
         );
         Ok(())
     }
@@ -62,17 +76,17 @@ impl Editor {
         let Shape::Sampled(sampled) = &self.tools.brush_shape else {
             return;
         };
-        let tip = sampled.tip().clone();
+        let removed = sampled.clone();
         self.brush_presets
             .tips
-            .retain(|entry| !Arc::ptr_eq(&entry.tip, &tip));
+            .retain(|entry| !entry.brush.same_source(&removed));
         for tools in self
             .tabs
             .iter_mut()
             .map(|tab| &mut tab.parked_tools)
             .chain(std::iter::once(&mut self.tools))
         {
-            if matches!(&tools.brush_shape, Shape::Sampled(sampled) if Arc::ptr_eq(sampled.tip(), &tip))
+            if matches!(&tools.brush_shape, Shape::Sampled(sampled) if sampled.same_source(&removed))
             {
                 tools.brush_shape = Shape::Round;
             }

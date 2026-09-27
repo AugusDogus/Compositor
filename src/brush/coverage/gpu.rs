@@ -114,7 +114,7 @@ struct Engine {
     original: wgpu::Buffer,
     readback: wgpu::Buffer,
     sampled_tip: wgpu::Buffer,
-    sampled_source: Option<std::sync::Arc<crate::brush::sampled::Tip>>,
+    sampled_source: Option<crate::brush::sampled::Source>,
     name: String,
 }
 
@@ -216,8 +216,8 @@ impl Engine {
         brush: Brush,
         target: &mut Target<'_>,
     ) -> Result<image::GrayImage> {
-        let (tip_size, tip_spacing) = if let super::Kernel::Sampled {
-            tip,
+        let (tip_state, tip_spacing, tip_plan) = if let super::Kernel::Sampled {
+            stamp,
             first,
             spacing,
             ..
@@ -226,10 +226,9 @@ impl Engine {
             if self
                 .sampled_source
                 .as_ref()
-                .is_none_or(|cached| !std::sync::Arc::ptr_eq(cached, tip))
+                .is_none_or(|cached| !cached.same(&stamp.source))
             {
-                let mut bytes = tip.pixels().as_raw().clone();
-                bytes.resize(bytes.len().div_ceil(4) * 4, 0);
+                let bytes = stamp.source.gpu_bytes();
                 self.sampled_tip =
                     self.device
                         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -237,19 +236,20 @@ impl Engine {
                             contents: &bytes,
                             usage: wgpu::BufferUsages::STORAGE,
                         });
-                self.sampled_source = Some(tip.clone());
+                self.sampled_source = Some(stamp.source.clone());
             }
             (
-                [tip.pixels().width(), tip.pixels().height(), 0, 0],
+                [stamp.source.cells().len() as u32, stamp.dab, stamp.seed, 0],
                 [
                     (first * segment.spacing_scale) as f32,
                     (spacing * segment.spacing_scale) as f32,
                     0.,
                     0.,
                 ],
+                stamp.plan,
             )
         } else {
-            ([0u32; 4], [0f32; 4])
+            ([0u32; 4], [0f32; 4], [[0u32; 4]; 4])
         };
         let [left, top, right, bottom] = region.bounds;
         let width = right.saturating_sub(left);
@@ -267,7 +267,7 @@ impl Engine {
                 values.extend_from_slice(&plane.as_raw()[start..start + width as usize]);
             }
             let origin = region.point(left, y);
-            let mut parameters = Vec::with_capacity(128);
+            let mut parameters = Vec::with_capacity(224);
             for field in [
                 [region.dx[0], region.dx[1], region.dy[0], region.dy[1]],
                 [
@@ -316,8 +316,9 @@ impl Engine {
             parameters
                 .extend_from_slice(bytemuck::cast_slice(&brush.color.map(|v| v as f32 / 255.)));
             parameters.extend_from_slice(bytemuck::cast_slice(&segment.metric.map(|v| v as f32)));
-            parameters.extend_from_slice(bytemuck::cast_slice(&tip_size));
+            parameters.extend_from_slice(bytemuck::cast_slice(&tip_state));
             parameters.extend_from_slice(bytemuck::cast_slice(&tip_spacing));
+            parameters.extend_from_slice(bytemuck::cast_slice(&tip_plan));
             let original = match target {
                 Target::Coverage => None,
                 Target::Image { original, .. } => {

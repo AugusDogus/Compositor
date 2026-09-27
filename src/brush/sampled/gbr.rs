@@ -23,12 +23,28 @@ pub fn read(path: &Path) -> Result<Tip> {
 }
 
 pub(super) fn parse(data: &[u8]) -> Result<Tip> {
+    if data.len() as u64 > MAX_FILE_BYTES {
+        return Err(invalid(
+            "The GBR brush exceeds 16 MiB. Choose a smaller brush.",
+        ));
+    }
+    let (tip, consumed) = parse_one(data, MAX_TIP_PIXELS)?;
+    if consumed != data.len() {
+        return Err(invalid(
+            "The GBR file contains unexpected trailing data. Export it again from GIMP.",
+        ));
+    }
+    Ok(tip)
+}
+
+/// Decode one embedded GBR without accepting trailing bytes as part of that cell.
+pub(super) fn parse_one(data: &[u8], pixel_budget: usize) -> Result<(Tip, usize)> {
     let malformed = || {
         invalid(
             "The GBR brush is truncated or has an invalid header. Export it again as a GIMP GBR version 2 brush.",
         )
     };
-    if data.len() < 29 || data.len() as u64 > MAX_FILE_BYTES {
+    if data.len() < 29 {
         return Err(malformed());
     }
     let word = |offset| -> Result<u32> {
@@ -41,7 +57,7 @@ pub(super) fn parse(data: &[u8]) -> Result<Tip> {
     };
     if word(4)? != 2 {
         return Err(invalid(
-            "Only GBR version 2 brushes are supported. Export the brush as GBR from GIMP; CinePaint float brushes and GIH hoses are not supported yet.",
+            "Only GBR version 2 brushes are supported. Export the brush as GBR from GIMP; CinePaint float brushes are not supported.",
         ));
     }
     let header = word(0)? as usize;
@@ -70,26 +86,31 @@ pub(super) fn parse(data: &[u8]) -> Result<Tip> {
         .to_string();
     let count = width as usize * height as usize;
     let end = header.checked_add(count * channels).ok_or_else(malformed)?;
-    if end != data.len() {
-        return Err(malformed());
+    if count > pixel_budget {
+        return Err(invalid(
+            "The GIH cells exceed 16 million decoded pixels. Export a smaller brush; no tips were loaded.",
+        ));
     }
-    let raw = &data[header..end];
+    let raw = data.get(header..end).ok_or_else(malformed)?;
     let pixels = if channels == 1 {
         raw.to_vec()
     } else {
         raw.chunks_exact(4).map(|pixel| pixel[3]).collect()
     };
     let pixels = GrayImage::from_raw(width, height, pixels).ok_or_else(malformed)?;
-    Ok(Tip {
-        name: if name.is_empty() {
-            "Imported tip".into()
-        } else {
-            name
+    Ok((
+        Tip {
+            name: if name.is_empty() {
+                "Imported tip".into()
+            } else {
+                name
+            },
+            pixels,
+            spacing: f64::from(spacing) / 100.,
+            colored: channels == 4,
         },
-        pixels,
-        spacing: f64::from(spacing) / 100.,
-        colored: channels == 4,
-    })
+        end,
+    ))
 }
 
 #[cfg(test)]

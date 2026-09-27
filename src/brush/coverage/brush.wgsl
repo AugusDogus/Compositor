@@ -11,8 +11,9 @@ struct Parameters {
     spacing: vec4<f32>,
     color: vec4<f32>,
     metric: vec4<f32>,
-    tip_size: vec4<u32>,
+    tip_state: vec4<u32>,
     tip_spacing: vec4<f32>,
+    tip_plan: array<vec4<u32>, 4>,
 }
 struct Output { density: f32, changed: u32, color: u32 }
 @group(0) @binding(0) var<uniform> u: Parameters;
@@ -26,22 +27,40 @@ fn tip_density(distance_squared: f32) -> f32 {
     let coverage = max(0.0, (exp(-2.5 * t * t) - exp(-2.5)) / (1.0 - exp(-2.5)));
     return -log(max(1.0 - coverage, 0.001));
 }
-fn tip_pixel(p: vec2<i32>) -> f32 {
-    if any(p < vec2<i32>(0)) || any(p >= vec2<i32>(u.tip_size.xy)) { return 0.0; }
-    let index = u32(p.y) * u.tip_size.x + u32(p.x);
+fn cell_hash(input: u32) -> u32 {
+    var v = (input ^ (input >> 16u)) * 0x7feb352du;
+    v = (v ^ (v >> 15u)) * 0x846ca68bu;
+    return v ^ (v >> 16u);
+}
+fn cell_header(dab: u32) -> vec3<u32> {
+    if u.tip_state.x == 1u { return vec3<u32>(sampled_tip[0], sampled_tip[1], sampled_tip[2]); }
+    var cell = 0u;
+    for (var axis = 0u; axis < 4u; axis++) {
+        let plan = u.tip_plan[axis];
+        var chosen = plan.w;
+        if plan.x == 1u { chosen = (dab + 1u) % plan.y; }
+        if plan.x == 2u { chosen = cell_hash(dab ^ u.tip_state.z ^ (axis * 0x9e3779b9u)) % plan.y; }
+        cell += chosen * plan.z;
+    }
+    let offset = min(cell, u.tip_state.x - 1u) * 4u;
+    return vec3<u32>(sampled_tip[offset], sampled_tip[offset + 1u], sampled_tip[offset + 2u]);
+}
+fn tip_pixel(p: vec2<i32>, cell: vec3<u32>) -> f32 {
+    if any(p < vec2<i32>(0)) || any(p >= vec2<i32>(cell.xy)) { return 0.0; }
+    let index = cell.z + u32(p.y) * cell.x + u32(p.x);
     return f32((sampled_tip[index / 4u] >> ((index % 4u) * 8u)) & 255u) / 255.0;
 }
-fn sampled_alpha(point: vec2<f32>) -> f32 {
-    let dimensions = vec2<f32>(u.tip_size.xy);
-    let scale = f32(max(u.tip_size.x, u.tip_size.y)) / (u.geometry.z * 2.0);
+fn sampled_alpha(point: vec2<f32>, cell: vec3<u32>) -> f32 {
+    let dimensions = vec2<f32>(cell.xy);
+    let scale = f32(max(cell.x, cell.y)) / (u.geometry.z * 2.0);
     let edge_axes = clamp((dimensions / (2.0 * scale) - abs(point)) / u.segment.w + 0.5, vec2<f32>(0.0), vec2<f32>(1.0));
     let edge = edge_axes.x * edge_axes.y;
     if edge == 0.0 { return 0.0; }
     let p = clamp(point * scale + dimensions * 0.5 - 0.5, vec2<f32>(0.0), dimensions - 1.0);
     let lo = vec2<i32>(floor(p));
     let f = fract(p);
-    return mix(mix(tip_pixel(lo), tip_pixel(lo + vec2<i32>(1, 0)), f.x),
-        mix(tip_pixel(lo + vec2<i32>(0, 1)), tip_pixel(lo + vec2<i32>(1, 1)), f.x), f.y) * edge;
+    return mix(mix(tip_pixel(lo, cell), tip_pixel(lo + vec2<i32>(1, 0), cell), f.x),
+        mix(tip_pixel(lo + vec2<i32>(0, 1), cell), tip_pixel(lo + vec2<i32>(1, 1), cell), f.x), f.y) * edge;
 }
 fn sampled_deposit(p: vec2<f32>) -> f32 {
     let first = u.tip_spacing.x;
@@ -56,13 +75,13 @@ fn sampled_deposit(p: vec2<f32>) -> f32 {
     if hi < lo { return 0.0; }
     var coverage = 0.0;
     for (var i = u32(lo); i <= u32(hi); i++) {
-        coverage = max(coverage, sampled_alpha(p - u.segment.xy * (first + f32(i) * spacing)));
+        coverage = max(coverage, sampled_alpha(p - u.segment.xy * (first + f32(i) * spacing), cell_header(u.tip_state.y + i)));
     }
     return coverage;
 }
 fn deposit(point: vec2<f32>) -> f32 {
     let p = vec2<f32>(dot(u.metric.xy, point), dot(u.metric.zw, point));
-    if u.tip_size.x != 0u { return sampled_deposit(p); }
+    if u.tip_state.x != 0u { return sampled_deposit(p); }
     let direction = u.segment.xy;
     let length = u.segment.z;
     let projection = dot(p, direction);
