@@ -10,6 +10,7 @@ pub enum ExtendedAdjustment {
     PhotoFilter(PhotoFilter),
     ChannelMixer(ChannelMixer),
     SelectiveColor(SelectiveColor),
+    Threshold(crate::threshold::Threshold),
 }
 impl ExtendedAdjustment {
     pub fn label(self) -> &'static str {
@@ -17,6 +18,7 @@ impl ExtendedAdjustment {
             Self::PhotoFilter(_) => "Photo Filter",
             Self::ChannelMixer(_) => "Channel Mixer",
             Self::SelectiveColor(_) => "Selective Color",
+            Self::Threshold(_) => "Threshold",
         }
     }
     pub fn validate(self) -> Result<()> {
@@ -24,6 +26,7 @@ impl ExtendedAdjustment {
             Self::PhotoFilter(settings) => settings.validate(),
             Self::ChannelMixer(settings) => settings.validate(),
             Self::SelectiveColor(settings) => settings.validate(),
+            Self::Threshold(_) => Ok(()),
         }
     }
     /// Evaluate continuous backdrop RGB. Quantization belongs to the final output.
@@ -36,6 +39,7 @@ impl ExtendedAdjustment {
             Self::PhotoFilter(settings) => settings.apply_rgb(input),
             Self::ChannelMixer(settings) => settings.apply_rgb(input),
             Self::SelectiveColor(settings) => settings.apply_rgb(input),
+            Self::Threshold(settings) => settings.apply_rgb(input),
         };
         [
             f64::from(rgb[0]),

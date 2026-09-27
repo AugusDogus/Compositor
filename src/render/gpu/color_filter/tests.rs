@@ -2,6 +2,33 @@ use super::*;
 
 #[test]
 #[ignore = "Requires a hardware Vulkan adapter"]
+fn threshold_gpu_matches_every_gray_boundary_color_and_alpha() {
+    let engine = Engine::new().unwrap();
+    let source = RgbaImage::from_fn(256, 11, |x, y| {
+        let value = x as u8;
+        image::Rgba(match y {
+            0..=3 => [value, value, value, (y * 85) as u8],
+            4 => [value, 140, 129, 255],
+            5 => [100, value, 129, 128],
+            6 => [100, 140, value, 255],
+            7 => [value, 255 - value, value.wrapping_mul(17), 73],
+            8 => [0, 6, 127, value],
+            9 => [0, 122, 249, value],
+            _ => [0, 208, 236, value],
+        })
+    });
+    for level in 0..=255 {
+        let settings = crate::threshold::Threshold { level };
+        let gpu = engine
+            .color_filter(&source, Settings::Threshold(settings))
+            .unwrap();
+        let cpu = crate::threshold::reference(&source, settings);
+        assert_eq!(gpu, cpu, "threshold {level}");
+    }
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
 fn selective_color_gpu_matches_all_ranges_modes_alpha_and_extremes() {
     let engine = Engine::new().unwrap();
     let source = RgbaImage::from_fn(257, 129, |x, y| {

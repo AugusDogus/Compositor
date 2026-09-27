@@ -102,6 +102,7 @@ impl Engine {
             include_str!("gpu/blend.wgsl"),
             include_str!("gpu/adjustments.wgsl"),
             include_str!("gpu/selective_color_math.wgsl"),
+            include_str!("gpu/threshold_math.wgsl"),
         ]
         .join("\n");
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {

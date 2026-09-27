@@ -19,6 +19,8 @@ fn set_sat(c: vec3<f32>, value: f32) -> vec3<f32> {
 fn blend(mode:u32, bottom:vec4<f32>, top:vec4<f32>) -> vec4<f32> {
     let alpha=top.a+bottom.a*(1.0-top.a);
     if alpha<=0.0 { return vec4(0.0); }
+    // Preserve exact source RGB at discontinuous adjustment boundaries.
+    if bottom.a==0.0 { return top; }
     let b=bottom.rgb; let s=top.rgb;
     var color=s;
     switch mode {

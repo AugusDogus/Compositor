@@ -12,6 +12,7 @@ mod preflight;
 mod resources;
 mod selective_color;
 mod text;
+mod threshold;
 mod vector;
 mod vector_metadata;
 

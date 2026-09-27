@@ -1,9 +1,12 @@
 use super::*;
 use compositor::{filters::Filter, invalid};
 
+pub(super) mod threshold;
+
 impl Editor {
     pub(super) fn filter_fields(filter: Filter) -> (&'static str, Vec<(&'static str, String)>) {
         match filter {
+            Filter::Threshold(settings) => ("Threshold", threshold::fields(settings)),
             Filter::SelectiveColor(settings) => (
                 "Selective Color",
                 super::selective_color_controls::fields(settings),
@@ -137,6 +140,7 @@ impl Editor {
             }
         };
         Ok(match filter {
+            Filter::Threshold(_) => Filter::Threshold(threshold::parse(values)?),
             Filter::SelectiveColor(_) => {
                 Filter::SelectiveColor(super::selective_color_controls::parse(values)?)
             }

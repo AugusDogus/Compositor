@@ -48,6 +48,7 @@ mod selection_geometry;
 pub mod selective_color;
 pub mod session;
 pub mod text;
+pub mod threshold;
 pub mod thumbnail;
 pub mod transform;
 pub mod trim;

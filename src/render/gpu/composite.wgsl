@@ -22,6 +22,8 @@ fn image_pixel(layer:Layer,p:vec2<f32>) -> vec4<f32> {
     let xy=uv*vec2<f32>(layer.image.yz);
     if layer.image.w==0u {return rgba(layer.image,i32(xy.x),i32(xy.y));}
     let at=xy-vec2(0.5); let base=vec2<i32>(floor(at)); let f=fract(at);
+    // Exact texel centers need no alpha multiply/divide round trip.
+    if all(f==vec2(0.0)) {return rgba(layer.image,base.x,base.y);}
     var color=vec4(0.0);
     for(var y=0;y<2;y++){for(var x=0;x<2;x++){
         let sample=rgba(layer.image,base.x+x,base.y+y);
@@ -62,7 +64,7 @@ fn adjusted(layer:Layer,p:vec2<f32>,color:vec4<f32>,opacity:f32) -> vec4<f32> {
     let point=view.geometry.xy+(p+vec2(0.5))*view.geometry.zw;
     var rgb=adjust_rgb(color.rgb,layer.options.y,layer.info.w,point);
     // Linux color adjustments preserve hidden backdrop RGB at zero alpha.
-    if color.a==0.0 && (layer.options.y==13u || layer.options.y==14u || layer.options.y==15u) {rgb=color.rgb;}
+    if color.a==0.0 && (layer.options.y==13u || layer.options.y==14u || layer.options.y==15u || layer.options.y==16u) {rgb=color.rgb;}
     if layer.options.y==11u || layer.options.y==12u {rgb=image_pixel(layer,p).rgb;}
     let blended=blend(layer.info.x,vec4(color.rgb,1.0),vec4(rgb,1.0));
     return vec4(mix(color.rgb,blended.rgb,opacity),color.a);

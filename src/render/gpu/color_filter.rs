@@ -14,6 +14,7 @@ pub(crate) enum Settings {
     PhotoFilter(PhotoFilter),
     ChannelMixer(ChannelMixer),
     SelectiveColor(SelectiveColor),
+    Threshold(crate::threshold::Threshold),
 }
 impl Settings {
     fn operation(self) -> super::readback::Operation {
@@ -21,10 +22,12 @@ impl Settings {
             Self::PhotoFilter(_) => super::readback::Operation::PhotoFilter,
             Self::ChannelMixer(_) => super::readback::Operation::ChannelMixer,
             Self::SelectiveColor(_) => super::readback::Operation::SelectiveColor,
+            Self::Threshold(_) => super::readback::Operation::Threshold,
         }
     }
     fn parameters(self, count: u32) -> Vec<u32> {
         match self {
+            Self::Threshold(settings) => vec![u32::from(settings.level), count, 0, 0],
             Self::PhotoFilter(settings) => vec![
                 (settings.color[0] as f32).to_bits(),
                 (settings.color[1] as f32).to_bits(),
@@ -56,6 +59,7 @@ pub(super) struct Pipelines {
     photo_filter: wgpu::ComputePipeline,
     channel_mixer: wgpu::ComputePipeline,
     selective_color: wgpu::ComputePipeline,
+    threshold: wgpu::ComputePipeline,
 }
 impl Pipelines {
     pub(super) fn new(device: &wgpu::Device) -> Self {
@@ -74,6 +78,7 @@ impl Pipelines {
             })
         };
         Self {
+            threshold: pipeline(include_str!("threshold.wgsl")),
             photo_filter: pipeline(include_str!("photo_filter.wgsl")),
             channel_mixer: pipeline(include_str!("channel_mixer.wgsl")),
             selective_color: pipeline(
@@ -90,6 +95,7 @@ impl Pipelines {
             Settings::PhotoFilter(_) => &self.photo_filter,
             Settings::ChannelMixer(_) => &self.channel_mixer,
             Settings::SelectiveColor(_) => &self.selective_color,
+            Settings::Threshold(_) => &self.threshold,
         }
     }
 }

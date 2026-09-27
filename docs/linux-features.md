@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Threshold converts colors to black or white at a chosen luminance level (0–255). Use it as a pixel edit or an editable adjustment layer, with preview, masks and undo. Linux projects and PSD exports preserve the adjustment; macOS receives a rendered compatibility copy.
+
 - Selective Color adjusts cyan, magenta, yellow and black within nine color ranges, using Relative or Absolute amounts. It supports direct pixel edits and editable adjustment layers with masks, preview and undo. Vulkan accelerates both paths. Linux projects retain all settings; PSD keeps integer amounts editable and uses a rendered copy for fractional amounts.
 
 - Artboards group layers inside editable frames with transparent or colored backgrounds. Create them empty or from selected layers, move them by their labels, and resize their frames without scaling the contents. Export Artboards writes one PNG per visible board, excluding other boards and adjustments outside the board. Linux projects preserve editable artboards; macOS and PSD exports use a rendered compatibility copy.

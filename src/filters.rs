@@ -9,6 +9,7 @@ pub(crate) mod photo_filter;
 pub mod radial;
 mod selective_color;
 mod sharpen;
+mod threshold;
 pub use finishing::Vignette;
 
 use crate::{
@@ -25,6 +26,7 @@ pub enum Filter {
     PhotoFilter(crate::adjustment::PhotoFilter),
     ChannelMixer(crate::adjustment::ChannelMixer),
     SelectiveColor(crate::selective_color::SelectiveColor),
+    Threshold(crate::threshold::Threshold),
     Radial(radial::Radial),
     LuminositySharpen(luminosity_sharpen::Settings),
     HighPass {
@@ -187,6 +189,7 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
             Filter::PhotoFilter(settings) => photo_filter::apply(&source, settings)?,
             Filter::ChannelMixer(settings) => channel_mixer::apply(&source, settings)?,
             Filter::SelectiveColor(settings) => selective_color::apply(&source, settings)?,
+            Filter::Threshold(settings) => threshold::apply(&source, settings)?,
             Filter::LuminositySharpen(settings) => luminosity_sharpen::apply(&source, settings)?,
             Filter::HighPass { radius } => sharpen::high_pass(&source, radius)?,
             Filter::UnsharpMask {

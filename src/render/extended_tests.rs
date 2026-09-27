@@ -7,6 +7,138 @@ use image::{GrayImage, Luma, Rgba};
 use std::sync::Arc;
 
 #[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn threshold_gpu_layers_preserve_colored_exact_and_continuous_boundaries() {
+    let mut engine = gpu::Engine::new().unwrap();
+    for (rgb, level) in [
+        ([0_u8, 6, 127], 18),
+        ([0, 122, 249], 100),
+        ([0, 208, 236], 149),
+    ] {
+        let mut doc = Document::new(256, 1).unwrap();
+        doc.layers[0].content =
+            LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(256, 1, |x, _| {
+                Rgba([rgb[0], rgb[1], rgb[2], x as u8])
+            }))));
+        let mut threshold = Layer::blank("Threshold", 256, 1);
+        threshold.content = LayerContent::ExtendedAdjustment(Box::new(
+            ExtendedAdjustment::Threshold(crate::threshold::Threshold { level }),
+        ));
+        doc.add(threshold).unwrap();
+        let scene = gpu::scene::Scene::compile(&doc, [0.; 2], [1.; 2]).unwrap();
+        let actual = engine.render(&scene, [256, 1], [0.; 2], [1.; 2]).unwrap();
+        for alpha in 1..=255_u32 {
+            assert_eq!(
+                actual[(alpha, 0)],
+                Rgba([255, 255, 255, alpha as u8]),
+                "{rgb:?} cutoff{level} alpha{alpha}"
+            );
+        }
+        for offset in [-0.001, 0., 0.001] {
+            let mut mixer = Layer::blank("Continuous source", 256, 1);
+            mixer.content = LayerContent::ExtendedAdjustment(Box::new(
+                ExtendedAdjustment::ChannelMixer(crate::adjustment::ChannelMixer {
+                    rows: [
+                        [0., 0., 0., f64::from(rgb[0]) * 100. / 255.],
+                        [0., 0., 0., (f64::from(rgb[1]) + offset) * 100. / 255.],
+                        [0., 0., 0., f64::from(rgb[2]) * 100. / 255.],
+                    ],
+                    monochrome: false,
+                }),
+            ));
+            doc.layers.insert(1, mixer);
+            let scene = gpu::scene::Scene::compile(&doc, [0.; 2], [1.; 2]).unwrap();
+            let actual = engine.render(&scene, [256, 1], [0.; 2], [1.; 2]).unwrap();
+            let expected = render(&doc, 256, 1).unwrap();
+            assert_eq!(actual, expected, "{rgb:?} cutoff{level} offset{offset}");
+            let value = if offset < 0. { 0 } else { 255 };
+            assert_eq!(actual[(255, 0)], Rgba([value, value, value, 255]));
+            doc.layers.remove(1);
+        }
+    }
+}
+
+#[test]
+fn threshold_layer_preserves_continuous_boundary_mask_opacity_and_alpha() {
+    let mut doc = scene();
+    doc.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(
+        4,
+        2,
+        Rgba([128, 128, 128, 128]),
+    ))));
+    doc.layers[1].content = LayerContent::ExtendedAdjustment(Box::new(
+        ExtendedAdjustment::Threshold(crate::threshold::Threshold::default()),
+    ));
+    let image = render(&doc, 4, 2).unwrap();
+    assert_eq!(image[(0, 0)], Rgba([128, 128, 128, 128]));
+    assert_eq!(image[(1, 0)], Rgba([192, 192, 192, 128]));
+    let settings = ExtendedAdjustment::Threshold(crate::threshold::Threshold::default());
+    assert_eq!(
+        settings.apply_rgba([127.75 / 255., 127.75 / 255., 127.75 / 255., 0.5]),
+        [0., 0., 0., 0.5]
+    );
+    assert_eq!(
+        settings.apply_rgba([0.7, 0.4, 0.1, 0.]),
+        [0.7, 0.4, 0.1, 0.]
+    );
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn threshold_gpu_layers_match_gray_boundaries_masks_clipping_and_groups() {
+    let mut engine = gpu::Engine::new().unwrap();
+    for level in 0..=255_u8 {
+        for clipping in [false, true] {
+            for grouped in [false, true] {
+                let mut doc = scene();
+                doc.layers[0].content =
+                    LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(4, 2, |x, y| {
+                        let gray = match x {
+                            0 => level.saturating_sub(1),
+                            1 => level,
+                            _ => level.saturating_add(1),
+                        };
+                        Rgba([
+                            gray,
+                            gray,
+                            gray,
+                            if y == 0 {
+                                255
+                            } else {
+                                [0, 73, 128, 200][x as usize]
+                            },
+                        ])
+                    }))));
+                doc.layers[1].content = LayerContent::ExtendedAdjustment(Box::new(
+                    ExtendedAdjustment::Threshold(crate::threshold::Threshold { level }),
+                ));
+                doc.layers[1].clip_source = clipping.then_some(doc.layers[0].id);
+                if grouped {
+                    let mut folder = Layer::blank("Folder", 4, 2);
+                    folder.content = LayerContent::Group;
+                    folder.opacity = 0.7;
+                    for layer in &mut doc.layers {
+                        layer.parent = Some(folder.id);
+                    }
+                    doc.layers.insert(0, folder);
+                }
+                let scene = gpu::scene::Scene::compile(&doc, [0.; 2], [1.; 2]).unwrap();
+                let actual = engine.render(&scene, [4, 2], [0.; 2], [1.; 2]).unwrap();
+                let expected = render(&doc, 4, 2).unwrap();
+                for (a, b) in actual.pixels().zip(expected.pixels()) {
+                    for channel in 0..4 {
+                        assert!(
+                            a[channel].abs_diff(b[channel]) <= 1,
+                            "level={level} clipped={clipping} grouped={grouped}: GPU={actual:?} CPU={expected:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn selective_color_layer_preserves_mask_opacity_and_alpha() {
     use crate::selective_color::{Mode, Range, SelectiveColor};
     let mut doc = scene();

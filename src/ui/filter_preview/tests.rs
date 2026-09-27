@@ -3,6 +3,7 @@ use super::*;
 #[test]
 fn spatial_filter_previews_apply_once_and_support_undo_redo_and_cancel() {
     for filter in [
+        Filter::Threshold(Default::default()),
         Filter::PhotoFilter(Default::default()),
         Filter::ChannelMixer(compositor::adjustment::ChannelMixer {
             rows: [[0., 100., 0., 0.], [0., 0., 100., 0.], [100., 0., 0., 0.]],

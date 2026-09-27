@@ -106,6 +106,10 @@ impl Blend {
         if alpha <= 0. {
             return [0.; 4];
         }
+        // Blending onto transparency preserves source RGB exactly.
+        if bottom[3] == 0. {
+            return top;
+        }
         let b = [bottom[0], bottom[1], bottom[2]];
         let s = [top[0], top[1], top[2]];
         let blend = match self {
@@ -316,10 +320,12 @@ mod tests {
     #[test]
     fn transparent_backdrop_keeps_source_color_for_every_mode() {
         for mode in Blend::ALL {
-            assert_eq!(
-                mode.composite([0.; 4], [0.2, 0.6, 0.8, 0.5]),
-                [0.2, 0.6, 0.8, 0.5]
-            );
+            for alpha in 1..=255 {
+                for rgb in [[0.2, 0.6, 0.8], [1.; 3], [128. / 255.; 3]] {
+                    let source = [rgb[0], rgb[1], rgb[2], f64::from(alpha) / 255.];
+                    assert_eq!(mode.composite([0.; 4], source), source);
+                }
+            }
         }
     }
     #[test]

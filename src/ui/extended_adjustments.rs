@@ -43,6 +43,7 @@ impl Editor {
             preview: true,
         });
         let fields = match settings {
+            ExtendedAdjustment::Threshold(s) => super::filter_controls::threshold::fields(s),
             ExtendedAdjustment::PhotoFilter(s) => super::photo_filter_controls::fields(s),
             ExtendedAdjustment::ChannelMixer(s) => super::channel_mixer_controls::fields(s),
             ExtendedAdjustment::SelectiveColor(s) => super::selective_color_controls::fields(s),
@@ -60,6 +61,9 @@ impl Editor {
             return action;
         }
         match self.extended_edit.as_ref().map(|draft| draft.original) {
+            Some(ExtendedAdjustment::Threshold(settings)) => {
+                Action::Filter(compositor::filters::Filter::Threshold(settings))
+            }
             Some(ExtendedAdjustment::PhotoFilter(settings)) => {
                 Action::Filter(compositor::filters::Filter::PhotoFilter(settings))
             }
@@ -89,6 +93,9 @@ impl Editor {
         };
         let values: Vec<_> = fields.iter().map(|(_, value)| value.clone()).collect();
         match draft.original {
+            ExtendedAdjustment::Threshold(_) => {
+                super::filter_controls::threshold::parse(&values).map(ExtendedAdjustment::Threshold)
+            }
             ExtendedAdjustment::SelectiveColor(_) => {
                 super::selective_color_controls::parse(&values)
                     .map(ExtendedAdjustment::SelectiveColor)

@@ -102,6 +102,11 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                     Default::default(),
                 )),
             ),
+            command(
+                "Threshold…",
+                "",
+                Action::Filter(compositor::filters::Filter::Threshold(Default::default())),
+            ),
             command("Invert", "Ctrl+I", Action::InvertPixels),
             Sep,
             command("Canvas Size…", "Ctrl+Alt+C", Action::CanvasSize),
@@ -316,6 +321,13 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 Action::ExtendedAdjustment(
                     compositor::adjustment::ExtendedAdjustment::SelectiveColor(Default::default()),
                 ),
+            ),
+            command(
+                "Threshold…",
+                "",
+                Action::ExtendedAdjustment(compositor::adjustment::ExtendedAdjustment::Threshold(
+                    Default::default(),
+                )),
             ),
             command("Invert", "", Action::Adjustment(Kind::Invert)),
             command("Gaussian Blur…", "", Action::Adjustment(Kind::GaussianBlur)),
