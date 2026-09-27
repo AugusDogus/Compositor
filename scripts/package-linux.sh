@@ -20,7 +20,7 @@ install -Dm755 packaging/linux/install.sh "$bundle_dir/install.sh"
 for script in setup-background.sh setup-object-selection.sh linux-architecture.sh; do
     install -Dm755 "scripts/$script" "$bundle_dir/$script"
 done
-for file in background_model.py test_background_model.py requirements-inference-build.txt object-selection-model.json object_selection_model.py requirements-object-model-build.txt; do
+for file in background_model.py test_background_model.py requirements-inference-build.txt object-selection-model.json object_selection_model.py object_selection_cpu_model.py test_object_selection_cpu_model.py requirements-object-model-build.txt; do
     install -Dm644 "scripts/$file" "$bundle_dir/$file"
 done
 install -Dm644 packaging/linux/compositor.desktop "$bundle_dir/share/applications/compositor.desktop"
