@@ -138,13 +138,31 @@ impl Stroke {
     }
 
     fn draw_tail(&mut self, doc: &mut Document, start: Point, end: Point) -> Result<()> {
+        let layer = doc.active_layer().ok_or_else(|| {
+            invalid("The brush layer disappeared while preparing the stroke preview.")
+        })?;
+        let transform = if self.mask {
+            layer
+                .mask
+                .as_ref()
+                .and_then(|m| m.placement)
+                .unwrap_or(layer.transform)
+        } else {
+            layer.transform
+        };
+        let edge = (0.5
+            * placement::antialias_bound(
+                transform,
+                [self.coverage.width(), self.coverage.height()],
+            )?)
+        .max(2.);
         let radius = self.brush.diameter
             * if self.sampled.is_some() {
                 std::f64::consts::FRAC_1_SQRT_2
             } else {
                 0.5
             }
-            + 2.;
+            + edge;
         let bounds = [
             (start[0].min(end[0]) - radius).max(0.),
             (start[1].min(end[1]) - radius).max(0.),
@@ -179,32 +197,10 @@ impl Stroke {
             layer.transform
         };
         let (width, height) = self.coverage.dimensions();
-        let corners = [
-            [bounds[0], bounds[1]],
-            [bounds[2], bounds[1]],
-            [bounds[2], bounds[3]],
-            [bounds[0], bounds[3]],
-        ]
-        .map(|p| {
-            let u = transform.unit(p);
-            [u[0] * width as f64, u[1] * height as f64]
-        });
-        let min = [0, 1].map(|axis| {
-            corners
-                .iter()
-                .map(|p| p[axis])
-                .fold(f64::INFINITY, f64::min)
-                .floor()
-                .max(0.) as u32
-        });
-        let max = [0, 1].map(|axis| {
-            corners
-                .iter()
-                .map(|p| p[axis])
-                .fold(f64::NEG_INFINITY, f64::max)
-                .ceil()
-                .max(0.) as u32
-        });
+        let [left, top, right, bottom] =
+            placement::source_bounds(transform, [width, height], bounds)?;
+        let min = [left, top];
+        let max = [right, bottom];
         let (w, h) = (
             max[0].min(width).saturating_sub(min[0]),
             max[1].min(height).saturating_sub(min[1]),

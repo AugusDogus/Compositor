@@ -356,3 +356,124 @@ fn add_noise_matches_cpu_for_distribution_color_seed_and_document_origin() {
         }
     }
 }
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn projective_images_masks_and_clipping_match_cpu() {
+    use crate::geometry::projective::Projective;
+    let mut engine = Engine::new().unwrap();
+    let mut doc = Document::new(100, 100).unwrap();
+    doc.layers[0].content =
+        LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(40, 35, |x, y| {
+            Rgba([(x * 5) as u8, (y * 6) as u8, 90, ((x + y) * 3) as u8])
+        }))));
+    doc.layers[0].transform = Transform {
+        origin: [13., 17.],
+        sampling: crate::geometry::Sampling::Smooth,
+        warp: Some(Projective::new([[0.1, 0.], [1.2, 0.1], [0.9, 1.2], [-0.2, 0.8]]).unwrap()),
+        ..Transform::new(60, 55)
+    };
+    doc.layers[0].mask = Some(Mask {
+        pixels: Arc::new(GrayImage::from_fn(20, 20, |x, y| {
+            Luma([((x + y) * 6) as u8])
+        })),
+        enabled: true,
+        linked: false,
+        placement: Some(Transform {
+            origin: [5., 8.],
+            rotation: 7.,
+            warp: Some(Projective::new([[0., 0.], [1., 0.1], [0.8, 1.], [0.2, 0.9]]).unwrap()),
+            sampling: crate::geometry::Sampling::Smooth,
+            ..Transform::new(85, 75)
+        }),
+    });
+    for flips in [[false, false], [true, false], [false, true], [true, true]] {
+        doc.layers[0].transform.flip_x = flips[0];
+        doc.layers[0].transform.flip_y = flips[1];
+        check(&mut engine, &doc, [110, 113], [-7.3, -5.2], [1.03, 0.91]);
+    }
+    let mut child = doc.layers[0].clone();
+    child.id = uuid::Uuid::new_v4();
+    child.clip_source = Some(doc.layers[0].id);
+    child.transform.origin = [25., 30.];
+    child.opacity = 0.55;
+    doc.add(child).unwrap();
+    check(&mut engine, &doc, [110, 113], [-7.3, -5.2], [1.03, 0.91]);
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn projective_blend_if_ranges_masks_and_clip_backdrops_match_cpu() {
+    use crate::{
+        blend_if::{Range, Settings},
+        geometry::{Sampling, projective::Projective},
+    };
+    let mut engine = Engine::new().unwrap();
+    for backdrop_alpha in [0, 128, 255] {
+        let mut doc = Document::new(96, 80).unwrap();
+        doc.layers[0].content =
+            LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(96, 80, |x, y| {
+                Rgba([(x * 2) as u8, (y * 3) as u8, 100, backdrop_alpha])
+            }))));
+        let mut base = Layer::blank("Warped base", 48, 40);
+        base.content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(48, 40, |x, y| {
+            Rgba([(40 + x * 4) as u8, (30 + y * 5) as u8, 180, 210])
+        }))));
+        base.transform = Transform {
+            origin: [12., 9.],
+            flip_x: true,
+            sampling: Sampling::Smooth,
+            warp: Some(Projective::new([[0.05, 0.], [1., 0.1], [0.85, 1.], [0., 0.8]]).unwrap()),
+            ..Transform::new(72, 60)
+        };
+        base.mask = Some(Mask {
+            pixels: Arc::new(GrayImage::from_fn(24, 20, |x, y| {
+                Luma([(90 + x * 3 + y * 3) as u8])
+            })),
+            enabled: true,
+            linked: false,
+            placement: Some(Transform {
+                origin: [6., 4.],
+                sampling: Sampling::Smooth,
+                warp: Some(Projective::new([[0., 0.], [0.95, 0.], [1., 0.9], [0.15, 1.]]).unwrap()),
+                ..Transform::new(84, 72)
+            }),
+        });
+        base.blend_if = Some(Settings {
+            source: Range::from_endpoints([20, 105, 160, 240]).unwrap(),
+            underlying: Range::from_endpoints([0, 85, 165, 255]).unwrap(),
+            ..Default::default()
+        });
+        let base_id = base.id;
+        doc.add(base.clone()).unwrap();
+        let mut child = base;
+        child.id = uuid::Uuid::new_v4();
+        child.name = "Warped clipped child".into();
+        child.clip_source = Some(base_id);
+        child.transform.origin = [18., 13.];
+        child.transform.flip_x = false;
+        child.blend = Blend::Screen;
+        child.opacity = 0.7;
+        child.blend_if = Some(Settings {
+            source: Range::from_endpoints([0, 60, 190, 255]).unwrap(),
+            underlying: Range::from_endpoints([10, 95, 150, 235]).unwrap(),
+            ..Default::default()
+        });
+        doc.add(child).unwrap();
+        doc.validate().unwrap();
+        let rendered = super::super::region(&doc, 101, 87, [-2.3, -1.7], [0.97, 0.93]).unwrap();
+        let mut unconditional = doc.clone();
+        for layer in &mut unconditional.layers {
+            layer.blend_if = None;
+        }
+        assert_ne!(
+            rendered,
+            super::super::region(&unconditional, 101, 87, [-2.3, -1.7], [0.97, 0.93]).unwrap()
+        );
+        check(&mut engine, &doc, [101, 87], [-2.3, -1.7], [0.97, 0.93]);
+        // A layer between source and child changes contiguous clipping into a
+        // detached reference, which samples Blend If against the live backdrop.
+        doc.layers.insert(2, Layer::blank("Separator", 96, 80));
+        check(&mut engine, &doc, [101, 87], [-2.3, -1.7], [0.97, 0.93]);
+    }
+}

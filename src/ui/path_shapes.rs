@@ -52,7 +52,7 @@ impl Editor {
     }
     pub(super) fn edit_path_shape_geometry(&mut self, id: Uuid) -> Result<()> {
         self.finish_pending_edits()?;
-        path_shape::layer_path(&self.session().document, id)?;
+        Target::Shape(id).edit_snapshot(&self.session().document)?;
         self.session_mut().select_layer(id, false);
         self.tools.tool = Tool::Pen;
         self.tools.mask_target = false;
@@ -116,8 +116,14 @@ impl Editor {
         let style = Style { fill, stroke };
         style.validate()?;
         self.session_mut().edit("Style Path Shape", |doc| {
-            let geometry = path_shape::layer_path(doc, id)?;
-            path_shape::update(doc, id, geometry, style)
+            let geometry = doc
+                .layer(id)
+                .and_then(|layer| layer.path_shape())
+                .ok_or_else(|| invalid("The path shape was removed."))?
+                .source()
+                .geometry
+                .clone();
+            path_shape::update_local(doc, id, geometry, style)
         })
     }
     pub(super) fn rasterize_path_shape(&mut self) -> Result<()> {

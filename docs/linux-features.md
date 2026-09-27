@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Whole-layer perspective keeps original pixels and editable text, shapes and RAW sources. Reopen the transform to adjust corners; painting and masks follow the tilted layer. Linux projects retain editable placement, while macOS and PSD receive rendered pixels. Folded distortions and selected-pixel transforms still resample pixels.
+
 - Blend If fades a pixel, text, shape or RAW layer using independent black/white split handles for its own Gray tones and the underlying layers. Masks, clipping stacks, preview and undo remain editable. Partial merges must include the backdrop and clipping context used by Blend If. Gray is measured from nearest-byte RGB; transparent backdrops do not exclude a layer. Linux projects retain disabled settings; PSD retains active Gray ranges. Folder, adjustment-layer and channel-specific PSD ranges are unsupported, and Photoshop rendering can differ.
 
 - Shadows/Highlights lifts dark areas and reduces bright areas using a configurable neighborhood radius. Direct pixel edits and editable adjustment layers support preview, masks and undo. Vulkan accelerates the neighborhood blur. Linux projects retain the settings; macOS and PSD receive a rendered composite.
@@ -85,7 +87,7 @@ Recovery preserves committed document contents, not undo history or unfinished d
 
 ## Editing and platform limits
 
-Moving, scaling, rotating and flipping whole raster layers preserve their source pixels. Applying perspective distortion resamples pixels and rasterizes editable text and shapes. Selected-pixel transforms also resample pixels; Undo can restore the prior state while it remains in history.
+Moving, scaling, rotating, flipping and convex perspective transforms preserve whole-layer source pixels. Folded distortions and selected-pixel transforms resample pixels; Undo can restore the prior state while it remains in history.
 
 Camera Raw Filter adjusts existing image pixels. [Camera RAW Develop](linux-raw.md) works from the original sensor data and preserves editable development settings. They are separate workflows.
 

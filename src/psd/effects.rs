@@ -33,6 +33,9 @@ fn linear() -> ps::EffectContour {
 
 pub(super) fn encode(doc: &Document, layer: &Layer) -> Mapping<ps::LayerEffectsInfo> {
     let effects = layer.effects.as_ref().ok_or("no layer effects")?;
+    if layer.transform.warp.is_some() {
+        return Err("perspective cannot be represented by Photoshop effect sizes");
+    }
     if effects.bevel.is_some() {
         return Err(
             "Bevel/Emboss is rendered into PSD pixels; save a .comp project to keep it editable",

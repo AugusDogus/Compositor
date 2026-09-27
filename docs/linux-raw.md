@@ -19,7 +19,7 @@ White balance and exposure use floating-point camera data before conversion to s
 
 The compositor uses an 8-bit sRGB raster. Develop's **16-bit TIFF** exports directly from the floating-point pipeline with an sRGB ICC profile, including crop and local masks. It exports the RAW image alone. File-menu TIFF/WebP export renders the whole composition at 8-bit; WebP is lossless. Neither output includes comparison or clipping overlays.
 
-Move, rotation, scaling, masks, blending, groups and duplication preserve RAW editability. Direct painting and destructive filters require **Layer > Rasterize RAW Layer**, which is undoable. Perspective distortion also requires rasterization. Image Size preserves RAW sources when its scaling is representable without shear; a rotated layer with unequal horizontal/vertical scaling requires proportional dimensions or rasterization.
+Move, rotation, scaling, convex perspective, masks, blending, groups and duplication preserve RAW editability. Direct painting, destructive filters and folded distortions require **Layer > Rasterize RAW Layer**, which is undoable. Image Size preserves RAW sources; rotated layers without perspective require proportional dimensions or rasterization when unequal scaling would introduce shear.
 
 ## Saved projects and limits
 

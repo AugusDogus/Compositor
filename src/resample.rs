@@ -1,3 +1,6 @@
+mod footprint;
+pub(crate) use footprint::projective_size;
+
 use crate::{
     geometry::{Point, Sampling, Transform},
     native_pixels, render,
@@ -16,13 +19,17 @@ impl<'a> RasterSampler<'a> {
     pub fn new(source: &'a RgbaImage, transform: Transform, scale: Point) -> Self {
         let mut image = Cow::Borrowed(source);
         if transform.sampling == Sampling::High {
-            let (sin, cos) = transform.rotation.to_radians().sin_cos();
-            let w = transform.size[0] * (cos * scale[0]).hypot(sin * scale[1]);
-            let h = transform.size[1] * (sin * scale[0]).hypot(cos * scale[1]);
-            let size = (
-                (w.ceil().max(1.) as u32).min(source.width()),
-                (h.ceil().max(1.) as u32).min(source.height()),
-            );
+            let size = if transform.warp.is_some() {
+                projective_size(transform, source.dimensions(), scale)
+            } else {
+                let (sin, cos) = transform.rotation.to_radians().sin_cos();
+                let w = transform.size[0] * (cos * scale[0]).hypot(sin * scale[1]);
+                let h = transform.size[1] * (sin * scale[0]).hypot(cos * scale[1]);
+                (
+                    (w.ceil().max(1.) as u32).min(source.width()),
+                    (h.ceil().max(1.) as u32).min(source.height()),
+                )
+            };
             if size != source.dimensions() {
                 image = Cow::Owned(native_pixels::unpremultiply(image::imageops::resize(
                     &native_pixels::premultiply(source),
@@ -86,4 +93,36 @@ fn lanczos(x: f64) -> f64 {
     }
     let x = x * std::f64::consts::PI;
     x.sin() / x * (x / 3.).sin() / (x / 3.)
+}
+
+#[cfg(test)]
+mod projective_tests {
+    use super::*;
+    use crate::geometry::projective::Projective;
+    use image::Rgba;
+
+    #[test]
+    fn projective_high_downsampling_prefilters_raster_sampler() {
+        let source = RgbaImage::from_fn(255, 255, |x, y| {
+            let v = if (x + y) % 2 == 0 { 0 } else { 255 };
+            Rgba([v, v, v, 255])
+        });
+        for warp in [
+            Projective::IDENTITY,
+            Projective::new([[0., 0.], [1., 0.], [0.99, 1.], [0.01, 1.]]).unwrap(),
+        ] {
+            let transform = Transform {
+                warp: Some(warp),
+                ..Transform::new(255, 255)
+            };
+            let sampler = RasterSampler::new(&source, transform, [1. / 15.; 2]);
+            for y in 0..17 {
+                for x in 0..17 {
+                    let point = [(f64::from(x) + 0.5) * 15., (f64::from(y) + 0.5) * 15.];
+                    let sample = sampler.sample(transform.unit(point));
+                    assert!((0.47..=0.53).contains(&sample[0]), "{sample:?}");
+                }
+            }
+        }
+    }
 }

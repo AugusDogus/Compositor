@@ -75,6 +75,7 @@ impl Kernel {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(super) struct Segment<'a> {
     kernel: &'a Kernel,
     start: Point,
@@ -191,6 +192,7 @@ impl Segment<'_> {
 
 pub(super) struct Region {
     pub bounds: [u32; 4],
+    pub projection: Option<crate::geometry::projective::Homography>,
     pub origin: Point,
     pub dx: Point,
     pub dy: Point,
@@ -199,6 +201,9 @@ pub(super) struct Region {
 
 impl Region {
     pub(super) fn point(&self, x: u32, y: u32) -> Point {
+        if let Some(mapping) = self.projection {
+            return mapping.coordinates([f64::from(x), f64::from(y)]);
+        }
         [
             self.origin[0] + self.dx[0] * x as f64 + self.dy[0] * y as f64,
             self.origin[1] + self.dx[1] * x as f64 + self.dy[1] * y as f64,
@@ -228,43 +233,60 @@ impl Region {
         } else {
             -(0.5_f32 / 255.).ln()
         };
-        let render_rows = |data: &mut [f32], output: &mut [u8], first_row: usize| {
-            for (row, (values, output)) in data
-                .chunks_mut(stride)
-                .zip(output.chunks_mut(columns))
-                .enumerate()
-            {
-                let y = top + (first_row + row) as u32;
-                for (column, (value, output)) in values[left as usize..right as usize]
-                    .iter_mut()
-                    .zip(output)
+        let render_rows =
+            |data: &mut [f32], output: &mut [u8], first_row: usize| -> crate::Result<()> {
+                for (row, (values, output)) in data
+                    .chunks_mut(stride)
+                    .zip(output.chunks_mut(columns))
                     .enumerate()
                 {
-                    if *value >= saturated {
-                        continue;
-                    }
-                    let point = self.point(left + column as u32, y);
-                    if point
-                        .iter()
-                        .zip(self.canvas)
-                        .any(|(v, limit)| *v < 0. || *v >= limit)
+                    let y = top + (first_row + row) as u32;
+                    for (column, (value, output)) in values[left as usize..right as usize]
+                        .iter_mut()
+                        .zip(output)
+                        .enumerate()
                     {
-                        continue;
-                    }
-                    let previous_alpha = (alpha(*value, brush) * 255.).round() as u8;
-                    let added = segment.deposit(point);
-                    *value = if brush.hardness >= 1. {
-                        value.max(added)
-                    } else {
-                        *value + added
-                    };
-                    let next = (alpha(*value, brush) * 255.).round() as u8;
-                    if next > previous_alpha {
-                        *output = next;
+                        if *value >= saturated {
+                            continue;
+                        }
+                        let point = self.point(left + column as u32, y);
+                        if point
+                            .iter()
+                            .zip(self.canvas)
+                            .any(|(v, limit)| *v < 0. || *v >= limit)
+                        {
+                            continue;
+                        }
+                        let previous_alpha = (alpha(*value, brush) * 255.).round() as u8;
+                        let antialias = if let Some(mapping) = self.projection {
+                            let columns = mapping
+                                .derivative([f64::from(left + column as u32), f64::from(y)])
+                                .map_err(|e| crate::invalid(e.to_string()))?;
+                            columns[0][0]
+                                .hypot(columns[0][1])
+                                .min(columns[1][0].hypot(columns[1][1]))
+                                .max(0.001)
+                        } else {
+                            segment.antialias
+                        };
+                        let added = Segment {
+                            antialias,
+                            ..*segment
+                        }
+                        .deposit(point);
+                        *value = if brush.hardness >= 1. {
+                            value.max(added)
+                        } else {
+                            *value + added
+                        };
+                        let next = (alpha(*value, brush) * 255.).round() as u8;
+                        if next > previous_alpha {
+                            *output = next;
+                        }
                     }
                 }
-            }
-        };
+                Ok(())
+            };
         // Small strokes stay on the caller. Cap large work at eight workers so
         // painting leaves capacity for the canvas renderer and other applications.
         let workers = if columns * rows < 65_536 {
@@ -273,7 +295,7 @@ impl Region {
             std::thread::available_parallelism().map_or(1, |n| n.get().min(8))
         };
         if workers == 1 {
-            render_rows(data, &mut changed, 0);
+            render_rows(data, &mut changed, 0)?;
         } else {
             let chunk_rows = rows.div_ceil(workers);
             std::thread::scope(|scope| -> crate::Result<()> {
@@ -287,7 +309,7 @@ impl Region {
                     jobs.push(std::thread::Builder::new().name("brush-coverage".into()).spawn_scoped(scope, move || render_rows(values, output, index * chunk_rows)).map_err(|error| crate::invalid(format!("Could not start brush coverage processing: {error}. Cancel the stroke and try again.")))?);
                 }
                 for job in jobs {
-                    job.join().map_err(|_| crate::invalid("Brush coverage processing stopped unexpectedly. Cancel the stroke and try again."))?;
+                    job.join().map_err(|_| crate::invalid("Brush coverage processing stopped unexpectedly. Cancel the stroke and try again."))??;
                 }
                 Ok(())
             })?;
@@ -311,6 +333,7 @@ mod tests {
             let kernel = Kernel::new(brush);
             let segment = kernel.segment([30., 350.], [370., 40.], 1.);
             let region = Region {
+                projection: None,
                 bounds: [21, 18, 387, 391],
                 origin: [0.5, 0.5],
                 dx: [1., 0.],

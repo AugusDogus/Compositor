@@ -98,7 +98,7 @@ impl Editor {
             Command::New => {}
             Command::Continue | Command::Close => {
                 self.session_mut().edit("Change Path Closure", |doc| {
-                    let mut geometry = active.target.snapshot(doc)?.geometry;
+                    let mut geometry = active.target.edit_snapshot(doc)?.geometry;
                     geometry.closure = if matches!(command, Command::Continue)
                         || geometry.closure == Closure::Closed
                     {

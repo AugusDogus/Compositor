@@ -267,7 +267,7 @@ impl Engine {
                 values.extend_from_slice(&plane.as_raw()[start..start + width as usize]);
             }
             let origin = region.point(left, y);
-            let mut parameters = Vec::with_capacity(224);
+            let mut parameters = Vec::with_capacity(272);
             for field in [
                 [region.dx[0], region.dx[1], region.dy[0], region.dy[1]],
                 [
@@ -319,6 +319,44 @@ impl Engine {
             parameters.extend_from_slice(bytemuck::cast_slice(&tip_state));
             parameters.extend_from_slice(bytemuck::cast_slice(&tip_spacing));
             parameters.extend_from_slice(bytemuck::cast_slice(&tip_plan));
+            let projection = if let Some(mapping) = region.projection {
+                use crate::geometry::projective::Homography;
+                let source = Homography::from_matrix([
+                    1.,
+                    0.,
+                    f64::from(left),
+                    0.,
+                    1.,
+                    f64::from(y),
+                    0.,
+                    0.,
+                    1.,
+                ])
+                .map_err(|e| invalid(e.to_string()))?;
+                let local = Homography::from_matrix([
+                    1.,
+                    0.,
+                    -segment.start[0],
+                    0.,
+                    1.,
+                    -segment.start[1],
+                    0.,
+                    0.,
+                    1.,
+                ])
+                .map_err(|e| invalid(e.to_string()))?;
+                let m = local
+                    .compose(mapping)
+                    .and_then(|m| m.compose(source))
+                    .map_err(|e| invalid(e.to_string()))?
+                    .matrix();
+                [
+                    m[0], m[1], m[2], 1., m[3], m[4], m[5], 0., m[6], m[7], m[8], 0.,
+                ]
+            } else {
+                [0.; 12]
+            };
+            parameters.extend_from_slice(bytemuck::cast_slice(&projection.map(|v| v as f32)));
             let original = match target {
                 Target::Coverage => None,
                 Target::Image { original, .. } => {

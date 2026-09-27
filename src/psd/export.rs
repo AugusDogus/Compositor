@@ -46,6 +46,15 @@ pub fn export_report(doc: &Document) -> ConversionReport {
         if let Some(settings) = layer.blend_if {
             super::blend_if::notice(settings, &mut report, &layer.name);
         }
+        if layer.transform.warp.is_some()
+            || layer
+                .mask
+                .as_ref()
+                .and_then(|m| m.placement)
+                .is_some_and(|t| t.warp.is_some())
+        {
+            report.note(format!("{}: perspective placement is baked into pixels. Save a .comp project to retain the original source and editable corners.", layer.name));
+        }
         if let LayerContent::Adjustment(adjustment) = &layer.content
             && super::adjustments::export(adjustment).is_none()
         {

@@ -81,14 +81,14 @@ fn flip_canvas_in(doc: &mut Document, horizontal: bool) -> Result<()> {
         if artboard && let Some(mask) = &mut layer.mask {
             mask.placement.get_or_insert(layer.transform);
         }
-        layer.transform = layer.transform.mirrored(horizontal, axis);
+        layer.transform = layer.transform.mirrored(horizontal, axis)?;
         if artboard {
             layer.transform.flip_x = false;
             layer.transform.flip_y = false;
             layer.transform.rotation = 0.;
         }
         if let Some(placement) = layer.mask.as_mut().and_then(|m| m.placement.as_mut()) {
-            *placement = placement.mirrored(horizontal, axis);
+            *placement = placement.mirrored(horizontal, axis)?;
         }
     }
     if let Some(selection) = &mut doc.selection {

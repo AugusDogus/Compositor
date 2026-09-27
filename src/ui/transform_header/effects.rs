@@ -19,10 +19,14 @@ impl Editor {
             original,
             bounds,
             corners,
+            mode,
         } = &edit.current
         else {
             return None;
         };
+        if *mode == drag::PerspectiveMode::Retained {
+            return None;
+        }
         let targets = compositor::transform::target_ids(original);
         if !original.layers.iter().any(|l| {
             targets.contains(&l.id) && l.effects.as_ref().is_some_and(|e| !e.visible().is_empty())

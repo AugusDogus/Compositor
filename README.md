@@ -46,6 +46,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Saved Bézier paths, path selection and painting | ❌ | ✅ | ❌ |
 | Editable Bézier shape layers | ❌ | ✅ | ❌ |
 | Layer transforms, perspective and snapping | ✅ | ✅ | ✅ |
+| Editable perspective with original pixels retained | ❌ | ✅ | ✅ |
 | Marquee, lasso and magic-wand selections | ✅ | ✅ | ✅ |
 | Color adjustments and filters | ✅ | ✅ | ✅ |
 | Photo Filter, Channel Mixer and Selective Color | ❌ | ✅ | ❌ |

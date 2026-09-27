@@ -13,6 +13,9 @@ use std::{
 };
 
 fn reduced_size(t: Transform, source: (u32, u32), step: Point) -> (u32, u32) {
+    if t.warp.is_some() {
+        return crate::resample::projective_size(t, source, [1. / step[0], 1. / step[1]]);
+    }
     let (sin, cos) = t.rotation.to_radians().sin_cos();
     let width = t.size[0] * (cos / step[0]).hypot(sin / step[1]);
     let height = t.size[1] * (sin / step[0]).hypot(cos / step[1]);
@@ -290,5 +293,107 @@ mod tests {
         assert!(!Arc::ptr_eq(&first, &cache.color(&source, (10, 10))));
         cache.color(&source, (20, 20));
         assert!(cache.entries.iter().map(Entry::bytes).sum::<usize>() <= 400);
+    }
+}
+
+#[cfg(test)]
+mod projective_tests {
+    use super::*;
+    use crate::{document::Mask, geometry::projective::Projective};
+    use image::{Luma, Rgba};
+
+    fn checker() -> Document {
+        let mut doc = Document::new(255, 255).unwrap();
+        doc.layers[0].content =
+            LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(255, 255, |x, y| {
+                let v = if (x + y) % 2 == 0 { 0 } else { 255 };
+                Rgba([v, v, v, 255])
+            }))));
+        doc
+    }
+
+    #[test]
+    fn projective_high_downsampling_filters_identity_and_mild_perspective() {
+        let mut doc = checker();
+        let mut cache = DownsampleCache::default();
+        let affine = crate::render::render(&doc, 17, 17).unwrap();
+        for warp in [
+            Projective::IDENTITY,
+            Projective::new([[0., 0.], [1., 0.], [0.99, 1.], [0.01, 1.]]).unwrap(),
+        ] {
+            doc.layers[0].transform.warp = Some(warp);
+            let prepared = cache.prepare(&doc, [15., 15.]);
+            let dimensions = prepared.layers[0].raster().unwrap().dimensions();
+            assert!(dimensions.0 <= 18 && dimensions.1 <= 18, "{dimensions:?}");
+            let rendered = crate::render::render(&doc, 17, 17).unwrap();
+            for pixel in rendered.pixels() {
+                assert!((120..=135).contains(&pixel[0]), "{pixel:?}");
+            }
+            if warp == Projective::IDENTITY {
+                assert_eq!(rendered, affine);
+            }
+        }
+    }
+
+    #[test]
+    fn projective_high_downsampling_filters_independent_masks() {
+        let mut doc = checker();
+        doc.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(
+            255,
+            255,
+            Rgba([180, 70, 30, 255]),
+        ))));
+        doc.layers[0].mask = Some(Mask {
+            pixels: Arc::new(GrayImage::from_fn(255, 255, |x, y| {
+                Luma([if (x + y) % 2 == 0 { 0 } else { 255 }])
+            })),
+            enabled: true,
+            linked: false,
+            placement: Some(Transform {
+                warp: Some(Projective::new([[0., 0.], [1., 0.], [0.99, 1.], [0.01, 1.]]).unwrap()),
+                ..Transform::new(255, 255)
+            }),
+        });
+        let rendered = crate::render::render(&doc, 17, 17).unwrap();
+        for pixel in rendered.pixels() {
+            assert!((120..=135).contains(&pixel[3]), "{pixel:?}");
+        }
+    }
+    #[test]
+    #[ignore = "Requires a hardware Vulkan adapter"]
+    fn projective_high_downsampling_gpu_matches_cpu_prefiltering() {
+        crate::render::initialize_gpu().unwrap();
+        let mut engine = crate::render::gpu::Engine::new().unwrap();
+        let mut doc = checker();
+        doc.layers[0].transform.warp =
+            Some(Projective::new([[0., 0.], [1., 0.], [0.99, 1.], [0.01, 1.]]).unwrap());
+        doc.layers[0].mask = Some(Mask {
+            pixels: Arc::new(GrayImage::from_fn(255, 255, |x, y| {
+                Luma([if (x + y) % 2 == 0 { 0 } else { 255 }])
+            })),
+            enabled: true,
+            linked: false,
+            placement: Some(Transform {
+                warp: Some(Projective::IDENTITY),
+                ..Transform::new(255, 255)
+            }),
+        });
+        let mut cache = DownsampleCache::default();
+        let prepared = cache.prepare_accelerated(&doc, [15., 15.]).unwrap();
+        let scene =
+            crate::render::gpu::scene::Scene::compile(&prepared, [0., 0.], [15., 15.]).unwrap();
+        let rendered = engine
+            .render(&scene, [17, 17], [0., 0.], [15., 15.])
+            .unwrap();
+        let expected = crate::render::render(&doc, 17, 17).unwrap();
+        for (actual, expected) in rendered.as_raw().iter().zip(expected.as_raw()) {
+            assert!(actual.abs_diff(*expected) <= 2, "GPU{actual} CPU{expected}");
+        }
+        for pixel in rendered.pixels() {
+            assert!(
+                (120..=135).contains(&pixel[0]) && (120..=135).contains(&pixel[3]),
+                "{pixel:?}"
+            );
+        }
     }
 }

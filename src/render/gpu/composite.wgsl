@@ -3,6 +3,7 @@ struct Layer {
     mask_map:vec4<f32>, mask_dy:vec4<f32>,
     image:vec4<u32>, mask:vec4<u32>, info:vec4<u32>, options:vec4<u32>,
     blend_source:vec4<u32>, blend_underlying:vec4<u32>,
+    image_projection:vec4<f32>, mask_projection:vec4<f32>,
 }
 struct View { size:vec4<u32>, geometry:vec4<f32> }
 @group(0) @binding(0) var<uniform> view:View;
@@ -11,14 +12,19 @@ struct View { size:vec4<u32>, geometry:vec4<f32> }
 @group(0) @binding(3) var<storage,read> settings:array<f32>;
 @group(0) @binding(4) var<storage,read> assets:array<u32>;
 @group(0) @binding(5) var<storage,read_write> output:array<u32>;
-fn unit(mapping:vec4<f32>,dy:vec2<f32>,p:vec2<f32>) -> vec2<f32> {return mapping.xy+mapping.zw*p.x+dy*p.y;}
+fn unit(mapping:vec4<f32>,dy:vec2<f32>,projection:vec3<f32>,p:vec2<f32>) -> vec2<f32> {
+    let terms=projection*vec3(p,1.0);
+    let denominator=terms.x+terms.y+terms.z;
+    if abs(denominator)<=1.0e-7*(abs(terms.x)+abs(terms.y)+abs(terms.z)) {return vec2(-1.0);}
+    return (mapping.xy+mapping.zw*p.x+dy*p.y)/denominator;
+}
 fn rgba(info:vec4<u32>,x:i32,y:i32) -> vec4<f32> {
     let ix=u32(clamp(x,0,i32(info.y)-1)); let iy=u32(clamp(y,0,i32(info.z)-1));
     return unpack4x8unorm(assets[info.x+iy*info.y+ix]);
 }
 fn image_pixel(layer:Layer,p:vec2<f32>) -> vec4<f32> {
     if layer.image.y==0u {return vec4(0.0);}
-    let uv=unit(layer.image_map,layer.image_dy.xy,p);
+    let uv=unit(layer.image_map,layer.image_dy.xy,layer.image_projection.xyz,p);
     if any(uv<vec2(0.0)) || any(uv>=vec2(1.0)) {return vec4(0.0);}
     let xy=uv*vec2<f32>(layer.image.yz);
     if layer.image.w==0u {return rgba(layer.image,i32(xy.x),i32(xy.y));}
@@ -37,7 +43,7 @@ fn image_pixel(layer:Layer,p:vec2<f32>) -> vec4<f32> {
 fn gray(info:vec4<u32>,x:u32,y:u32) -> f32 {return f32(assets[info.x+y*info.y+x])/255.0;}
 fn mask_alpha(layer:Layer,p:vec2<f32>) -> f32 {
     if layer.mask.y==0u {return 1.0;}
-    let uv=unit(layer.mask_map,layer.mask_dy.xy,p);
+    let uv=unit(layer.mask_map,layer.mask_dy.xy,layer.mask_projection.xyz,p);
     if any(uv<vec2(0.0)) || any(uv>=vec2(1.0)) {return select(0.0,layer.image_dy.w,layer.options.x!=0u);}
     let xy=uv*vec2<f32>(layer.mask.yz);
     if layer.mask.w==0u {return gray(layer.mask,u32(xy.x),u32(xy.y));}
@@ -94,7 +100,7 @@ fn composite(@builtin(global_invocation_id) id:vec3<u32>) {
             case 8u: {color=vec4(group.rgb,group_input_alpha);}
             case 9u: {
                 board_outer=color; board_active=true;
-                let uv=unit(layer.image_map,layer.image_dy.xy,p);
+                let uv=unit(layer.image_map,layer.image_dy.xy,layer.image_projection.xyz,p);
                 board_inside=all(uv>=vec2(0.0)) && all(uv<vec2(1.0));
                 color=unpack4x8unorm(layer.options.z);
             }

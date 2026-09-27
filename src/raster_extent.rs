@@ -20,17 +20,14 @@ pub(crate) fn seed(layer: &mut Layer, point: crate::geometry::Point) -> Result<(
         return Err(invalid("The layer's paint transform is invalid."));
     }
     let grid = old.size.map(f64::ceil);
-    let unit = old.unit(point);
-    let center = old.point([
-        ((unit[0] * grid[0]).floor() + 0.5) / grid[0],
-        ((unit[1] * grid[1]).floor() + 0.5) / grid[1],
-    ]);
-    let size = [old.size[0] / grid[0], old.size[1] / grid[1]];
-    let transform = Transform {
-        origin: [center[0] - size[0] / 2., center[1] - size[1] / 2.],
-        size,
-        ..old
-    };
+    let unit = old.try_unit(point).map_err(|e| invalid(e.to_string()))?;
+    let transform = old.rebind(
+        [
+            (unit[0] * grid[0]).floor() / grid[0],
+            (unit[1] * grid[1]).floor() / grid[1],
+        ],
+        [1. / grid[0], 1. / grid[1]],
+    )?;
     if !transform.valid() {
         return Err(invalid(
             "Painting here would exceed the supported layer bounds.",
@@ -93,13 +90,11 @@ pub(crate) fn expanded_grid(
     bounds: [f64; 4],
 ) -> Result<Option<(Expansion, Transform)>> {
     let mut extent = [0., 0., width as f64, height as f64];
-    for p in [
-        [bounds[0], bounds[1]],
-        [bounds[2], bounds[1]],
-        [bounds[2], bounds[3]],
-        [bounds[0], bounds[3]],
-    ] {
-        let unit = old.unit(p);
+    let corners = old
+        .inverse_mapping()
+        .and_then(|mapping| mapping.map_rectangle(bounds))
+        .map_err(|e| invalid(e.to_string()))?;
+    for unit in corners {
         let (x, y) = (unit[0] * width as f64, unit[1] * height as f64);
         extent[0] = extent[0].min((x + 1e-9).floor());
         extent[1] = extent[1].min((y + 1e-9).floor());
@@ -114,22 +109,13 @@ pub(crate) fn expanded_grid(
         return Ok(None);
     }
     validate_size(size[0], size[1])?;
-    let dimensions = [
-        size[0] as f64 * old.size[0] / width as f64,
-        size[1] as f64 * old.size[1] / height as f64,
-    ];
-    let center = old.point([
-        (extent[0] + size[0] as f64 / 2.) / width as f64,
-        (extent[1] + size[1] as f64 / 2.) / height as f64,
-    ]);
-    let transform = Transform {
-        origin: [
-            center[0] - dimensions[0] / 2.,
-            center[1] - dimensions[1] / 2.,
+    let transform = old.rebind(
+        [extent[0] / width as f64, extent[1] / height as f64],
+        [
+            size[0] as f64 / width as f64,
+            size[1] as f64 / height as f64,
         ],
-        size: dimensions,
-        ..old
-    };
+    )?;
     if !transform.valid() {
         return Err(invalid(
             "Painting here would exceed the supported layer bounds.",

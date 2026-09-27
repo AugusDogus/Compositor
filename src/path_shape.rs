@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 mod layers;
-pub use layers::{Gesture, create, layer_path, rasterize, update};
+mod projection;
+pub use layers::{Gesture, create, layer_path, rasterize, update, update_local};
+pub use projection::projected_points;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -212,6 +214,30 @@ impl Content {
 
     pub fn document_path(&self, transform: Transform) -> Result<BezierPath> {
         validate_transform(transform)?;
+        if transform.warp.is_some() {
+            let points = projected_points(
+                &self.source.geometry,
+                self.source.size,
+                transform,
+                FlattenOptions {
+                    max_segments: crate::vector_path::MAX_ANCHORS - 1,
+                    ..Default::default()
+                },
+            )?;
+            let mut anchors: Vec<_> = points
+                .into_iter()
+                .map(crate::vector_path::Anchor::corner)
+                .collect();
+            if self.source.geometry.closure == Closure::Closed {
+                anchors.pop();
+            }
+            let path = BezierPath {
+                anchors,
+                closure: self.source.geometry.closure,
+            };
+            path.validate()?;
+            return Ok(path);
+        }
         self.source.geometry.mapped(|p| {
             transform.point([
                 p[0] / f64::from(self.source.size[0]),
@@ -229,24 +255,55 @@ impl Content {
         transform: Transform,
     ) -> Result<(Self, Transform)> {
         validate_transform(transform)?;
+        if transform.warp.is_some() {
+            return Err(invalid(
+                "Perspective path shapes must be edited in their source coordinates. The original geometry is unchanged.",
+            ));
+        }
         geometry.validate()?;
         let previous_size = self.source.size.map(f64::from);
         let local = geometry.mapped(|p| {
             let unit = transform.unit(p);
             [unit[0] * previous_size[0], unit[1] * previous_size[1]]
         })?;
+        self.edited_local(local, style, transform)
+    }
+
+    /// Edit source curves without interpreting projected control points as a cubic.
+    pub fn edited_local(
+        &self,
+        local: BezierPath,
+        style: Style,
+        transform: Transform,
+    ) -> Result<(Self, Transform)> {
+        validate_transform(transform)?;
+        let previous_size = self.source.size.map(f64::from);
         let (source, offset) = normalized(local, style)?;
-        let anchor = transform.point([offset[0] / previous_size[0], offset[1] / previous_size[1]]);
-        let mut next = Transform {
-            size: [
-                transform.size[0] * f64::from(source.size[0]) / previous_size[0],
-                transform.size[1] * f64::from(source.size[1]) / previous_size[1],
-            ],
-            ..transform
+        let next = if transform.warp.is_some() {
+            transform.rebind(
+                [offset[0] / previous_size[0], offset[1] / previous_size[1]],
+                [
+                    f64::from(source.size[0]) / previous_size[0],
+                    f64::from(source.size[1]) / previous_size[1],
+                ],
+            )?
+        } else {
+            // Retain the affine evaluation order: a subpixel roundoff near an
+            // integer bound otherwise expands later source normalization by a pixel.
+            let anchor =
+                transform.point([offset[0] / previous_size[0], offset[1] / previous_size[1]]);
+            let mut next = Transform {
+                size: [
+                    transform.size[0] * f64::from(source.size[0]) / previous_size[0],
+                    transform.size[1] * f64::from(source.size[1]) / previous_size[1],
+                ],
+                ..transform
+            };
+            let current = next.point([0., 0.]);
+            next.origin[0] += anchor[0] - current[0];
+            next.origin[1] += anchor[1] - current[1];
+            next
         };
-        let current = next.point([0., 0.]);
-        next.origin[0] += anchor[0] - current[0];
-        next.origin[1] += anchor[1] - current[1];
         validate_transform(next)?;
         let size = next.size.map(|v| v.round().max(1.) as u32);
         let pixels = Arc::new(source.rasterize(size)?);

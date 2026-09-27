@@ -123,9 +123,9 @@ fn surface(
     Ok(rendered)
 }
 /// Placement of the padded effect surface, shared by rendering and export bounds.
-pub(crate) fn rendered_transform(layer: &Layer) -> Transform {
+pub(crate) fn rendered_transform(layer: &Layer) -> Result<Transform> {
     let Some(source) = layer.raster() else {
-        return layer.transform;
+        return Ok(layer.transform);
     };
     let Some(effects) = layer
         .effects
@@ -133,18 +133,32 @@ pub(crate) fn rendered_transform(layer: &Layer) -> Transform {
         .map(LayerEffects::visible)
         .filter(|effects| !effects.is_empty())
     else {
-        return layer.transform;
+        return Ok(layer.transform);
     };
     let margin = f64::from(effects.margin());
-    let mut transform = layer.transform;
-    let center = transform.point([0.5, 0.5]);
-    transform.size[0] *= (f64::from(source.width()) + 2. * margin) / f64::from(source.width());
-    transform.size[1] *= (f64::from(source.height()) + 2. * margin) / f64::from(source.height());
-    transform.origin = [
-        center[0] - transform.size[0] / 2.,
-        center[1] - transform.size[1] / 2.,
-    ];
-    transform
+    if layer.transform.warp.is_none() {
+        // Preserve the affine evaluation order at exact transparent pixel edges.
+        let mut transform = layer.transform;
+        let center = transform.point([0.5, 0.5]);
+        transform.size[0] *= (f64::from(source.width()) + 2. * margin) / f64::from(source.width());
+        transform.size[1] *=
+            (f64::from(source.height()) + 2. * margin) / f64::from(source.height());
+        transform.origin = [
+            center[0] - transform.size[0] / 2.,
+            center[1] - transform.size[1] / 2.,
+        ];
+        return Ok(transform);
+    }
+    layer.transform.rebind(
+        [
+            -margin / f64::from(source.width()),
+            -margin / f64::from(source.height()),
+        ],
+        [
+            1. + 2. * margin / f64::from(source.width()),
+            1. + 2. * margin / f64::from(source.height()),
+        ],
+    )
 }
 
 /// Temporary surfaces include the enabled raster mask, then follow the original
@@ -176,8 +190,9 @@ pub(crate) fn prepare(doc: &Document, accelerated: bool) -> Result<Document> {
                 "The layer effects need more than 200 million pixels. Reduce the stroke, glow size, shadow distance, blur, or layer size; source pixels are preserved.",
             ));
         }
+        let transform = rendered_transform(layer)?;
         let rendered = surface(layer, &source, &effects, accelerated)?;
-        layer.transform = rendered_transform(layer);
+        layer.transform = transform;
         layer.content = LayerContent::Raster(Some(rendered));
         layer.mask = None;
         layer.effects = None;

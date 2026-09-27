@@ -14,6 +14,9 @@ struct Parameters {
     tip_state: vec4<u32>,
     tip_spacing: vec4<f32>,
     tip_plan: array<vec4<u32>, 4>,
+    projective_x: vec4<f32>,
+    projective_y: vec4<f32>,
+    projective_w: vec4<f32>,
 }
 struct Output { density: f32, changed: u32, color: u32 }
 @group(0) @binding(0) var<uniform> u: Parameters;
@@ -50,10 +53,10 @@ fn tip_pixel(p: vec2<i32>, cell: vec3<u32>) -> f32 {
     let index = cell.z + u32(p.y) * cell.x + u32(p.x);
     return f32((sampled_tip[index / 4u] >> ((index % 4u) * 8u)) & 255u) / 255.0;
 }
-fn sampled_alpha(point: vec2<f32>, cell: vec3<u32>) -> f32 {
+fn sampled_alpha(point: vec2<f32>, cell: vec3<u32>, antialias: f32) -> f32 {
     let dimensions = vec2<f32>(cell.xy);
     let scale = f32(max(cell.x, cell.y)) / (u.geometry.z * 2.0);
-    let edge_axes = clamp((dimensions / (2.0 * scale) - abs(point)) / u.segment.w + 0.5, vec2<f32>(0.0), vec2<f32>(1.0));
+    let edge_axes = clamp((dimensions / (2.0 * scale) - abs(point)) / antialias + 0.5, vec2<f32>(0.0), vec2<f32>(1.0));
     let edge = edge_axes.x * edge_axes.y;
     if edge == 0.0 { return 0.0; }
     let p = clamp(point * scale + dimensions * 0.5 - 0.5, vec2<f32>(0.0), dimensions - 1.0);
@@ -62,32 +65,32 @@ fn sampled_alpha(point: vec2<f32>, cell: vec3<u32>) -> f32 {
     return mix(mix(tip_pixel(lo, cell), tip_pixel(lo + vec2<i32>(1, 0), cell), f.x),
         mix(tip_pixel(lo + vec2<i32>(0, 1), cell), tip_pixel(lo + vec2<i32>(1, 1), cell), f.x), f.y) * edge;
 }
-fn sampled_deposit(p: vec2<f32>) -> f32 {
+fn sampled_deposit(p: vec2<f32>, antialias: f32) -> f32 {
     let first = u.tip_spacing.x;
     let spacing = u.tip_spacing.y;
     if first > u.segment.z { return 0.0; }
     let projection = dot(p, u.segment.xy);
     let diameter = u.geometry.z * 2.0;
-    let reach = diameter * 0.7071067811865476 + u.segment.w;
+    let reach = diameter * 0.7071067811865476 + antialias;
     let last = floor((u.segment.z - first) / spacing);
     let lo = max(0.0, ceil((projection - reach - first) / spacing));
     let hi = min(last, floor((projection + reach - first) / spacing));
     if hi < lo { return 0.0; }
     var coverage = 0.0;
     for (var i = u32(lo); i <= u32(hi); i++) {
-        coverage = max(coverage, sampled_alpha(p - u.segment.xy * (first + f32(i) * spacing), cell_header(u.tip_state.y + i)));
+        coverage = max(coverage, sampled_alpha(p - u.segment.xy * (first + f32(i) * spacing), cell_header(u.tip_state.y + i), antialias));
     }
     return coverage;
 }
-fn deposit(point: vec2<f32>) -> f32 {
+fn deposit(point: vec2<f32>, antialias: f32) -> f32 {
     let p = vec2<f32>(dot(u.metric.xy, point), dot(u.metric.zw, point));
-    if u.tip_state.x != 0u { return sampled_deposit(p); }
+    if u.tip_state.x != 0u { return sampled_deposit(p, antialias); }
     let direction = u.segment.xy;
     let length = u.segment.z;
     let projection = dot(p, direction);
     if u.geometry.w >= 1.0 {
         let delta = p - clamp(projection, 0.0, length) * direction;
-        return clamp((u.geometry.z - sqrt(dot(delta, delta))) / u.segment.w + 0.5, 0.0, 1.0);
+        return clamp((u.geometry.z - sqrt(dot(delta, delta))) / antialias + 0.5, 0.0, 1.0);
     }
     if length < 0.000001 { return tip_density(dot(p, p)); }
     let perpendicular = p.x * direction.y - p.y * direction.x;
@@ -138,11 +141,21 @@ fn brush(@builtin(global_invocation_id) pixel: vec3<u32>) {
     let index = pixel.y * u.size.x + pixel.x;
     let before = previous[index];
     result[index] = Output(before, 0u, 0u);
-    let p = u.geometry.xy + f32(pixel.x) * u.mapping.xy + f32(pixel.y) * u.mapping.zw;
+    var p = u.geometry.xy + f32(pixel.x) * u.mapping.xy + f32(pixel.y) * u.mapping.zw;
+    var antialias = u.segment.w;
+    if u.projective_x.w != 0.0 {
+        let source = vec3<f32>(vec2<f32>(pixel.xy), 1.0);
+        let denominator = dot(u.projective_w.xyz, source);
+        if denominator == 0.0 { return; }
+        p = vec2(dot(u.projective_x.xyz, source), dot(u.projective_y.xyz, source)) / denominator;
+        let dx = (vec2(u.projective_x.x,u.projective_y.x) - p*u.projective_w.x)/denominator;
+        let dy = (vec2(u.projective_x.y,u.projective_y.y) - p*u.projective_w.y)/denominator;
+        antialias = max(0.001,min(length(dx),length(dy)));
+    }
     if any(p < u.clip.xy) || any(p >= u.clip.zw) { return; }
     let old_alpha = u32(round(255.0 * alpha(before)));
     if old_alpha >= 255u { return; }
-    let added = deposit(p);
+    let added = deposit(p, antialias);
     var value = before + added;
     if u.geometry.w >= 1.0 { value = max(before, added); }
     let new_alpha = u32(round(255.0 * alpha(value)));

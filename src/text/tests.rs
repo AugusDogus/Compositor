@@ -156,3 +156,37 @@ fn macos_text_schema_round_trips_box_size_and_optional_legacy_point_text() {
             .is_none()
     );
 }
+
+#[test]
+fn perspective_text_resize_keeps_source_coordinates_and_mask_placement() {
+    let style = Text {
+        content: "Hello".into(),
+        ..Default::default()
+    };
+    let pixels = RgbaImage::from_pixel(100, 50, image::Rgba([255; 4]));
+    let mut layer = new_layer(style.clone(), pixels, [20., 30.]).unwrap();
+    layer.transform.warp = Some(
+        crate::geometry::projective::Projective::new([[0., 0.], [1., 0.], [0.8, 1.], [0.2, 1.]])
+            .unwrap(),
+    );
+    let original = layer.transform;
+    layer.mask = Some(Mask {
+        pixels: Arc::new(GrayImage::from_pixel(100, 50, Luma([200]))),
+        enabled: true,
+        linked: true,
+        placement: None,
+    });
+    update_layer(
+        &mut layer,
+        style,
+        RgbaImage::from_pixel(130, 60, image::Rgba([255; 4])),
+    )
+    .unwrap();
+    assert!(layer.transform.warp.is_some());
+    for [x, y] in [[0., 0.], [30., 20.], [100., 50.]] {
+        let before = original.point([x / 100., y / 50.]);
+        let after = layer.transform.point([x / 130., y / 60.]);
+        assert!((after[0] - before[0]).hypot(after[1] - before[1]) < 1e-8);
+    }
+    assert_eq!(layer.mask.as_ref().unwrap().placement, Some(original));
+}

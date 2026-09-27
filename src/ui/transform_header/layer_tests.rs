@@ -81,6 +81,45 @@ fn patterned_document() -> Document {
 }
 
 #[test]
+fn perspective_edge_resize_tracks_visible_midpoint_and_fixes_opposite_edge() {
+    for rotation in [0_f64, 27.] {
+        let mut e = Editor::with_test_document();
+        let mut doc = Document::new(100, 100).unwrap();
+        compositor::edits::fill(&mut doc, [80, 140, 200, 255], false, false).unwrap();
+        doc.layers[0].transform.warp = Some(
+            compositor::geometry::projective::Projective::new([
+                [0., 0.],
+                [1., 0.],
+                [0.7, 1.],
+                [0.3, 1.],
+            ])
+            .unwrap(),
+        );
+        doc.layers[0].transform.rotation = rotation;
+        let original = doc.clone();
+        e.tabs = vec![Session::new(doc, None).into()];
+        e.tools.transform_ratio = false;
+        let handles = e.transform_placement().unwrap().handles();
+        let start = handles[3];
+        let (sin, cos) = rotation.to_radians().sin_cos();
+        let end = [start[0] + 20. * cos, start[1] + 20. * sin];
+        pointer(&mut e, PointerPhase::Down, start, Modifiers::empty());
+        pointer(&mut e, PointerPhase::Up, end, Modifiers::empty());
+        let after = e.transform_placement().unwrap().handles();
+        for axis in 0..2 {
+            assert!((after[3][axis] - end[axis]).abs() < 1e-5, "{after:?}");
+            assert!(
+                (after[7][axis] - handles[7][axis]).abs() < 1e-5,
+                "{after:?}"
+            );
+        }
+        e.finish_toolbar_transform(true).unwrap();
+        e.session_mut().undo();
+        assert_eq!(e.session().document, original);
+    }
+}
+
+#[test]
 fn arrow_nudges_keep_layer_and_mask_transform_drafts_pending() {
     for mask in [false, true] {
         for perspective in [false, true] {
@@ -173,8 +212,18 @@ fn perspective_keeps_flipped_source_through_repeated_drags_and_one_undo() {
             pointer(&mut e, PointerPhase::Up, [100., 70.], Modifiers::empty());
             let corners = e.transform_placement().unwrap().corners();
             let mut expected = affine;
-            compositor::distort::apply(&mut expected, bounds, corners, mask).unwrap();
+            compositor::transform::apply_perspective(&mut expected, bounds, corners, mask).unwrap();
             assert_eq!(e.session().document, expected);
+            for layer in &e.session().document.layers {
+                if let Some(before) = original.layer(layer.id) {
+                    if let (Some(a), Some(b)) = (layer.raster(), before.raster()) {
+                        assert!(std::sync::Arc::ptr_eq(a, b));
+                    }
+                    if let (Some(a), Some(b)) = (&layer.mask, &before.mask) {
+                        assert!(std::sync::Arc::ptr_eq(&a.pixels, &b.pixels));
+                    }
+                }
+            }
             e.finish_toolbar_transform(true).unwrap();
             assert_eq!(
                 e.session().undo_label(),
@@ -191,6 +240,87 @@ fn perspective_keeps_flipped_source_through_repeated_drags_and_one_undo() {
             assert!(e.session().undo_label().is_none());
         }
     }
+}
+
+#[test]
+fn applied_perspective_reopens_with_original_pixels_and_independent_undo_steps() {
+    let mut e = Editor::with_test_document();
+    let original = patterned_document();
+    let pixels = original.layers[0].raster().unwrap().clone();
+    e.tabs = vec![Session::new(original.clone(), None).into()];
+    pointer(&mut e, PointerPhase::Down, [0., 0.], Modifiers::CONTROL);
+    pointer(&mut e, PointerPhase::Up, [10., 10.], Modifiers::CONTROL);
+    e.finish_toolbar_transform(true).unwrap();
+    let first = e.session().document.clone();
+    assert!(first.layers[0].transform.warp.is_some());
+    assert!(std::sync::Arc::ptr_eq(
+        first.layers[0].raster().unwrap(),
+        &pixels
+    ));
+    let corner = e.transform_placement().unwrap().corners()[2];
+    pointer(&mut e, PointerPhase::Down, corner, Modifiers::CONTROL);
+    pointer(&mut e, PointerPhase::Up, [90., 70.], Modifiers::CONTROL);
+    e.finish_toolbar_transform(true).unwrap();
+    let second = e.session().document.clone();
+    assert_ne!(second.layers[0].transform, first.layers[0].transform);
+    assert!(std::sync::Arc::ptr_eq(
+        second.layers[0].raster().unwrap(),
+        &pixels
+    ));
+    e.session_mut().undo();
+    assert_eq!(e.session().document, first);
+    e.session_mut().undo();
+    assert_eq!(e.session().document, original);
+    e.session_mut().redo();
+    e.session_mut().redo();
+    assert_eq!(e.session().document, second);
+}
+
+#[test]
+fn retained_perspective_preview_renders_with_editable_corner_controls() {
+    use quickgui::{Application, WindowOptions};
+    let mut editor = Editor::with_test_document();
+    let original = patterned_document();
+    editor.tabs = vec![Session::new(original.clone(), None).into()];
+    pointer(
+        &mut editor,
+        PointerPhase::Down,
+        [0., 0.],
+        Modifiers::CONTROL,
+    );
+    pointer(
+        &mut editor,
+        PointerPhase::Up,
+        [20., 10.],
+        Modifiers::CONTROL,
+    );
+    let (mut cx, view) = Application::new()
+        .font(crate::UI_FONT)
+        .into_test_context(WindowOptions::new("Perspective").size(1180., 780.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    cx.update(view, |e, cx| {
+        e.changed(cx);
+        e.resolve_test_canvas_preview().unwrap();
+        cx.invalidate();
+    })
+    .unwrap();
+    assert!(cx.element_bounds(window, "transform-apply").is_ok());
+    if let Some(path) = std::env::var_os("COMPOSITOR_PERSPECTIVE_SCREENSHOT") {
+        cx.capture_screenshot(window)
+            .unwrap()
+            .write_png(path)
+            .unwrap();
+    }
+    cx.click(window, "transform-apply").unwrap();
+    cx.read(view, |e| {
+        assert!(e.session().document.layers[0].transform.warp.is_some());
+        assert!(std::sync::Arc::ptr_eq(
+            e.session().document.layers[0].raster().unwrap(),
+            original.layers[0].raster().unwrap()
+        ));
+    })
+    .unwrap();
 }
 
 #[test]

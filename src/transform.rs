@@ -1,3 +1,6 @@
+mod perspective;
+pub use perspective::apply_perspective;
+
 use crate::{
     Result,
     document::{Document, LayerContent},
@@ -137,6 +140,19 @@ pub fn pick(doc: &Document, point: Point, force: bool) -> Option<uuid::Uuid> {
 }
 
 pub fn apply(doc: &mut Document, old: Transform, new: Transform, mask_target: bool) -> Result<()> {
+    let mut updated = doc.clone();
+    apply_inner(&mut updated, old, new, mask_target)?;
+    updated.validate()?;
+    *doc = updated;
+    Ok(())
+}
+
+fn apply_inner(
+    doc: &mut Document,
+    old: Transform,
+    new: Transform,
+    mask_target: bool,
+) -> Result<()> {
     if !new.valid() {
         return Err(invalid("The transform exceeds supported bounds."));
     }
@@ -170,7 +186,7 @@ pub fn apply(doc: &mut Document, old: Transform, new: Transform, mask_target: bo
         let LayerContent::Artboard(settings) = board.content else {
             return Err(invalid("The selected artboard is unavailable."));
         };
-        let frame = board.transform.following(old, new);
+        let frame = board.transform.following(old, new)?;
         if old.size != new.size {
             return crate::artboard::resize_frame(doc, id, frame);
         }
@@ -195,20 +211,20 @@ pub fn apply(doc: &mut Document, old: Transform, new: Transform, mask_target: bo
         .map(|(layer, shape)| {
             Ok((
                 layer.id,
-                shape.resized_preview(layer.transform.following(old, new))?,
+                shape.resized_preview(layer.transform.following(old, new)?)?,
             ))
         })
         .collect::<Result<std::collections::HashMap<_, _>>>()?;
     for layer in doc.layers.iter_mut().filter(|l| ids.contains(&l.id)) {
         let before = layer.transform;
-        layer.transform = before.following(old, new);
+        layer.transform = before.following(old, new)?;
         if let Some(shape) = previews.get(&layer.id) {
             layer.content = LayerContent::PathShape(Box::new(shape.clone()));
         }
         if let Some(mask) = &mut layer.mask {
             if mask.linked {
                 if let Some(placement) = mask.placement {
-                    mask.placement = Some(placement.following(old, new));
+                    mask.placement = Some(placement.following(old, new)?);
                 }
             } else if mask.placement.is_none() {
                 mask.placement = Some(before);
@@ -276,6 +292,11 @@ pub fn drag(
             if shift {
                 result.rotation = (result.rotation / 15.).round() * 15.;
             }
+            if original.warp.is_some() {
+                let moved = result.geometry_point([0.5, 0.5]);
+                result.origin[0] += center[0] - moved[0];
+                result.origin[1] += center[1] - moved[1];
+            }
         }
         Handle::Resize(index) => {
             let Some(handle) = Transform::HANDLES.get(index).copied() else {
@@ -288,6 +309,57 @@ pub fn drag(
             };
             let anchor = original.geometry_point(anchor_unit);
             let initial = original.geometry_point(handle);
+            if original.warp.is_some() {
+                let anchor_point = |transform: Transform| {
+                    let handles = transform.resize_handles();
+                    if symmetric {
+                        [
+                            (handles[1][0] + handles[5][0]) / 2.,
+                            (handles[1][1] + handles[5][1]) / 2.,
+                        ]
+                    } else {
+                        handles[(index + 4) % 8]
+                    }
+                };
+                let anchor = anchor_point(original);
+                let initial = original.resize_handles()[index];
+                let (sin, cos) = original.rotation.to_radians().sin_cos();
+                let local = |p: Point| {
+                    [
+                        (p[0] - anchor[0]) * cos + (p[1] - anchor[1]) * sin,
+                        -(p[0] - anchor[0]) * sin + (p[1] - anchor[1]) * cos,
+                    ]
+                };
+                let before = local(initial);
+                let after = local([
+                    initial[0] + point[0] - start[0],
+                    initial[1] + point[1] - start[1],
+                ]);
+                let enabled = [handle[0] != 0.5, handle[1] != 0.5];
+                let mut factors = [1.; 2];
+                for axis in 0..2 {
+                    if enabled[axis] && before[axis].abs() > 1e-12 {
+                        factors[axis] = (after[axis] / before[axis]).max(1. / original.size[axis]);
+                    }
+                }
+                if lock_ratio != shift {
+                    let factor = if !enabled[0] {
+                        factors[1]
+                    } else if !enabled[1] {
+                        factors[0]
+                    } else {
+                        ((after[0] * before[0] + after[1] * before[1])
+                            / (before[0].powi(2) + before[1].powi(2)))
+                        .max(1. / original.size[0].min(original.size[1]))
+                    };
+                    factors = [factor; 2];
+                }
+                result.size = [original.size[0] * factors[0], original.size[1] * factors[1]];
+                let moved = anchor_point(result);
+                result.origin[0] += anchor[0] - moved[0];
+                result.origin[1] += anchor[1] - moved[1];
+                return if result.valid() { result } else { original };
+            }
             let dx = initial[0] + point[0] - start[0] - anchor[0];
             let dy = initial[1] + point[1] - start[1] - anchor[1];
             let (sin, cos) = original.rotation.to_radians().sin_cos();
@@ -590,3 +662,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "transform/perspective_tests.rs"]
+mod perspective_tests;

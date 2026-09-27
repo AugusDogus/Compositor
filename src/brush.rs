@@ -1,6 +1,7 @@
 mod blur;
 mod coverage;
 mod path;
+mod placement;
 mod polyline;
 pub use polyline::paint_polyline;
 pub mod sampled;
@@ -435,9 +436,10 @@ impl Stroke {
         };
         let support = radius
             + 0.5
-                * (transform.size[0] / self.coverage.width() as f64)
-                    .min(transform.size[1] / self.coverage.height() as f64)
-                    .max(0.001);
+                * placement::antialias_bound(
+                    transform,
+                    [self.coverage.width(), self.coverage.height()],
+                )?;
         let bounds = [
             (start[0].min(end[0]) - support)
                 .max(0.)
@@ -478,14 +480,25 @@ impl Stroke {
         let antialias_width = (t.size[0] / width as f64)
             .min(t.size[1] / height as f64)
             .max(0.001);
-        let a = t.unit(start);
-        let b = t.unit(end);
-        let rx = radius / t.size[0] * width as f64 + 1.;
-        let ry = radius / t.size[1] * height as f64 + 1.;
-        let left = (a[0].min(b[0]) * width as f64 - rx).floor().max(0.) as u32;
-        let top = (a[1].min(b[1]) * height as f64 - ry).floor().max(0.) as u32;
-        let right = ((a[0].max(b[0]) * width as f64 + rx).ceil().max(0.) as u32).min(width);
-        let bottom = ((a[1].max(b[1]) * height as f64 + ry).ceil().max(0.) as u32).min(height);
+        let [left, top, right, bottom] = if t.warp.is_some() {
+            placement::source_bounds(t, [width, height], bounds)?
+        } else {
+            let a = t.unit(start);
+            let b = t.unit(end);
+            let rx = radius / t.size[0] * width as f64 + 1.;
+            let ry = radius / t.size[1] * height as f64 + 1.;
+            [
+                (a[0].min(b[0]) * width as f64 - rx).floor().max(0.) as u32,
+                (a[1].min(b[1]) * height as f64 - ry).floor().max(0.) as u32,
+                ((a[0].max(b[0]) * width as f64 + rx).ceil().max(0.) as u32).min(width),
+                ((a[1].max(b[1]) * height as f64 + ry).ceil().max(0.) as u32).min(height),
+            ]
+        };
+        let projection = if t.warp.is_some() {
+            Some(placement::pixel_mapping(t, [width, height])?)
+        } else {
+            None
+        };
         let p0 = t.point([0.5 / width as f64, 0.5 / height as f64]);
         let px = t.point([1.5 / width as f64, 0.5 / height as f64]);
         let py = t.point([0.5 / width as f64, 1.5 / height as f64]);
@@ -519,6 +532,7 @@ impl Stroke {
         let mut changed = false;
         let region = coverage::Region {
             bounds: [left, top, right, bottom],
+            projection,
             origin: p0,
             dx,
             dy,

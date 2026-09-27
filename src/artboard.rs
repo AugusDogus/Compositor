@@ -16,6 +16,7 @@ pub struct Artboard {
 
 pub fn validate_frame(frame: Transform) -> Result<()> {
     if !frame.valid()
+        || frame.warp.is_some()
         || frame.rotation != 0.
         || frame.flip_x
         || frame.flip_y
@@ -245,7 +246,7 @@ pub fn from_selection(document: &mut Document, name: &str, background: [u8; 4]) 
         for layer in document.layers.iter().filter(|layer| {
             included.contains(&layer.id) && !layer.is_group() && !layer.is_adjustment()
         }) {
-            let next = crate::effects::rendered_transform(layer).bounds();
+            let next = crate::effects::rendered_transform(layer)?.bounds();
             bounds = Some(bounds.map_or(next, |old| {
                 [
                     old[0].min(next[0]),

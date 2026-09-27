@@ -51,13 +51,36 @@ pub fn layer_path(document: &Document, id: Uuid) -> Result<BezierPath> {
 }
 
 pub fn update(document: &mut Document, id: Uuid, geometry: BezierPath, style: Style) -> Result<()> {
+    update_geometry(document, id, geometry, style, false)
+}
+
+pub fn update_local(
+    document: &mut Document,
+    id: Uuid,
+    geometry: BezierPath,
+    style: Style,
+) -> Result<()> {
+    update_geometry(document, id, geometry, style, true)
+}
+
+fn update_geometry(
+    document: &mut Document,
+    id: Uuid,
+    geometry: BezierPath,
+    style: Style,
+    local: bool,
+) -> Result<()> {
     let layer = document
         .layer(id)
         .ok_or_else(|| invalid("The path shape no longer exists. Select an existing shape."))?;
     let shape = layer
         .path_shape()
         .ok_or_else(|| invalid("Select a path shape to edit its points."))?;
-    let (content, transform) = shape.edited(geometry, style, layer.transform)?;
+    let (content, transform) = if local {
+        shape.edited_local(geometry, style, layer.transform)?
+    } else {
+        shape.edited(geometry, style, layer.transform)?
+    };
     let mut next = document.clone();
     let layer = next
         .layers
@@ -118,9 +141,13 @@ impl Gesture {
         })
     }
     pub fn update(&self, document: &mut Document, geometry: BezierPath) -> Result<()> {
-        let (content, transform) =
+        let (content, transform) = if self.transform.warp.is_some() {
             self.source
-                .edited(geometry, self.source.source().style, self.transform)?;
+                .edited_local(geometry, self.source.source().style, self.transform)?
+        } else {
+            self.source
+                .edited(geometry, self.source.source().style, self.transform)?
+        };
         let layer = document
             .layers
             .iter_mut()

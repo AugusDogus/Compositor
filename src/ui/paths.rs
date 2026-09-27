@@ -40,6 +40,7 @@ impl Default for State {
 }
 pub(super) struct Drag {
     shape: Option<compositor::path_shape::Gesture>,
+    placement: Option<(compositor::geometry::Transform, [u32; 2])>,
     target: Target,
     original: BezierPath,
     hit: Hit,
@@ -59,7 +60,7 @@ impl Editor {
         self.tools
             .paths
             .active
-            .map(|a| a.target.snapshot(&self.session().document))
+            .map(|a| a.target.edit_snapshot(&self.session().document))
             .transpose()
     }
     pub(super) fn sync_paths(&mut self) {
@@ -140,19 +141,14 @@ impl Editor {
         let prior = self.tools.paths.active;
         let active = prior.filter(|a| a.target.name(&self.session().document).is_some());
         let existing = active
-            .map(|a| a.target.snapshot(&self.session().document))
+            .map(|a| a.target.edit_snapshot(&self.session().document))
             .transpose()?;
+        let placement = active.and_then(|a| a.target.placement(&self.session().document));
         let hit = existing
             .as_ref()
             .map(|p| {
-                let mut targets = p.geometry.clone();
-                for (i, anchor) in targets.anchors.iter_mut().enumerate() {
-                    if active.and_then(|a| a.selected) != Some(i) {
-                        anchor.incoming = None;
-                        anchor.outgoing = None;
-                    }
-                }
-                targets.hit(point, 7. / zoom)
+                let markers = super::path_target::markers(&p.geometry, placement)?;
+                hit_markers(&markers, active.and_then(|a| a.selected), point, 7. / zoom)
             })
             .transpose()?
             .flatten();
@@ -171,6 +167,7 @@ impl Editor {
             });
             return Ok(());
         }
+        let point = source_point(placement, point)?;
         let mut path = match existing {
             Some(path) => path,
             None => SavedPath::new(
@@ -220,6 +217,7 @@ impl Editor {
         });
         self.gesture = Some(Gesture::Path(Box::new(Drag {
             shape,
+            placement,
             target,
             original,
             hit,
@@ -233,6 +231,16 @@ impl Editor {
         if event.phase == PointerPhase::Cancel {
             return self.finish_path_drag(false);
         }
+        let Some(Gesture::Path(drag)) = &self.gesture else {
+            return Ok(());
+        };
+        let point = match source_point(drag.placement, point) {
+            Ok(point) => point,
+            Err(error) => {
+                self.finish_path_drag(false)?;
+                return Err(error);
+            }
+        };
         let Some(Gesture::Path(drag)) = &self.gesture else {
             return Ok(());
         };
@@ -345,7 +353,7 @@ impl Editor {
             return Ok(());
         };
         self.session_mut().edit("Delete Path Anchor", |doc| {
-            let mut geometry = target.snapshot(doc)?.geometry;
+            let mut geometry = target.edit_snapshot(doc)?.geometry;
             if index < geometry.anchors.len() {
                 geometry.anchors.remove(index);
             }
@@ -366,6 +374,70 @@ impl Editor {
         }
         Ok(())
     }
+}
+/// Handles win over anchors, then the closest marker wins. Projected markers
+/// are not a cubic path and need not fit source-path storage coordinate bounds.
+fn hit_markers(
+    anchors: &[Anchor],
+    selected: Option<usize>,
+    point: Point,
+    tolerance: f64,
+) -> Result<Option<Hit>> {
+    if !tolerance.is_finite() || tolerance < 0. || point.iter().any(|v| !v.is_finite()) {
+        return Err(invalid(
+            "Path hit testing requires a finite position and nonnegative tolerance.",
+        ));
+    }
+    fn closest(
+        candidates: impl IntoIterator<Item = (Point, Hit)>,
+        point: Point,
+        tolerance: f64,
+    ) -> Option<Hit> {
+        let mut nearest = None;
+        let mut distance = tolerance;
+        for (candidate, hit) in candidates {
+            let next = (candidate[0] - point[0]).hypot(candidate[1] - point[1]);
+            if next <= distance && (nearest.is_none() || next < distance) {
+                nearest = Some(hit);
+                distance = next;
+            }
+        }
+        nearest
+    }
+    let handles = selected
+        .and_then(|index| anchors.get(index).map(|a| (index, a)))
+        .into_iter()
+        .flat_map(|(index, anchor)| {
+            [
+                anchor.incoming.map(|point| (point, Hit::Incoming(index))),
+                anchor.outgoing.map(|point| (point, Hit::Outgoing(index))),
+            ]
+            .into_iter()
+            .flatten()
+        });
+    Ok(closest(handles, point, tolerance).or_else(|| {
+        closest(
+            anchors
+                .iter()
+                .enumerate()
+                .map(|(index, anchor)| (anchor.point, Hit::Anchor(index))),
+            point,
+            tolerance,
+        )
+    }))
+}
+
+fn source_point(
+    placement: Option<(compositor::geometry::Transform, [u32; 2])>,
+    point: Point,
+) -> Result<Point> {
+    let Some((transform, size)) = placement else {
+        return Ok(point);
+    };
+    let unit = transform
+        .try_unit(point)
+        .map_err(|e| invalid(e.to_string()))?;
+    Ok([unit[0] * f64::from(size[0]), unit[1] * f64::from(size[1])])
 }
 pub(super) fn path_mut(doc: &mut Document, id: Uuid) -> Result<&mut SavedPath> {
     doc.paths.iter_mut().find(|p| p.id == id).ok_or_else(|| {

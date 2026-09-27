@@ -395,6 +395,9 @@ impl Document {
                     "Layer effects require a pixel, shape, or text layer. Folder and adjustment effects are not supported.",
                 ));
             }
+            if layer.transform.warp.is_some() {
+                crate::effects::rendered_transform(layer)?;
+            }
             if layer
                 .effects
                 .as_ref()

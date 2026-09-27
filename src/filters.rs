@@ -293,15 +293,16 @@ fn pad(image: &RgbaImage, transform: Transform, margin: u32) -> Result<(RgbaImag
     validate_size(w, h)?;
     let mut pixels = RgbaImage::new(w, h);
     image::imageops::replace(&mut pixels, image, margin as i64, margin as i64);
-    let mut expanded = transform;
-    expanded.size = [
-        transform.size[0] * w as f64 / image.width() as f64,
-        transform.size[1] * h as f64 / image.height() as f64,
-    ];
-    expanded.origin = [
-        transform.origin[0] - (expanded.size[0] - transform.size[0]) / 2.,
-        transform.origin[1] - (expanded.size[1] - transform.size[1]) / 2.,
-    ];
+    let expanded = transform.rebind(
+        [
+            -f64::from(margin) / f64::from(image.width()),
+            -f64::from(margin) / f64::from(image.height()),
+        ],
+        [
+            f64::from(w) / f64::from(image.width()),
+            f64::from(h) / f64::from(image.height()),
+        ],
+    )?;
     Ok((pixels, expanded))
 }
 

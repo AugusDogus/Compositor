@@ -36,6 +36,7 @@ fn gpu_pixel_application_preserves_stroke_opacity_and_original_color() {
             let mut reference_plane = plane.clone();
             let mut expected = original.clone();
             let region = Region {
+                projection: None,
                 bounds: [31, 27, 570, 581],
                 origin: [0.5, 0.5],
                 dx: [1., 0.],
@@ -114,6 +115,7 @@ fn gpu_matches_reference_for_clicks_segments_transforms_and_chunk_boundaries() {
             for (dx, dy) in [([1., 0.], [0., 1.]), ([-0.8, 0.6], [0.6, 0.8])] {
                 // Exceeds one GPU batch, has untouched margins and mixed preexisting density.
                 let region = Region {
+                    projection: None,
                     bounds: [7, 5, 1500, 900],
                     origin: [900.5, -100.5],
                     dx,
@@ -171,6 +173,7 @@ fn gpu_tilted_tip_matches_reference_with_canvas_clipping() {
             .segment([15., 25.], [280., 150.], 1.)
             .with_metric(crate::brush::Tip::new(Some(1.), Some([45., 35.])).metric());
         let region = Region {
+            projection: None,
             bounds: [0, 0, 700, 600],
             origin: [-10.5, -20.5],
             dx: [1., 0.],
@@ -217,6 +220,7 @@ fn sampled_gpu_matches_cpu_for_real_bristles_tilt_and_pixel_operations() {
         let mut plane = Plane::new(700, 600);
         let mut cpu = plane.clone();
         let region = Region {
+            projection: None,
             bounds: [0, 0, 700, 600],
             origin: [-10.5, -20.5],
             dx: [1., 0.],
@@ -316,6 +320,7 @@ fn gih_gpu_matches_cpu_for_mixed_cells_and_all_selection_modes() {
         let mut cpu = Plane::new(400, 400);
         let mut gpu = cpu.clone();
         let region = Region {
+            projection: None,
             bounds: [0, 0, 400, 400],
             origin: [0.5, 0.5],
             dx: [1., 0.],
@@ -343,6 +348,52 @@ fn gih_gpu_matches_cpu_for_mixed_cells_and_all_selection_modes() {
                 .unwrap();
             for (index, (a, b)) in actual.as_raw().iter().zip(reference.as_raw()).enumerate() {
                 assert!(a.abs_diff(*b) <= 1, "{mode} pixel {index}: {a} vs {b}");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn projective_brush_coverage_and_local_edge_width_match_cpu() {
+    use crate::geometry::{Transform, projective::Projective};
+    let transform = Transform {
+        origin: [40., 20.],
+        rotation: 11.,
+        warp: Some(Projective::new([[0., 0.], [1., 0.1], [0.65, 1.1], [0.2, 0.8]]).unwrap()),
+        ..Transform::new(400, 360)
+    };
+    let mapping = crate::brush::placement::pixel_mapping(transform, [400, 360]).unwrap();
+    let region = Region {
+        bounds: [0, 0, 400, 360],
+        projection: Some(mapping),
+        origin: [0., 0.],
+        dx: [0., 0.],
+        dy: [0., 0.],
+        canvas: [600., 600.],
+    };
+    let mut engine = Engine::new().unwrap();
+    for hardness in [0., 0.5, 1.] {
+        let brush = Brush {
+            diameter: 160.,
+            hardness,
+            opacity: 0.7,
+            color: [180, 30, 70, 255],
+        };
+        let kernel = Kernel::new(brush);
+        let mut actual = Plane::new(400, 360);
+        let mut expected = actual.clone();
+        for (start, end) in [([150., 110.], [270., 225.]), ([270., 225.], [130., 280.])] {
+            let segment = kernel.segment(start, end, 1.);
+            let reference = region.rasterize(&mut expected, &segment, brush).unwrap();
+            let output = engine
+                .rasterize(&region, &mut actual, &segment, brush)
+                .unwrap();
+            for (index, (a, b)) in output.as_raw().iter().zip(reference.as_raw()).enumerate() {
+                assert!(
+                    a.abs_diff(*b) <= 1,
+                    "hardness={hardness} pixel={index}: GPU{a} CPU{b}"
+                );
             }
         }
     }

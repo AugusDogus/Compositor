@@ -440,7 +440,7 @@ impl Editor {
                         .ok_or_else(|| invalid("Select layers or a mask to flip."))?;
                     let horizontal = matches!(action, Action::FlipX);
                     let center = old.geometry_point([0.5, 0.5]);
-                    let new = old.mirrored(horizontal, center[usize::from(!horizontal)]);
+                    let new = old.mirrored(horizontal, center[usize::from(!horizontal)])?;
                     compositor::transform::apply(doc, old, new, mask)
                 },
             ),

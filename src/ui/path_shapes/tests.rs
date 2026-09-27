@@ -186,3 +186,135 @@ fn pen_toolbar_creates_shape_and_opens_style_dialog() {
     .unwrap();
     cx.capture_screenshot(window).unwrap();
 }
+
+#[test]
+fn perspective_pen_drag_keeps_source_cubics_and_can_cancel_and_undo() {
+    let mut e = editor();
+    e.create_path_shape().unwrap();
+    let id = e.session().document.active.unwrap();
+    let layer = e
+        .session_mut()
+        .document
+        .layers
+        .iter_mut()
+        .find(|l| l.id == id)
+        .unwrap();
+    layer.transform.warp = Some(
+        compositor::geometry::projective::Projective::new([
+            [0., 0.],
+            [1., 0.],
+            [0.65, 1.],
+            [0.25, 1.],
+        ])
+        .unwrap(),
+    );
+    let before = e.session().document.clone();
+    let target = Target::Shape(id);
+    let (transform, size) = target.placement(&before).unwrap();
+    let source = target.edit_snapshot(&before).unwrap().geometry;
+    let project =
+        |p: [f64; 2]| transform.point([p[0] / f64::from(size[0]), p[1] / f64::from(size[1])]);
+    let start = project(source.anchors[1].point);
+    let end = [start[0] + 5., start[1] + 4.];
+    e.path_down(start, 1., Modifiers::empty()).unwrap();
+    e.path_pointer(&pointer(end, PointerPhase::Move), end)
+        .unwrap();
+    e.path_pointer(&pointer(end, PointerPhase::Cancel), end)
+        .unwrap();
+    assert_eq!(e.session().document, before);
+    e.path_down(start, 1., Modifiers::empty()).unwrap();
+    e.path_pointer(&pointer(end, PointerPhase::Up), end)
+        .unwrap();
+    let doc = &e.session().document;
+    let (next, size) = target.placement(doc).unwrap();
+    let geometry = target.edit_snapshot(doc).unwrap().geometry;
+    assert_eq!(geometry.anchors.len(), source.anchors.len());
+    let actual = next.point([
+        geometry.anchors[1].point[0] / f64::from(size[0]),
+        geometry.anchors[1].point[1] / f64::from(size[1]),
+    ]);
+    assert!((actual[0] - end[0]).hypot(actual[1] - end[1]) < 1e-8);
+    assert!(geometry.anchors[1].outgoing.is_some());
+    e.apply_path_shape(id, &["#123456".into(), "#ffffff".into(), "4".into()])
+        .unwrap();
+    assert!(
+        e.session()
+            .document
+            .layer(id)
+            .unwrap()
+            .transform
+            .warp
+            .is_some()
+    );
+    assert_eq!(
+        target
+            .edit_snapshot(&e.session().document)
+            .unwrap()
+            .geometry
+            .anchors
+            .len(),
+        source.anchors.len()
+    );
+    e.session_mut().undo();
+    e.session_mut().undo();
+    assert_eq!(e.session().document, before);
+}
+
+#[test]
+fn perspective_handle_drag_uses_inverse_source_mapping_and_keeps_opposite_tangent() {
+    let mut e = editor();
+    e.create_path_shape().unwrap();
+    let id = e.session().document.active.unwrap();
+    let layer = e
+        .session_mut()
+        .document
+        .layers
+        .iter_mut()
+        .find(|l| l.id == id)
+        .unwrap();
+    layer.transform.warp = Some(
+        compositor::geometry::projective::Projective::new([
+            [0., 0.],
+            [1., 0.],
+            [0.65, 1.],
+            [0.25, 1.],
+        ])
+        .unwrap(),
+    );
+    e.tools.paths.active.as_mut().unwrap().selected = Some(1);
+    let target = Target::Shape(id);
+    let (transform, size) = target.placement(&e.session().document).unwrap();
+    let source = target
+        .edit_snapshot(&e.session().document)
+        .unwrap()
+        .geometry;
+    let handle = source.anchors[1].outgoing.unwrap();
+    let start = transform.point([
+        handle[0] / f64::from(size[0]),
+        handle[1] / f64::from(size[1]),
+    ]);
+    let end = [start[0] - 3., start[1] + 2.];
+    e.path_down(start, 1., Modifiers::empty()).unwrap();
+    for _ in 0..5 {
+        e.path_pointer(&pointer(end, PointerPhase::Move), end)
+            .unwrap();
+    }
+    e.path_pointer(&pointer(end, PointerPhase::Up), end)
+        .unwrap();
+    let geometry = target
+        .edit_snapshot(&e.session().document)
+        .unwrap()
+        .geometry;
+    let anchor = geometry.anchors[1];
+    let incoming = anchor.incoming.unwrap();
+    let outgoing = anchor.outgoing.unwrap();
+    for axis in 0..2 {
+        assert!((incoming[axis] + outgoing[axis] - 2. * anchor.point[axis]).abs() < 1e-8);
+    }
+    let (next, size) = target.placement(&e.session().document).unwrap();
+    let actual = next.point([
+        outgoing[0] / f64::from(size[0]),
+        outgoing[1] / f64::from(size[1]),
+    ]);
+    assert!((actual[0] - end[0]).hypot(actual[1] - end[1]) < 1e-8);
+}

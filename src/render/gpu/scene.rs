@@ -43,18 +43,40 @@ impl Scene {
             .collect();
         let mut colors = HashMap::new();
         let mut masks = HashMap::new();
-        let mapping = |t: Transform| {
+        let mapping = |t: Transform| -> Option<[f64; 9]> {
+            if t.warp.is_some() {
+                let view = crate::geometry::projective::Homography::from_matrix([
+                    step[0],
+                    0.,
+                    origin[0] + step[0] * 0.5,
+                    0.,
+                    step[1],
+                    origin[1] + step[1] * 0.5,
+                    0.,
+                    0.,
+                    1.,
+                ])
+                .ok()?;
+                let m = t.inverse_mapping().ok()?.compose(view).ok()?.matrix();
+                if m.iter().any(|v| !(*v as f32).is_finite()) {
+                    return None;
+                }
+                return Some([m[2], m[5], m[0], m[3], m[1], m[4], m[6], m[7], m[8]]);
+            }
             let a = t.unit([origin[0] + step[0] * 0.5, origin[1] + step[1] * 0.5]);
             let b = t.unit([origin[0] + step[0] * 1.5, origin[1] + step[1] * 0.5]);
             let c = t.unit([origin[0] + step[0] * 0.5, origin[1] + step[1] * 1.5]);
-            [
+            Some([
                 a[0],
                 a[1],
                 b[0] - a[0],
                 b[1] - a[1],
                 c[0] - a[0],
                 c[1] - a[1],
-            ]
+                0.,
+                0.,
+                1.,
+            ])
         };
         for layer in &doc.layers {
             let surface = surfaces.get(&layer.id);
@@ -118,8 +140,8 @@ impl Scene {
                 background = mask.background();
                 placement = mask.placement.is_some();
             }
-            let a = mapping(surface.map_or(layer.transform, |s| s.transform));
-            let m = mapping(mask_transform);
+            let a = mapping(surface.map_or(layer.transform, |s| s.transform))?;
+            let m = mapping(mask_transform)?;
             scene.layers.extend(
                 [
                     a[0],
@@ -185,6 +207,9 @@ impl Scene {
             scene
                 .layers
                 .extend(conditional.underlying.endpoints().map(u32::from));
+            scene
+                .layers
+                .extend([a[6], a[7], a[8], 0., m[6], m[7], m[8], 0.].map(|v| (v as f32).to_bits()));
         }
         let state = RenderState::new(doc);
         fn visit(
@@ -252,7 +277,7 @@ impl Scene {
         }
         // Storage bindings cannot be empty, even for a blank document.
         if scene.layers.is_empty() {
-            scene.layers.resize(40, 0);
+            scene.layers.resize(48, 0);
         }
         if scene.adjustments.is_empty() {
             scene.adjustments.push(0.);

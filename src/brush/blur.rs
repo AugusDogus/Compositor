@@ -1,10 +1,10 @@
 use crate::{
     Result,
-    document::{Layer, Mask},
+    document::Layer,
     geometry::{Point, Sampling, Transform},
     invalid, native_pixels, render,
 };
-use image::{Rgba, RgbaImage};
+use image::{GrayImage, Rgba, RgbaImage};
 use std::{cell::RefCell, collections::HashMap, sync::Arc};
 
 const SIDE: u32 = 128;
@@ -12,7 +12,7 @@ const CACHE_BYTES: usize = 64 * 1024 * 1024;
 
 enum Input {
     Pixels(Arc<RgbaImage>, Transform),
-    Mask(Mask, Transform, u8),
+    Mask(Arc<GrayImage>, Transform, u8),
 }
 
 struct Tile {
@@ -45,7 +45,7 @@ impl Blur {
                 .as_ref()
                 .ok_or_else(|| invalid("Add a mask before blurring it."))?;
             Input::Mask(
-                mask.clone(),
+                mask.pixels.clone(),
                 mask.placement.unwrap_or(layer.transform),
                 (mask.background() * 255.).round() as u8,
             )
@@ -72,12 +72,12 @@ impl Blur {
                 render::pixel(image, transform.unit(point), transform.sampling)
                     .map(|v| (v * 255.).round() as u8),
             ),
-            Input::Mask(mask, transform, background) => {
+            Input::Mask(pixels, transform, background) => {
                 let unit = transform.unit(point);
                 let level = if unit.iter().all(|v| (0. ..1.).contains(v)) {
-                    mask.pixels[(
-                        (unit[0] * mask.pixels.width() as f64) as u32,
-                        (unit[1] * mask.pixels.height() as f64) as u32,
+                    pixels[(
+                        (unit[0] * pixels.width() as f64) as u32,
+                        (unit[1] * pixels.height() as f64) as u32,
                     )][0]
                 } else {
                     *background
@@ -176,7 +176,7 @@ impl Blur {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::document::LayerContent;
+    use crate::document::{LayerContent, Mask};
     use image::{GrayImage, Luma};
 
     #[test]

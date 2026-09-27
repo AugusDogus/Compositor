@@ -10,6 +10,7 @@ mod blend_if;
 mod gradients;
 mod path_shapes;
 mod patterns;
+mod perspective;
 
 pub(super) const NAME: &str = "linux-editing.json";
 const SOURCE: &str = "authoring";
@@ -56,6 +57,8 @@ struct Settings {
     bevels: Vec<bevels::Saved>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     blend_if: Vec<blend_if::Saved>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    perspective: Vec<perspective::Saved>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -88,7 +91,13 @@ pub(super) fn needed(document: &Document) -> bool {
 }
 fn rendered_projection_needed(document: &Document) -> bool {
     document.layers.iter().any(|layer| {
-        layer.blend_if.is_some()
+        layer.transform.warp.is_some()
+            || layer
+                .mask
+                .as_ref()
+                .and_then(|mask| mask.placement)
+                .is_some_and(|t| t.warp.is_some())
+            || layer.blend_if.is_some()
             || layer.effects.as_ref().is_some_and(|e| {
                 e.pattern_overlay.is_some() || e.gradient_overlay.is_some() || e.bevel.is_some()
             })
@@ -149,6 +158,7 @@ fn sources(document: &Document) -> (Document, Settings) {
     let gradients = gradients::extract(&mut source);
     let bevels = bevels::extract(&mut source);
     let blend_if = blend_if::extract(&mut source);
+    let perspective = perspective::extract(&mut source);
     let mut layers = Vec::new();
     let mut artboards = Vec::new();
     for layer in &mut source.layers {
@@ -170,7 +180,9 @@ fn sources(document: &Document) -> (Document, Settings) {
     (
         source,
         Settings {
-            version: if !blend_if.is_empty() {
+            version: if !perspective.is_empty() {
+                9
+            } else if !blend_if.is_empty() {
                 8
             } else if !bevels.is_empty() {
                 7
@@ -189,6 +201,7 @@ fn sources(document: &Document) -> (Document, Settings) {
             gradients,
             bevels,
             blend_if,
+            perspective,
         },
     )
 }
@@ -330,13 +343,14 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     }
     let source_path = path.join(SOURCE);
     let settings: Settings = read_json(&root, &source_path.join(SETTINGS))?;
-    if !matches!(settings.version, 1..=8)
+    if !matches!(settings.version, 1..=9)
         || (settings.version == 1 && !settings.paths.is_empty())
         || (settings.version < 3 && !settings.artboards.is_empty())
         || (settings.version < 4 && !settings.path_shapes.is_empty())
         || (settings.version < 5 && !settings.patterns.is_empty())
         || (settings.version < 6 && !settings.gradients.is_empty())
         || (settings.version < 7 && !settings.bevels.is_empty())
+        || (settings.version < 9 && !settings.perspective.is_empty())
         || (settings.version < 8 && !settings.blend_if.is_empty())
         || (settings.layers.is_empty()
             && settings.paths.is_empty()
@@ -345,7 +359,8 @@ pub(super) fn load(path: &Path) -> Result<Document> {
             && settings.patterns.is_empty()
             && settings.gradients.is_empty()
             && settings.bevels.is_empty()
-            && settings.blend_if.is_empty())
+            && settings.blend_if.is_empty()
+            && settings.perspective.is_empty())
         || settings.artboards.len() > 10_000
         || settings.layers.len() > 10_000
         || settings.path_shapes.len() > 10_000
@@ -353,6 +368,7 @@ pub(super) fn load(path: &Path) -> Result<Document> {
         || settings.gradients.len() > 10_000
         || settings.bevels.len() > 10_000
         || settings.blend_if.len() > 10_000
+        || settings.perspective.len() > 20_000
     {
         return Err(invalid(
             "The Linux editing snapshot has an unsupported version or invalid source count.",
@@ -377,6 +393,7 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     gradients::validate(&settings.gradients)?;
     bevels::validate(&settings.bevels)?;
     blend_if::validate(&settings.blend_if)?;
+    perspective::validate(&settings.perspective)?;
     let pattern_pixels = patterns::preflight(&root, &source_path, &settings.patterns)?;
     // Reserve tile pixels before decoding source layers. The compatibility
     // image is not decoded when editable sources are available.
@@ -388,6 +405,7 @@ pub(super) fn load(path: &Path) -> Result<Document> {
         gradients::preflight(source, &settings.gradients)?;
         bevels::preflight(source, &settings.bevels)?;
         blend_if::preflight(source, &settings.blend_if)?;
+        perspective::preflight(&metadata, &settings.perspective)?;
         metadata.validate()
     })?;
     document.paths = settings.paths;
@@ -410,6 +428,7 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     gradients::restore(&mut document, settings.gradients)?;
     bevels::restore(&mut document, settings.bevels)?;
     blend_if::restore(&mut document, settings.blend_if)?;
+    perspective::restore(&mut document, settings.perspective)?;
     document.validate()?;
     Ok(document)
 }

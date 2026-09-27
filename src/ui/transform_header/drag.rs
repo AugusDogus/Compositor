@@ -2,6 +2,25 @@
 use super::*;
 use crate::ui::floating::{DragKind, PixelDrag, Placement};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum PerspectiveMode {
+    Retained,
+    Folded,
+}
+
+impl PerspectiveMode {
+    fn for_corners(corners: [Point; 4]) -> Result<Self> {
+        use compositor::geometry::projective::{Error, Projective};
+        match Projective::new(corners) {
+            Ok(_) => Ok(Self::Retained),
+            Err(Error::InvalidQuad) if compositor::distort::usable_corners(corners) => {
+                Ok(Self::Folded)
+            }
+            Err(error) => Err(invalid(error.to_string())),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(super) enum Draft {
     Affine(Transform),
@@ -9,6 +28,7 @@ pub(super) enum Draft {
         corners: [Point; 4],
         original: Box<Document>,
         bounds: Transform,
+        mode: PerspectiveMode,
     },
 }
 
@@ -193,6 +213,7 @@ impl Editor {
                     corners,
                     original,
                     bounds,
+                    mode: PerspectiveMode::for_corners(corners)?,
                 })?;
             }
         }
@@ -209,14 +230,23 @@ impl Editor {
                 corners,
                 original,
                 bounds,
+                mode,
             } => {
                 let mut preview = original.as_ref().clone();
-                compositor::distort::apply(
-                    &mut preview,
-                    *bounds,
-                    *corners,
-                    self.tools.mask_target,
-                )?;
+                match mode {
+                    PerspectiveMode::Retained => compositor::transform::apply_perspective(
+                        &mut preview,
+                        *bounds,
+                        *corners,
+                        self.tools.mask_target,
+                    )?,
+                    PerspectiveMode::Folded => compositor::distort::apply(
+                        &mut preview,
+                        *bounds,
+                        *corners,
+                        self.tools.mask_target,
+                    )?,
+                }
                 preview.validate()?;
                 self.session_mut().document = preview;
             }

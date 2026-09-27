@@ -39,6 +39,16 @@ impl Placement {
     }
 
     pub fn handles(self) -> [Point; 9] {
+        if let Self::Affine(transform) = self {
+            let handles = transform.resize_handles();
+            return std::array::from_fn(|index| {
+                if index < 8 {
+                    handles[index]
+                } else {
+                    transform.geometry_point([0.5, 0.])
+                }
+            });
+        }
         let c = self.corners();
         let midpoint = |a: Point, b: Point| [(a[0] + b[0]) / 2., (a[1] + b[1]) / 2.];
         [

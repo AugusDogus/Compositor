@@ -293,3 +293,51 @@ fn deserialized_sources_validate_style_and_unclipped_geometry() {
     unknown["unexpected"] = serde_json::json!(true);
     assert!(serde_json::from_value::<Source>(unknown).is_err());
 }
+
+#[test]
+fn perspective_source_edits_and_style_rebinding_preserve_cubic_mapping() {
+    let (shape, mut transform) = Content::from_document_path(rectangle(), fill()).unwrap();
+    transform.warp = Some(
+        crate::geometry::projective::Projective::new([[0., 0.], [1., 0.], [0.8, 1.], [0.2, 1.]])
+            .unwrap(),
+    );
+    let mut geometry = shape.source().geometry.clone();
+    geometry.anchors[1].outgoing = Some([30., 15.]);
+    let expected: Vec<_> = geometry
+        .anchors
+        .iter()
+        .map(|a| {
+            transform.point([
+                a.point[0] / f64::from(shape.source().size[0]),
+                a.point[1] / f64::from(shape.source().size[1]),
+            ])
+        })
+        .collect();
+    let (edited, next) = shape
+        .edited_local(
+            geometry,
+            Style {
+                stroke: Some(Stroke {
+                    width: 8.,
+                    color: [255; 4],
+                }),
+                ..fill()
+            },
+            transform,
+        )
+        .unwrap();
+    assert!(next.warp.is_some());
+    for (anchor, expected) in edited.source().geometry.anchors.iter().zip(expected) {
+        let actual = next.point([
+            anchor.point[0] / f64::from(edited.source().size[0]),
+            anchor.point[1] / f64::from(edited.source().size[1]),
+        ]);
+        assert!((actual[0] - expected[0]).hypot(actual[1] - expected[1]) < 1e-8);
+    }
+    assert!(edited.source().geometry.anchors[1].outgoing.is_some());
+    assert!(
+        edited
+            .edited(edited.document_path(next).unwrap(), fill(), next)
+            .is_err()
+    );
+}

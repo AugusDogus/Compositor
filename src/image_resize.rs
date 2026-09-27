@@ -17,6 +17,20 @@ pub fn resize(
     resolution: f64,
     sampling: Sampling,
 ) -> Result<()> {
+    let mut updated = doc.clone();
+    resize_inner(&mut updated, width, height, resolution, sampling)?;
+    updated.validate()?;
+    *doc = updated;
+    Ok(())
+}
+
+fn resize_inner(
+    doc: &mut Document,
+    width: u32,
+    height: u32,
+    resolution: f64,
+    sampling: Sampling,
+) -> Result<()> {
     crate::document::validate_canvas_size(width, height)?;
     if !(1. ..=9600.).contains(&resolution) {
         return Err(invalid(
@@ -38,7 +52,7 @@ pub fn resize(
         if layer.is_artboard() {
             crate::artboard::validate_frame(scaled_artboard(layer.transform, [sx, sy]))?;
         }
-        if layer.raw.is_some() || layer.is_path_shape() {
+        if layer.raw.is_some() || layer.is_path_shape() || layer.transform.warp.is_some() {
             let transform = source_placement(layer.transform, [sx, sy], sampling)?;
             if let Some(shape) = layer.path_shape() {
                 previews.insert(layer.id, shape.resized_preview(transform)?);
@@ -51,17 +65,17 @@ pub fn resize(
         if layer.is_artboard() {
             layer.transform = scaled_artboard(layer.transform, [sx, sy]);
             if let Some(placement) = layer.mask.as_mut().and_then(|mask| mask.placement.as_mut()) {
-                *placement = placement.following(old_canvas, new_canvas);
+                *placement = placement.following(old_canvas, new_canvas)?;
             }
             continue;
         }
-        if layer.raw.is_some() || layer.is_path_shape() {
+        if layer.raw.is_some() || layer.is_path_shape() || layer.transform.warp.is_some() {
             layer.transform = source_placement(layer.transform, [sx, sy], sampling)?;
             if let Some(shape) = previews.remove(&layer.id) {
                 layer.content = LayerContent::PathShape(Box::new(shape));
             }
             if let Some(placement) = layer.mask.as_mut().and_then(|mask| mask.placement.as_mut()) {
-                *placement = placement.following(old_canvas, new_canvas);
+                *placement = placement.following(old_canvas, new_canvas)?;
             }
             continue;
         }
@@ -95,7 +109,7 @@ pub fn resize(
         }
         if let Some(mask) = &mut layer.mask {
             if let Some(placement) = mask.placement {
-                mask.placement = Some(placement.following(old_canvas, new_canvas));
+                mask.placement = Some(placement.following(old_canvas, new_canvas)?);
             } else if mask.pixels.dimensions() != (1, 1) {
                 let source =
                     RgbaImage::from_fn(mask.pixels.width(), mask.pixels.height(), |x, y| {
@@ -133,6 +147,21 @@ fn scaled_artboard(mut frame: Transform, scale: Point) -> Transform {
 }
 
 fn source_placement(old: Transform, [sx, sy]: Point, sampling: Sampling) -> Result<Transform> {
+    if old.warp.is_some() {
+        let scale = crate::geometry::projective::Homography::from_matrix([
+            sx, 0., 0., 0., sy, 0., 0., 0., 1.,
+        ])
+        .and_then(|scale| scale.compose(old.mapping()?))
+        .map_err(|e| invalid(e.to_string()))?;
+        let candidate = Transform {
+            origin: [old.origin[0] * sx, old.origin[1] * sy],
+            size: [old.size[0] * sx, old.size[1] * sy],
+            sampling,
+            ..old
+        };
+        return candidate.with_mapping(scale);
+    }
+
     let (sin, cos) = old.rotation.to_radians().sin_cos();
     let x = [cos * sx, sin * sy];
     let y = [-sin * sx, cos * sy];

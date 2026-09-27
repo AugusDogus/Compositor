@@ -1,3 +1,6 @@
+mod placement;
+pub mod projective;
+
 use serde::{Deserialize, Serialize};
 
 pub type Point = [f64; 2];
@@ -24,6 +27,8 @@ pub struct Transform {
     pub flip_y: bool,
     #[serde(default)]
     pub sampling: Sampling,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warp: Option<projective::Projective>,
 }
 
 impl Transform {
@@ -38,7 +43,8 @@ impl Transform {
         [0., 0.5],
     ];
 
-    pub fn mirrored(mut self, horizontal: bool, axis: f64) -> Self {
+    pub fn mirrored(mut self, horizontal: bool, axis: f64) -> crate::Result<Self> {
+        let original = self;
         let index = usize::from(!horizontal);
         self.origin[index] = 2. * axis - self.origin[index] - self.size[index];
         if horizontal {
@@ -47,7 +53,22 @@ impl Transform {
             self.flip_y = !self.flip_y;
         }
         self.rotation = -self.rotation;
-        self
+        if original.warp.is_some() {
+            let reflection = projective::Homography::from_matrix(if horizontal {
+                [-1., 0., 2. * axis, 0., 1., 0., 0., 0., 1.]
+            } else {
+                [1., 0., 0., 0., -1., 2. * axis, 0., 0., 1.]
+            })
+            .and_then(|matrix| matrix.compose(original.mapping()?))
+            .map_err(|e| crate::invalid(e.to_string()))?;
+            self.with_mapping(reflection)
+        } else if self.valid() {
+            Ok(self)
+        } else {
+            Err(crate::invalid(
+                "Mirroring would exceed the supported layer bounds. The document is unchanged.",
+            ))
+        }
     }
 
     pub fn geometry_point(&self, unit: Point) -> Point {
@@ -57,32 +78,24 @@ impl Transform {
         t.point(unit)
     }
 
-    pub fn following(&self, old: Self, new: Self) -> Self {
-        if *self == old {
-            return new;
-        }
-        let map = |p| new.point(old.unit(self.point(p)));
-        let a = map([0., 0.]);
-        let b = map([1., 0.]);
-        let c = map([0., 1.]);
-        let center = map([0.5, 0.5]);
-        let sign = if self.flip_x { -1. } else { 1. };
-        let angle = ((b[1] - a[1]) * sign).atan2((b[0] - a[0]) * sign);
-        let along = -(c[0] - a[0]) * angle.sin() + (c[1] - a[1]) * angle.cos();
-        let size = [
-            (b[0] - a[0]).hypot(b[1] - a[1]).max(1.),
-            along.abs().max(1.),
-        ];
-        let degrees = angle.to_degrees();
-        Self {
-            origin: [center[0] - size[0] / 2., center[1] - size[1] / 2.],
-            size,
-            rotation: degrees + ((self.rotation - degrees) / 360.).round() * 360.,
-            flip_x: self.flip_x,
-            flip_y: along < 0.,
-            sampling: self.sampling,
-        }
+    /// Visible resize handles use geometric edge midpoints, which differ from
+    /// mapped source midpoints under perspective.
+    pub fn resize_handles(self) -> [Point; 8] {
+        let c = [[0., 0.], [1., 0.], [1., 1.], [0., 1.]].map(|point| self.geometry_point(point));
+        std::array::from_fn(|index| {
+            let corner = index / 2;
+            if index % 2 == 0 {
+                c[corner]
+            } else {
+                let next = (corner + 1) % 4;
+                [
+                    (c[corner][0] + c[next][0]) / 2.,
+                    (c[corner][1] + c[next][1]) / 2.,
+                ]
+            }
+        })
     }
+
     pub fn new(width: u32, height: u32) -> Self {
         Self {
             origin: [0., 0.],
@@ -91,6 +104,7 @@ impl Transform {
             flip_x: false,
             flip_y: false,
             sampling: Sampling::High,
+            warp: None,
         }
     }
 
@@ -103,6 +117,12 @@ impl Transform {
                 .iter()
                 .all(|n| n.is_finite() && (1. ..=300_000.).contains(n))
             && self.rotation.is_finite()
+            && self.warp.is_none_or(|_| {
+                let b = self.bounds();
+                b.iter().all(|v| v.is_finite() && v.abs() <= 2_000_000.)
+                    && b[2] - b[0] <= 300_000.
+                    && b[3] - b[1] <= 300_000.
+            })
     }
 
     pub fn point(&self, mut unit: Point) -> Point {
@@ -111,6 +131,9 @@ impl Transform {
         }
         if self.flip_y {
             unit[1] = 1. - unit[1];
+        }
+        if let Some(warp) = self.warp {
+            unit = warp.mapping().coordinates(unit);
         }
         let (sin, cos) = self.rotation.to_radians().sin_cos();
         let x = (unit[0] - 0.5) * self.size[0];
@@ -129,6 +152,9 @@ impl Transform {
             (x * cos + y * sin) / self.size[0] + 0.5,
             (-x * sin + y * cos) / self.size[1] + 0.5,
         ];
+        if let Some(warp) = self.warp {
+            p = warp.inverse_mapping().coordinates(p);
+        }
         if self.flip_x {
             p[0] = 1. - p[0];
         }

@@ -142,6 +142,13 @@ fn load_native_checked(
     doc.layers.clear();
     // Validate metadata and references before decoding large assets.
     for record in &manifest.layers {
+        if record.transform.warp.is_some()
+            || record.mask_placement.is_some_and(|t| t.warp.is_some())
+        {
+            return Err(invalid(
+                "Perspective placements require a Linux authoring snapshot; they are not supported in a native macOS manifest.",
+            ));
+        }
         let group = record.is_group.unwrap_or(false);
         if record
             .image_file
@@ -392,6 +399,9 @@ fn native_metadata(document: &Document) -> Result<Vec<u8>> {
     let records = document.layers.iter().map(|layer| {
         if layer.blend_if.is_some() {
             return Err(invalid("Blend If requires the Linux editing snapshot. Save a .comp project to retain its editable ranges."));
+        }
+        if layer.transform.warp.is_some() || layer.mask.as_ref().and_then(|m| m.placement).is_some_and(|t| t.warp.is_some()) {
+            return Err(invalid("Perspective placements require a Linux authoring snapshot."));
         }
         if layer.effects.as_ref().is_some_and(|e| e.pattern_overlay.is_some() || e.gradient_overlay.is_some() || e.bevel.is_some()) {
             return Err(invalid("Pattern Overlay, Gradient Overlay and Bevel/Emboss require a Linux authoring snapshot."));

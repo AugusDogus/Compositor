@@ -308,13 +308,13 @@ pub fn update_layer(layer: &mut Layer, style: Text, pixels: RgbaImage) -> Result
     let old = layer
         .raster()
         .ok_or_else(|| invalid("The text layer has no cached image."))?;
-    let mut transform = layer.transform;
-    let anchor = transform.point([0., 0.]);
-    transform.size[0] *= f64::from(pixels.width()) / f64::from(old.width());
-    transform.size[1] *= f64::from(pixels.height()) / f64::from(old.height());
-    let moved = transform.point([0., 0.]);
-    transform.origin[0] += anchor[0] - moved[0];
-    transform.origin[1] += anchor[1] - moved[1];
+    let transform = layer.transform.rebind(
+        [0., 0.],
+        [
+            f64::from(pixels.width()) / f64::from(old.width()),
+            f64::from(pixels.height()) / f64::from(old.height()),
+        ],
+    )?;
     if !transform.valid() {
         return Err(invalid(
             "The edited text exceeds supported transform bounds.",

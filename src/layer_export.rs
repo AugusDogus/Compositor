@@ -16,12 +16,11 @@ struct Target {
     size: [u32; 2],
 }
 
-fn target(document: &Document, layer: &Layer) -> Option<Target> {
-    layer.raster()?;
-    if !document.layer_is_visible(layer.id) {
-        return None;
+fn target(document: &Document, layer: &Layer) -> Result<Option<Target>> {
+    if layer.raster().is_none() || !document.layer_is_visible(layer.id) {
+        return Ok(None);
     }
-    let transform = crate::effects::rendered_transform(layer);
+    let transform = crate::effects::rendered_transform(layer)?;
     // Quarter turns can put an exact pixel edge a few ulps below an integer.
     // Avoid adding an empty export row solely from trigonometric roundoff.
     let bounds = transform.bounds().map(|edge| {
@@ -36,11 +35,11 @@ fn target(document: &Document, layer: &Layer) -> Option<Target> {
     let top = bounds[1].floor().max(0.);
     let right = bounds[2].ceil().min(f64::from(document.width));
     let bottom = bounds[3].ceil().min(f64::from(document.height));
-    (right > left && bottom > top).then_some(Target {
+    Ok((right > left && bottom > top).then_some(Target {
         id: layer.id,
         origin: [left, top],
         size: [(right - left) as u32, (bottom - top) as u32],
-    })
+    }))
 }
 
 pub fn has_exportable_layers(document: &Document) -> bool {
@@ -49,10 +48,10 @@ pub fn has_exportable_layers(document: &Document) -> bool {
         .flat_map(|stack| stack.contiguous.into_iter().chain(stack.adjustments))
         .map(|index| document.layers[index].id)
         .collect();
-    document
-        .layers
-        .iter()
-        .any(|layer| !absorbed.contains(&layer.id) && target(document, layer).is_some())
+    document.layers.iter().any(|layer| {
+        !absorbed.contains(&layer.id)
+            && target(document, layer).is_ok_and(|target| target.is_some())
+    })
 }
 
 fn isolated(document: &Document, target: Uuid, stacks: &HashMap<Uuid, Vec<Uuid>>) -> Document {
@@ -98,21 +97,22 @@ fn isolated(document: &Document, target: Uuid, stacks: &HashMap<Uuid, Vec<Uuid>>
 /// Ancestor masks and opacity remain active.
 pub fn export(document: &Document, parent: &Path, title: &str) -> Result<PathBuf> {
     document.validate()?;
-    fn visit(document: &Document, parent: Option<Uuid>, targets: &mut Vec<Target>) {
+    fn visit(document: &Document, parent: Option<Uuid>, targets: &mut Vec<Target>) -> Result<()> {
         for layer in document
             .layers
             .iter()
             .filter(|layer| layer.parent == parent && layer.visible)
         {
             if layer.is_group() {
-                visit(document, Some(layer.id), targets);
-            } else if let Some(target) = target(document, layer) {
+                visit(document, Some(layer.id), targets)?;
+            } else if let Some(target) = target(document, layer)? {
                 targets.push(target);
             }
         }
+        Ok(())
     }
     let mut targets = Vec::new();
-    visit(document, None, &mut targets);
+    visit(document, None, &mut targets)?;
     let stacks: HashMap<Uuid, Vec<Uuid>> = crate::clipping::stacks(document)
         .into_iter()
         .map(|stack| {
