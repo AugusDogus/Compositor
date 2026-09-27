@@ -123,7 +123,12 @@ fn channel_mixer_layers_gpu_matches_signed_coefficients_constants_and_monochrome
             let actual = engine.render(&scene, [4, 2], [0.; 2], [1.; 2]).unwrap();
             let expected = render(&doc, 4, 2).unwrap();
             for (a, b) in actual.as_raw().iter().zip(expected.as_raw()) {
-                assert!(a.abs_diff(*b) <= 1, "mono={monochrome} clipped={clipping}: GPU={:?} CPU={:?}", actual, expected);
+                assert!(
+                    a.abs_diff(*b) <= 1,
+                    "mono={monochrome} clipped={clipping}: GPU={:?} CPU={:?}",
+                    actual,
+                    expected
+                );
             }
         }
     }
