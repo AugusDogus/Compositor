@@ -74,6 +74,7 @@ impl Mask {
 #[derive(Clone, Debug, PartialEq)]
 pub enum LayerContent {
     Raster(Option<Arc<RgbaImage>>),
+    PathShape(Box<crate::path_shape::Content>),
     Group,
     Artboard(crate::artboard::Artboard),
     Adjustment(Box<crate::adjustment::Adjustment>),
@@ -195,6 +196,7 @@ impl Layer {
     pub fn raster(&self) -> Option<&Arc<RgbaImage>> {
         match &self.content {
             LayerContent::Raster(pixels) => pixels.as_ref(),
+            LayerContent::PathShape(shape) => Some(shape.pixels()),
             _ => None,
         }
     }
@@ -213,8 +215,22 @@ impl Layer {
     pub fn is_artboard(&self) -> bool {
         matches!(self.content, LayerContent::Artboard(_))
     }
-    /// Pixel edits require explicitly discarding the editable camera source first.
+    pub fn path_shape(&self) -> Option<&crate::path_shape::Content> {
+        match &self.content {
+            LayerContent::PathShape(shape) => Some(shape),
+            _ => None,
+        }
+    }
+    pub fn is_path_shape(&self) -> bool {
+        matches!(self.content, LayerContent::PathShape(_))
+    }
+    /// Pixel edits require explicitly discarding editable source geometry first.
     pub fn require_rasterized(&self) -> Result<()> {
+        if self.is_path_shape() {
+            return Err(invalid(
+                "This is an editable path shape. Choose Layer > Rasterize Path Shape before editing its pixels, or paint on a separate layer. Its geometry and appearance are unchanged.",
+            ));
+        }
         if self.raw.is_some() {
             return Err(invalid(
                 "This is an editable RAW layer. Choose Layer > Rasterize RAW Layer before editing its pixels, or paint on a separate layer. The RAW source and current image are unchanged.",
@@ -339,6 +355,14 @@ impl Document {
         let mut raw_sources = HashSet::new();
         let mut raw_bytes = 0_u64;
         for layer in &self.layers {
+            if let Some(shape) = layer.path_shape() {
+                shape.source().validate()?;
+                if layer.text.is_some() || layer.shape.is_some() || layer.raw.is_some() {
+                    return Err(invalid(
+                        "A path shape cannot also contain text, a primitive shape, or a RAW source.",
+                    ));
+                }
+            }
             if let Some(text) = &layer.text {
                 text.validate()?;
                 if layer.raster().is_none() || layer.shape.is_some() {

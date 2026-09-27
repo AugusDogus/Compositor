@@ -149,6 +149,11 @@ impl DownsampleCache {
         self.entries.retain(Entry::alive);
         let mut prepared = doc.clone();
         for layer in &mut prepared.layers {
+            // Rendering copies use the cached pixels, while the source document
+            // keeps editable geometry. Shapes need the same minification filter.
+            if let LayerContent::PathShape(shape) = &layer.content {
+                layer.content = LayerContent::Raster(Some(shape.pixels().clone()));
+            }
             if layer.transform.sampling == Sampling::High
                 && let LayerContent::Raster(Some(pixels)) = &mut layer.content
             {
@@ -191,6 +196,11 @@ impl DownsampleCache {
         self.entries.retain(Entry::alive);
         let mut prepared = doc.clone();
         for layer in &mut prepared.layers {
+            // Rendering copies use the cached pixels, while the source document
+            // keeps editable geometry. Shapes need the same minification filter.
+            if let LayerContent::PathShape(shape) = &layer.content {
+                layer.content = LayerContent::Raster(Some(shape.pixels().clone()));
+            }
             if layer.transform.sampling == Sampling::High
                 && let LayerContent::Raster(Some(pixels)) = &mut layer.content
             {

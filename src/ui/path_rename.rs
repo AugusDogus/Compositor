@@ -174,7 +174,7 @@ mod tests {
         editor.tabs = vec![Session::new(document, None).into()];
         editor.tools.tool = Tool::Pen;
         editor.tools.paths.active = Some(super::super::paths::Active {
-            id,
+            target: super::super::path_target::Target::Saved(id),
             selected: Some(0),
             mode: super::super::paths::Mode::Editing,
         });

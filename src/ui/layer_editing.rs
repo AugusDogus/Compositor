@@ -7,6 +7,9 @@ impl Action {
             self,
             Self::NewArtboard
                 | Self::ArtboardFromLayers
+                | Self::PathShapeSettings
+                | Self::EditPathShape(_)
+                | Self::RasterizePathShape
                 | Self::ArtboardSettings
                 | Self::EditArtboard(_)
                 | Self::AddLayer

@@ -119,6 +119,8 @@ mod parameter_controls;
 mod path_header;
 mod path_overlay;
 mod path_rename;
+mod path_shapes;
+mod path_target;
 mod paths;
 mod photo_filter_controls;
 mod pixel_clipboard;
@@ -296,6 +298,9 @@ pub enum Action {
     DevelopRaw,
     CameraRaw,
     RasterizeRaw,
+    PathShapeSettings,
+    EditPathShape(uuid::Uuid),
+    RasterizePathShape,
     ExportPsd,
     OpenPsd,
     OpenRaw,

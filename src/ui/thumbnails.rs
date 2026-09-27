@@ -204,7 +204,11 @@ impl Editor {
             }
             if mask
                 && let Some(matte) = &layer.mask
-                && matches!(layer.content, compositor::document::LayerContent::Raster(_))
+                && matches!(
+                    layer.content,
+                    compositor::document::LayerContent::Raster(_)
+                        | compositor::document::LayerContent::PathShape(_)
+                )
             {
                 row = row.child(self.mask_link_slot(cx, layer, matte));
             } else if mask {
@@ -218,6 +222,7 @@ impl Editor {
                 match &layer.content {
                     compositor::document::LayerContent::Group => Some(Icon::Folder),
                     compositor::document::LayerContent::Artboard(_) => Some(Icon::Artboard),
+                    compositor::document::LayerContent::PathShape(_) => Some(Icon::Pen),
                     compositor::document::LayerContent::ExtendedAdjustment(_) => {
                         Some(Icon::Palette)
                     }

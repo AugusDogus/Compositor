@@ -423,6 +423,9 @@ impl Editor {
                         );
                     }
                     let description = match action {
+                        Action::EditPathShape(_) => Some(
+                            "Colors: none, #RRGGBB or #RRGGBBAA. Stroke width uses source pixels and scales with the layer.",
+                        ),
                         Action::Filter(compositor::filters::Filter::ContentFill) => {
                             Some("Fill the selection using surrounding pixels from this layer.")
                         }
@@ -655,6 +658,7 @@ impl Editor {
             Ok(n as u32)
         };
         match action {
+            Action::EditPathShape(id) => self.apply_path_shape(id, &values)?,
             Action::NewArtboard => self.apply_artboard(None, &values)?,
             Action::EditArtboard(id) => self.apply_artboard(Some(id), &values)?,
             Action::EditExtendedAdjustment => self.finish_extended_adjustment()?,

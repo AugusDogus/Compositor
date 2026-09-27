@@ -103,6 +103,9 @@ impl Editor {
             return false;
         };
         match command {
+            Command::Edit(Action::PathShapeSettings | Action::RasterizePathShape) => {
+                layer.is_path_shape()
+            }
             Command::Edit(Action::DevelopRaw | Action::RasterizeRaw) => layer.raw.is_some(),
             Command::Edit(Action::AddMask | Action::HideMask) => layer.mask.is_none(),
             Command::Edit(Action::ToggleMask | Action::DeleteMask) => layer.mask.is_some(),

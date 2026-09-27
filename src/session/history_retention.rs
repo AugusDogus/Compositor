@@ -73,6 +73,15 @@ fn visit_assets(document: &Document, seen: &mut HashSet<usize>) -> usize {
         });
     }
     for layer in &document.layers {
+        if let Some(shape) = layer.path_shape()
+            && seen.insert(std::ptr::from_ref(shape.source()) as usize)
+        {
+            bytes = bytes.saturating_add(
+                std::mem::size_of::<crate::path_shape::Source>()
+                    + shape.source().geometry.anchors.capacity()
+                        * std::mem::size_of::<crate::vector_path::Anchor>(),
+            );
+        }
         if let Some(raw) = &layer.raw
             && seen.insert(Arc::as_ptr(&raw.bytes) as usize)
         {

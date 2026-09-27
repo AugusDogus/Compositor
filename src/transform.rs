@@ -187,9 +187,24 @@ pub fn apply(doc: &mut Document, old: Transform, new: Transform, mask_target: bo
         return Ok(());
     }
     let ids = target_ids(doc);
+    let previews = doc
+        .layers
+        .iter()
+        .filter(|layer| ids.contains(&layer.id))
+        .filter_map(|layer| layer.path_shape().map(|shape| (layer, shape)))
+        .map(|(layer, shape)| {
+            Ok((
+                layer.id,
+                shape.resized_preview(layer.transform.following(old, new))?,
+            ))
+        })
+        .collect::<Result<std::collections::HashMap<_, _>>>()?;
     for layer in doc.layers.iter_mut().filter(|l| ids.contains(&l.id)) {
         let before = layer.transform;
         layer.transform = before.following(old, new);
+        if let Some(shape) = previews.get(&layer.id) {
+            layer.content = LayerContent::PathShape(Box::new(shape.clone()));
+        }
         if let Some(mask) = &mut layer.mask {
             if mask.linked {
                 if let Some(placement) = mask.placement {

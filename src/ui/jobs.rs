@@ -3,7 +3,7 @@ use compositor::{background::Quality, filters::Filter, invalid};
 
 pub(super) enum Job {
     Path {
-        path: uuid::Uuid,
+        path: super::path_target::Target,
         operation: compositor::path_operations::Operation,
     },
     Fade {
@@ -95,7 +95,10 @@ impl Job {
 
     pub(super) fn run(self, mut document: Document) -> Result<Document> {
         match self {
-            Job::Path { path, operation } => operation.apply(&mut document, path)?,
+            Job::Path { path, operation } => {
+                let geometry = path.snapshot(&document)?.geometry;
+                operation.apply_geometry(&mut document, &geometry)?;
+            }
             Job::Fade { source, amount } => source.apply(&mut document, amount)?,
             Job::Trim(options) => compositor::trim::apply(&mut document, options)?,
             Job::SelectForeground(settings) => {

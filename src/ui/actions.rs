@@ -103,6 +103,9 @@ impl Editor {
                     "Select a visible layer with pixels before transforming it.",
                 ))
             }
+            Action::PathShapeSettings => self.open_selected_path_shape(),
+            Action::EditPathShape(id) => self.open_path_shape(id),
+            Action::RasterizePathShape => self.rasterize_path_shape(),
             Action::NewArtboard => self.open_artboard(None),
             Action::EditArtboard(id) => self.open_artboard(Some(id)),
             Action::ArtboardSettings => self.edit_selected_artboard(),

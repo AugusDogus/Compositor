@@ -1,6 +1,8 @@
 mod artboard;
 mod downsample;
 pub(crate) mod gpu;
+#[cfg(test)]
+mod path_shape_tests;
 mod spatial;
 pub use downsample::DownsampleCache;
 
@@ -113,6 +115,11 @@ fn coverage(
         LayerContent::Raster(Some(image)) => {
             pixel(image, layer.transform.unit(point), layer.transform.sampling)[3]
         }
+        LayerContent::PathShape(shape) => pixel(
+            shape.pixels(),
+            layer.transform.unit(point),
+            layer.transform.sampling,
+        )[3],
         LayerContent::Raster(None) => 0.,
         _ => 1.,
     };

@@ -37,15 +37,22 @@ impl Operation {
     }
 
     pub fn apply(&self, document: &mut Document, path: Uuid) -> Result<()> {
+        let geometry = geometry(document, path)?.clone();
+        self.apply_geometry(document, &geometry)
+    }
+
+    pub fn apply_geometry(&self, document: &mut Document, geometry: &BezierPath) -> Result<()> {
         match self {
-            Self::Select { mode, antialiased } => select(document, path, *mode, *antialiased),
+            Self::Select { mode, antialiased } => {
+                select_geometry(document, geometry, *mode, *antialiased)
+            }
             Self::Fill {
                 color,
                 mask,
                 antialiased,
-            } => fill(document, path, *color, *mask, *antialiased),
+            } => fill_geometry(document, geometry, *color, *mask, *antialiased),
             Self::Stroke { brush, shape, mask } => {
-                stroke(document, path, *brush, shape.clone(), *mask)
+                stroke_geometry(document, geometry, *brush, shape.clone(), *mask)
             }
         }
     }
@@ -57,13 +64,23 @@ fn geometry(document: &Document, path: Uuid) -> Result<&BezierPath> {
         .ok_or_else(|| invalid("The saved path no longer exists. Select another path and retry; the document is unchanged."))
 }
 
-fn area(document: &Document, path: Uuid, antialiased: bool) -> Result<Selection> {
-    geometry(document, path)?.selection(document.width, document.height, antialiased)
+fn area(document: &Document, path: &BezierPath, antialiased: bool) -> Result<Selection> {
+    path.selection(document.width, document.height, antialiased)
 }
 
 pub fn select(
     document: &mut Document,
     path: Uuid,
+    mode: SelectionMode,
+    antialiased: bool,
+) -> Result<()> {
+    let geometry = geometry(document, path)?.clone();
+    select_geometry(document, &geometry, mode, antialiased)
+}
+
+fn select_geometry(
+    document: &mut Document,
+    path: &BezierPath,
     mode: SelectionMode,
     antialiased: bool,
 ) -> Result<()> {
@@ -82,6 +99,17 @@ pub fn select(
 pub fn fill(
     document: &mut Document,
     path: Uuid,
+    color: [u8; 4],
+    mask: bool,
+    antialiased: bool,
+) -> Result<()> {
+    let geometry = geometry(document, path)?.clone();
+    fill_geometry(document, &geometry, color, mask, antialiased)
+}
+
+fn fill_geometry(
+    document: &mut Document,
+    path: &BezierPath,
     color: [u8; 4],
     mask: bool,
     antialiased: bool,
@@ -107,7 +135,18 @@ pub fn stroke(
     shape: sampled::Shape,
     mask: bool,
 ) -> Result<()> {
-    let points = geometry(document, path)?.flatten(FlattenOptions::default())?;
+    let geometry = geometry(document, path)?.clone();
+    stroke_geometry(document, &geometry, brush, shape, mask)
+}
+
+fn stroke_geometry(
+    document: &mut Document,
+    geometry: &BezierPath,
+    brush: Brush,
+    shape: sampled::Shape,
+    mask: bool,
+) -> Result<()> {
+    let points = geometry.flatten(FlattenOptions::default())?;
     brush::paint_polyline(document, &points, brush, shape, mask)
 }
 

@@ -50,7 +50,10 @@ pub fn change(doc: &Document, target: Uuid) -> Option<Change> {
             return None;
         }
         let base = doc.layer(current)?;
-        if !matches!(base.content, LayerContent::Raster(_)) {
+        if !matches!(
+            base.content,
+            LayerContent::Raster(_) | LayerContent::PathShape(_)
+        ) {
             return None;
         }
         match base.clip_source {
@@ -129,6 +132,9 @@ pub fn delete_selected(doc: &mut Document, mode: DeleteMode) -> Result<()> {
                     .clip_source
                     .is_some_and(|source| removed.contains(&source))
         }) {
+            if layer.is_path_shape() {
+                layer.require_rasterized()?;
+            }
             if let Some(pixels) = render::clipped_pixels(doc, layer)? {
                 baked.insert(layer.id, Arc::new(pixels));
             }

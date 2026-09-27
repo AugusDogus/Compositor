@@ -31,14 +31,18 @@ pub fn resize(
     let sx = width as f64 / doc.width as f64;
     let sy = height as f64 / doc.height as f64;
     let paths = crate::vector_path::mapped(&doc.paths, |[x, y]| [x * sx, y * sy])?;
-    // A rotated nonuniform resize can introduce shear, which the editable RAW
-    // placement cannot represent. Check before changing any layer.
+    // Editable source placement cannot represent a rotated nonuniform shear.
+    // Check and prepare vector previews before changing any layer.
+    let mut previews = std::collections::HashMap::new();
     for layer in &doc.layers {
         if layer.is_artboard() {
             crate::artboard::validate_frame(scaled_artboard(layer.transform, [sx, sy]))?;
         }
-        if layer.raw.is_some() {
-            raw_placement(layer.transform, [sx, sy], sampling)?;
+        if layer.raw.is_some() || layer.is_path_shape() {
+            let transform = source_placement(layer.transform, [sx, sy], sampling)?;
+            if let Some(shape) = layer.path_shape() {
+                previews.insert(layer.id, shape.resized_preview(transform)?);
+            }
         }
     }
     let old_canvas = Transform::new(doc.width, doc.height);
@@ -51,8 +55,11 @@ pub fn resize(
             }
             continue;
         }
-        if layer.raw.is_some() {
-            layer.transform = raw_placement(layer.transform, [sx, sy], sampling)?;
+        if layer.raw.is_some() || layer.is_path_shape() {
+            layer.transform = source_placement(layer.transform, [sx, sy], sampling)?;
+            if let Some(shape) = previews.remove(&layer.id) {
+                layer.content = LayerContent::PathShape(Box::new(shape));
+            }
             if let Some(placement) = layer.mask.as_mut().and_then(|mask| mask.placement.as_mut()) {
                 *placement = placement.following(old_canvas, new_canvas);
             }
@@ -125,7 +132,7 @@ fn scaled_artboard(mut frame: Transform, scale: Point) -> Transform {
     frame
 }
 
-fn raw_placement(old: Transform, [sx, sy]: Point, sampling: Sampling) -> Result<Transform> {
+fn source_placement(old: Transform, [sx, sy]: Point, sampling: Sampling) -> Result<Transform> {
     let (sin, cos) = old.rotation.to_radians().sin_cos();
     let x = [cos * sx, sin * sy];
     let y = [-sin * sx, cos * sy];
@@ -133,7 +140,7 @@ fn raw_placement(old: Transform, [sx, sy]: Point, sampling: Sampling) -> Result<
     let y_length = y[0].hypot(y[1]);
     if (x[0] * y[0] + x[1] * y[1]).abs() > 1e-10 * x_length * y_length {
         return Err(invalid(
-            "Resizing a rotated RAW layer with different horizontal and vertical scales would shear its source. Use proportional dimensions, or choose Layer > Rasterize RAW Layer first. The current image is unchanged.",
+            "Resizing this rotated editable source with different horizontal and vertical scales would shear it. Use proportional dimensions, or rasterize the layer first. The current image is unchanged.",
         ));
     }
     let size = [old.size[0] * x_length, old.size[1] * y_length];
@@ -147,7 +154,7 @@ fn raw_placement(old: Transform, [sx, sy]: Point, sampling: Sampling) -> Result<
     };
     if !next.valid() {
         return Err(invalid(
-            "Resizing would move the RAW layer outside supported bounds. Choose smaller dimensions; the current image is unchanged.",
+            "Resizing would move an editable source layer outside supported bounds. Choose smaller dimensions; the current image is unchanged.",
         ));
     }
     Ok(next)

@@ -70,6 +70,10 @@ impl Batch {
                     placement.size = placement.size.map(|size| size.max(1.));
                 }
                 layer.transform = checked(placement)?;
+                if let Some(shape) = layer.path_shape() {
+                    layer.content =
+                        LayerContent::PathShape(Box::new(shape.resized_preview(layer.transform)?));
+                }
                 if let Some(placement) =
                     layer.mask.as_mut().and_then(|mask| mask.placement.as_mut())
                 {

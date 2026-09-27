@@ -64,7 +64,7 @@ impl Editor {
         if self.tools.tool != Tool::Pen {
             return Ok(div());
         }
-        let Some(path) = self.active_path() else {
+        let Some(path) = self.path_snapshot()? else {
             return Ok(div());
         };
         let selected = self.tools.paths.active.and_then(|a| a.selected);

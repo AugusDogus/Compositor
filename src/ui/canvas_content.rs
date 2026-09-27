@@ -31,6 +31,7 @@ struct LayerKey {
 
 enum Pixels {
     Raster(Option<Weak<RgbaImage>>),
+    PathShape(Weak<RgbaImage>),
     Group,
     Artboard(compositor::artboard::Artboard),
     Adjustment(Box<Adjustment>),
@@ -75,6 +76,7 @@ impl LayerKey {
             clip_source: layer.clip_source,
             content: match &layer.content {
                 LayerContent::Raster(pixels) => Pixels::Raster(pixels.as_ref().map(Arc::downgrade)),
+                LayerContent::PathShape(shape) => Pixels::PathShape(Arc::downgrade(shape.pixels())),
                 LayerContent::Group => Pixels::Group,
                 LayerContent::Artboard(board) => Pixels::Artboard(*board),
                 LayerContent::Adjustment(value) => Pixels::Adjustment(value.clone()),
@@ -103,6 +105,9 @@ impl LayerKey {
                 (Pixels::Raster(Some(a)), LayerContent::Raster(Some(b))) => {
                     a.ptr_eq(&Arc::downgrade(b))
                 }
+                (Pixels::PathShape(a), LayerContent::PathShape(b)) => {
+                    a.ptr_eq(&Arc::downgrade(b.pixels()))
+                }
                 (Pixels::Raster(None), LayerContent::Raster(None))
                 | (Pixels::Group, LayerContent::Group) => true,
                 (Pixels::Artboard(a), LayerContent::Artboard(b)) => a == b,
@@ -129,6 +134,60 @@ impl MaskKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn path_shape_geometry_style_and_resolution_changes_invalidate_canvas_cache() {
+        use compositor::{
+            path_shape::{Content, Style},
+            vector_path::{Anchor, BezierPath, Closure},
+        };
+        let geometry = BezierPath {
+            anchors: [[1., 1.], [8., 1.], [8., 8.], [1., 8.]]
+                .map(Anchor::corner)
+                .to_vec(),
+            closure: Closure::Closed,
+        };
+        let (shape, transform) = Content::from_document_path(
+            geometry,
+            Style {
+                fill: Some([255, 0, 0, 255]),
+                stroke: None,
+            },
+        )
+        .unwrap();
+        let mut doc = Document::new(16, 16).unwrap();
+        doc.layers[0].transform = transform;
+        doc.layers[0].content = LayerContent::PathShape(Box::new(shape));
+        let key = CanvasContent::new(&doc);
+        assert!(key.matches(&doc));
+        let original = doc.layers[0].path_shape().unwrap();
+        assert_eq!(
+            Arc::strong_count(original.pixels()),
+            1,
+            "Canvas identity must not retain full-resolution pixels"
+        );
+        let source = original.source().clone();
+        for change in 0..3 {
+            let key = CanvasContent::new(&doc);
+            let shape = if change == 2 {
+                Content::from_source(source.clone())
+                    .unwrap()
+                    .with_resolution([24, 24])
+                    .unwrap()
+            } else {
+                let mut edited = source.clone();
+                if change == 0 {
+                    edited.style.fill = Some([0, 0, 255, 255]);
+                } else {
+                    edited.geometry.anchors[0].point[0] += 1.;
+                }
+                Content::from_source(edited).unwrap()
+            };
+            doc.layers[0].content = LayerContent::PathShape(Box::new(shape));
+            assert!(!key.matches(&doc), "change={change}");
+            assert!(CanvasContent::new(&doc).matches(&doc));
+        }
+    }
 
     #[test]
     fn editable_filter_settings_invalidate_canvas_cache() {

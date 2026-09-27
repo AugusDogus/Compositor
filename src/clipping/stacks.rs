@@ -26,7 +26,10 @@ pub(crate) fn insertion_stack(
     for (index, base) in doc.layers[..insertion].iter().enumerate().filter(|(_, l)| {
         l.parent == parent
             && l.clip_source.is_none()
-            && matches!(l.content, LayerContent::Raster(_))
+            && matches!(
+                l.content,
+                LayerContent::Raster(_) | LayerContent::PathShape(_)
+            )
     }) {
         let mut last = index;
         for (child_index, child) in doc

@@ -409,9 +409,9 @@ fn native_metadata(document: &Document) -> Result<Vec<u8>> {
             adjustment: match &layer.content {
                 LayerContent::Adjustment(a) => Some(a.as_ref().clone()),
                 LayerContent::Raster(_) | LayerContent::Group => None,
-                LayerContent::ExtendedAdjustment(_) | LayerContent::Artboard(_) => {
+                LayerContent::ExtendedAdjustment(_) | LayerContent::Artboard(_) | LayerContent::PathShape(_) => {
                     return Err(invalid(
-                        "An extended adjustment or artboard requires a Linux authoring snapshot.",
+                        "An extended adjustment, artboard, or path shape requires a Linux authoring snapshot.",
                     ));
                 }
             },

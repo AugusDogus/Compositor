@@ -496,7 +496,7 @@ fn artboards_roundtrip_sources_and_render_native_compatibility_root() {
     ));
     let settings: Settings =
         read_json(directory.path(), &path.join(SOURCE).join(SETTINGS)).unwrap();
-    assert_eq!(settings.version, 3);
+    assert_eq!(settings.version, 4);
     assert_eq!(settings.artboards.len(), 1);
     let native = load_native(&path).unwrap();
     assert_eq!(native.layers.len(), 1);

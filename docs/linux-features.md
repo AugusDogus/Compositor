@@ -10,6 +10,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 - File > Export Layers writes a PNG for each visible pixel, text or shape layer, with its clipping stack, masks, effects and opacity. Files use each layer’s transformed bounds and stay within the canvas. Unclipped adjustment layers are excluded. Each batch gets a new folder.
 
+- Path shapes retain editable Bézier anchors, handles, fill and stroke. Use Create Shape in the Pen toolbar, then double-click the layer to edit its points. Shape Style accepts `none`, `#RRGGBB` or `#RRGGBBAA`; stroke width uses source pixels and scales with the layer. Linux projects keep the geometry; macOS and PSD receive rendered layers. Rasterize Path Shape enables destructive pixel editing.
 - Pen (P) creates saved Bézier paths with editable anchors and handles. Convert paths to selections, fill them, or stroke them with the current brush and mask target. Paths support undo, renaming and canvas transforms. Linux `.comp` files preserve them; macOS and PSD exports omit the working paths.
 
 - View > Theme offers Dark, Light and live Omarchy colors. Omarchy reads `$XDG_STATE_HOME/omarchy/current/theme/colors.toml` (default `~/.local/state/omarchy/current/theme/colors.toml`) every two seconds. Invalid palettes keep the last valid appearance; image colors stay unchanged.

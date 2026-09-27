@@ -5,6 +5,8 @@ use crate::adjustment::ExtendedAdjustment;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
+mod path_shapes;
+
 pub(super) const NAME: &str = "linux-editing.json";
 const SOURCE: &str = "authoring";
 const SETTINGS: &str = "adjustments.json";
@@ -40,6 +42,8 @@ struct Settings {
     paths: Vec<crate::vector_path::SavedPath>,
     #[serde(default)]
     artboards: Vec<SavedArtboard>,
+    #[serde(default)]
+    path_shapes: Vec<path_shapes::Saved>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -66,7 +70,9 @@ pub enum OpenResult {
 }
 
 pub(super) fn needed(document: &Document) -> bool {
-    !document.paths.is_empty() || rendered_projection_needed(document)
+    !document.paths.is_empty()
+        || document.layers.iter().any(Layer::is_path_shape)
+        || rendered_projection_needed(document)
 }
 fn rendered_projection_needed(document: &Document) -> bool {
     document.layers.iter().any(|layer| {
@@ -103,6 +109,9 @@ pub fn compatibility_notice(document: &Document) -> Option<String> {
         return None;
     }
     if !rendered_projection_needed(document) {
+        if document.layers.iter().any(Layer::is_path_shape) {
+            return Some("Path shapes and saved paths remain editable in Linux Compositor. Other Compositor versions open path shapes as pixel layers; saving there discards their geometry and saved paths.".into());
+        }
         return Some("Saved paths remain editable in Linux Compositor. Other Compositor versions open the native editable layers without these paths; saving there discards the saved paths.".into());
     }
     let size = projection_size(document);
@@ -119,6 +128,7 @@ pub fn compatibility_notice(document: &Document) -> Option<String> {
 fn sources(document: &Document) -> (Document, Settings) {
     let mut source = document.clone();
     let paths = std::mem::take(&mut source.paths);
+    let path_shapes = path_shapes::extract(&mut source);
     let mut layers = Vec::new();
     let mut artboards = Vec::new();
     for layer in &mut source.layers {
@@ -140,10 +150,11 @@ fn sources(document: &Document) -> (Document, Settings) {
     (
         source,
         Settings {
-            version: 3,
+            version: 4,
             layers,
             paths,
             artboards,
+            path_shapes,
         },
     )
 }
@@ -283,14 +294,17 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     }
     let source_path = path.join(SOURCE);
     let settings: Settings = read_json(&root, &source_path.join(SETTINGS))?;
-    if !matches!(settings.version, 1..=3)
+    if !matches!(settings.version, 1..=4)
         || (settings.version == 1 && !settings.paths.is_empty())
         || (settings.version < 3 && !settings.artboards.is_empty())
+        || (settings.version < 4 && !settings.path_shapes.is_empty())
         || (settings.layers.is_empty()
             && settings.paths.is_empty()
-            && settings.artboards.is_empty())
+            && settings.artboards.is_empty()
+            && settings.path_shapes.is_empty())
         || settings.artboards.len() > 10_000
         || settings.layers.len() > 10_000
+        || settings.path_shapes.len() > 10_000
     {
         return Err(invalid(
             "The Linux editing snapshot has an unsupported version or invalid source count.",
@@ -311,11 +325,13 @@ pub(super) fn load(path: &Path) -> Result<Document> {
             ));
         }
     }
+    path_shapes::validate(&settings.path_shapes, &mut seen)?;
     // No compatibility image is decoded: source pixels alone consume the
     // document allocation budget.
     let mut document = load_native_checked(&source_path, |source| {
         let mut metadata = source.clone();
         restore_artboards(&mut metadata, &settings.artboards)?;
+        path_shapes::preflight(source, &settings.path_shapes)?;
         metadata.validate()
     })?;
     document.paths = settings.paths;
@@ -333,6 +349,7 @@ pub(super) fn load(path: &Path) -> Result<Document> {
         layer.content = LayerContent::ExtendedAdjustment(Box::new(setting.adjustment));
     }
     restore_artboards(&mut document, &settings.artboards)?;
+    path_shapes::restore(&mut document, settings.path_shapes)?;
     document.validate()?;
     Ok(document)
 }

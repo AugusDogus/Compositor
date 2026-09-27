@@ -59,6 +59,8 @@ impl Session {
             || Arc::ptr_eq(old, new)
             || before.raw.is_some()
             || after.raw.is_some()
+            || before.is_path_shape()
+            || after.is_path_shape()
             || (after.text.is_some() && after.text != before.text)
             || (after.shape.is_some() && after.shape != before.shape)
         {

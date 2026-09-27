@@ -198,6 +198,9 @@ impl Editor {
         let doc = &self.session().document;
         let layer = doc.active_layer();
         match command {
+            Command::Edit(Action::PathShapeSettings | Action::RasterizePathShape) => {
+                self.can_edit_layers() && layer.is_some_and(|l| l.is_path_shape())
+            }
             Command::Edit(Action::DevelopRaw | Action::RasterizeRaw) => {
                 self.can_edit_layers() && layer.is_some_and(|layer| layer.raw.is_some())
             }

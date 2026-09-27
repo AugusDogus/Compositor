@@ -1,4 +1,5 @@
 //! Saved working paths and transactional anchor gestures.
+use super::path_target::Target;
 use super::*;
 use compositor::{
     geometry::Point,
@@ -16,15 +17,15 @@ pub(super) enum Mode {
 }
 #[derive(Clone, Copy)]
 pub(super) struct Active {
-    pub id: Uuid,
+    pub target: Target,
     pub selected: Option<usize>,
     pub mode: Mode,
 }
 pub(super) struct State {
     pub active: Option<Active>,
-    pub picker: dropdown::Dropdown<Option<Uuid>>,
+    pub picker: dropdown::Dropdown<Option<Target>>,
     pub rename: Option<super::path_rename::Draft>,
-    names: Vec<(Uuid, String)>,
+    names: Vec<(Target, String)>,
 }
 impl Default for State {
     fn default() -> Self {
@@ -38,7 +39,8 @@ impl Default for State {
     }
 }
 pub(super) struct Drag {
-    id: Uuid,
+    shape: Option<compositor::path_shape::Gesture>,
+    target: Target,
     original: BezierPath,
     hit: Hit,
     start: Point,
@@ -48,8 +50,17 @@ pub(super) struct Drag {
 
 impl Editor {
     pub(super) fn active_path(&self) -> Option<&SavedPath> {
-        let id = self.tools.paths.active?.id;
+        let Target::Saved(id) = self.tools.paths.active?.target else {
+            return None;
+        };
         self.session().document.paths.iter().find(|p| p.id == id)
+    }
+    pub(super) fn path_snapshot(&self) -> Result<Option<SavedPath>> {
+        self.tools
+            .paths
+            .active
+            .map(|a| a.target.snapshot(&self.session().document))
+            .transpose()
     }
     pub(super) fn sync_paths(&mut self) {
         self.sync_path_rename();
@@ -61,16 +72,29 @@ impl Editor {
             .document
             .paths
             .iter()
-            .map(|p| (p.id, p.name.clone()))
+            .map(|p| (Target::Saved(p.id), p.name.clone()))
+            .chain(
+                self.session()
+                    .document
+                    .layers
+                    .iter()
+                    .filter(|l| l.is_path_shape())
+                    .map(|l| (Target::Shape(l.id), format!("Layer: {}", l.name))),
+            )
             .collect();
-        if self.tools.paths.active.is_some() && self.active_path().is_none() {
+        if self
+            .tools
+            .paths
+            .active
+            .is_some_and(|a| a.target.name(&self.session().document).is_none())
+        {
             self.tools.paths.active = None;
         }
         if self.tools.paths.names != names {
             let items = std::iter::once(PickerItem::new("New path", None).id("new-path")).chain(
                 names
                     .iter()
-                    .map(|(id, name)| PickerItem::new(name.clone(), Some(*id)).id(id.to_string())),
+                    .map(|(id, name)| PickerItem::new(name.clone(), Some(*id)).id(id.key())),
             );
             self.tools.paths.picker =
                 dropdown::Dropdown::new(items).expect("Validated unique path IDs");
@@ -80,7 +104,7 @@ impl Editor {
             .tools
             .paths
             .active
-            .map_or_else(|| "new-path".to_owned(), |a| a.id.to_string());
+            .map_or_else(|| "new-path".to_owned(), |a| a.target.key());
         self.tools.paths.picker.select_id(id);
     }
     pub(super) fn finish_path_drag(&mut self, commit: bool) -> Result<()> {
@@ -89,6 +113,13 @@ impl Editor {
         }
         if let Some(Gesture::Path(drag)) = self.gesture.take() {
             if commit {
+                if let Some(shape) = &drag.shape
+                    && let Err(error) = shape.validate(&self.session().document)
+                {
+                    self.session_mut().cancel();
+                    self.tools.paths.active = drag.prior;
+                    return Err(error);
+                }
                 self.session_mut().commit()?;
             } else {
                 self.session_mut().cancel();
@@ -107,10 +138,10 @@ impl Editor {
             return Ok(());
         }
         let prior = self.tools.paths.active;
-        let active = prior.filter(|a| self.session().document.paths.iter().any(|p| p.id == a.id));
+        let active = prior.filter(|a| a.target.name(&self.session().document).is_some());
         let existing = active
-            .and_then(|a| self.session().document.paths.iter().find(|p| p.id == a.id))
-            .cloned();
+            .map(|a| a.target.snapshot(&self.session().document))
+            .transpose()?;
         let hit = existing
             .as_ref()
             .map(|p| {
@@ -129,11 +160,10 @@ impl Editor {
             && matches!(active.mode, Mode::Drawing)
             && path.geometry.anchors.len() >= 3
         {
-            let id = path.id;
-            self.session_mut().edit("Close Path", |doc| {
-                path_mut(doc, id)?.geometry.closure = Closure::Closed;
-                Ok(())
-            })?;
+            let mut geometry = path.geometry.clone();
+            geometry.closure = Closure::Closed;
+            self.session_mut()
+                .edit("Close Path", |doc| active.target.replace(doc, geometry))?;
             self.tools.paths.active = Some(Active {
                 mode: Mode::Editing,
                 selected: Some(0),
@@ -159,26 +189,38 @@ impl Editor {
             hit.ok_or_else(|| invalid("The path anchor is unavailable."))?
         };
         let original = path.geometry.clone();
-        let id = path.id;
-        let mut paths = self.session().document.paths.clone();
-        if let Some(current) = paths.iter_mut().find(|p| p.id == id) {
-            *current = path;
-        } else {
-            paths.push(path);
-        }
-        vector_path::validate(&paths)?;
+        let target = active.map_or(Target::Saved(path.id), |a| a.target);
+        let shape = match target {
+            Target::Saved(_) => None,
+            Target::Shape(id) => Some(compositor::path_shape::Gesture::begin(
+                &self.session().document,
+                id,
+            )?),
+        };
         self.session_mut().begin("Edit Path")?;
-        self.session_mut().document.paths = paths;
+        let result = if active.is_none() {
+            self.session_mut().document.paths.push(path);
+            vector_path::validate(&self.session().document.paths)
+        } else if let Some(shape) = &shape {
+            shape.update(&mut self.session_mut().document, path.geometry)
+        } else {
+            target.replace(&mut self.session_mut().document, path.geometry)
+        };
+        if let Err(error) = result {
+            self.session_mut().cancel();
+            return Err(error);
+        }
         let selected = match hit {
             Hit::Anchor(i) | Hit::Incoming(i) | Hit::Outgoing(i) => i,
         };
         self.tools.paths.active = Some(Active {
-            id,
+            target,
             selected: Some(selected),
             mode: active.map_or(Mode::Drawing, |a| a.mode),
         });
         self.gesture = Some(Gesture::Path(Box::new(Drag {
-            id,
+            shape,
+            target,
             original,
             hit,
             start: point,
@@ -248,8 +290,16 @@ impl Editor {
             self.finish_path_drag(false)?;
             return Err(error);
         }
-        let id = drag.id;
-        path_mut(&mut self.session_mut().document, id)?.geometry = geometry;
+        let target = drag.target;
+        let shape = drag.shape.clone();
+        let result = match shape {
+            Some(shape) => shape.update(&mut self.session_mut().document, geometry),
+            None => target.replace(&mut self.session_mut().document, geometry),
+        };
+        if let Err(error) = result {
+            self.finish_path_drag(false)?;
+            return Err(error);
+        }
         if event.phase == PointerPhase::Up {
             self.finish_path_drag(true)?;
         }
@@ -287,7 +337,7 @@ impl Editor {
     }
     fn delete_path_anchor(&mut self) -> Result<()> {
         let Some(Active {
-            id,
+            target,
             selected: Some(index),
             ..
         }) = self.tools.paths.active
@@ -295,17 +345,21 @@ impl Editor {
             return Ok(());
         };
         self.session_mut().edit("Delete Path Anchor", |doc| {
-            let path = path_mut(doc, id)?;
-            if index < path.geometry.anchors.len() {
-                path.geometry.anchors.remove(index);
+            let mut geometry = target.snapshot(doc)?.geometry;
+            if index < geometry.anchors.len() {
+                geometry.anchors.remove(index);
             }
-            if path.geometry.anchors.len() < 3 {
-                path.geometry.closure = Closure::Open;
+            if geometry.anchors.len() < 3 {
+                geometry.closure = Closure::Open;
             }
-            if path.geometry.anchors.is_empty() {
+            if geometry.anchors.is_empty()
+                && let Target::Saved(id) = target
+            {
                 doc.paths.retain(|p| p.id != id);
+                Ok(())
+            } else {
+                target.replace(doc, geometry)
             }
-            Ok(())
         })?;
         if let Some(a) = &mut self.tools.paths.active {
             a.selected = None;

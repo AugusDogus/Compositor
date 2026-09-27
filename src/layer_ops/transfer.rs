@@ -372,6 +372,9 @@ fn copy_to_project_in(
             .clip_source
             .is_some_and(|source| !included.contains(&source))
         {
+            if layer.is_path_shape() {
+                layer.require_rasterized()?;
+            }
             if let Some(pixels) = render::clipped_pixels(source, layer)? {
                 layer.content = LayerContent::Raster(Some(Arc::new(pixels)));
                 layer.shape = None;

@@ -89,6 +89,22 @@ impl Editor {
             return false;
         }
         match action {
+            Action::PathShapeSettings | Action::RasterizePathShape => {
+                self.can_edit_layers()
+                    && self
+                        .session()
+                        .document
+                        .active_layer()
+                        .is_some_and(|l| l.is_path_shape())
+            }
+            Action::EditPathShape(id) => {
+                self.can_edit_layers()
+                    && self
+                        .session()
+                        .document
+                        .layer(id)
+                        .is_some_and(|l| l.is_path_shape())
+            }
             Action::ArtboardSettings | Action::EditArtboard(_) => {
                 self.can_edit_layers() && self.active_artboard().is_some()
             }

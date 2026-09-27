@@ -56,7 +56,7 @@ pub fn export_report(doc: &Document) -> ConversionReport {
                 Err(reason) => report.note(format!("{}: layer effects and their mask are baked into pixels because {reason}.", layer.name)),
             }
         }
-        if layer.shape.is_some() {
+        if layer.shape.is_some() || layer.is_path_shape() {
             report.note(format!("{}: editable shape is rasterized.", layer.name));
         }
         if layer.transform.rotation != 0. || layer.transform.flip_x || layer.transform.flip_y {

@@ -144,7 +144,7 @@ impl Scene {
             scene.layers.extend(image);
             scene.layers.extend(mask_info);
             let (kind, adjustment, settings) = match &layer.content {
-                LayerContent::Raster(_) => (0, 0, 0),
+                LayerContent::Raster(_) | LayerContent::PathShape(_) => (0, 0, 0),
                 LayerContent::Group => (1, 0, 0),
                 LayerContent::Artboard(_) => (3, 0, 0),
                 LayerContent::ExtendedAdjustment(a) => {

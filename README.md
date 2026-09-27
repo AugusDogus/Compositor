@@ -44,6 +44,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Artboards and per-artboard PNG export | ❌ | ✅ | ❌ |
 | Multiple export sizes and editable size variants | ❌ | ✅ | ❌ |
 | Saved Bézier paths, path selection and painting | ❌ | ✅ | ❌ |
+| Editable Bézier shape layers | ❌ | ✅ | ❌ |
 | Layer transforms, perspective and snapping | ✅ | ✅ | ✅ |
 | Marquee, lasso and magic-wand selections | ✅ | ✅ | ✅ |
 | Color adjustments and filters | ✅ | ✅ | ✅ |

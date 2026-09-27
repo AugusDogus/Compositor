@@ -160,6 +160,15 @@ impl Editor {
             {
                 let result = this.edit_active_text();
                 this.result(result, cx);
+            } else if event.click_count == 2
+                && this
+                    .session()
+                    .document
+                    .layer(id)
+                    .is_some_and(|l| l.is_path_shape())
+            {
+                let result = this.edit_path_shape_geometry(id);
+                this.result(result, cx);
             } else if event.click_count == 2 && this.active_artboard().is_some() {
                 this.action(Action::ArtboardSettings, cx);
             } else if event.click_count == 2 {

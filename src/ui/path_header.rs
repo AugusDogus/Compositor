@@ -1,4 +1,5 @@
-use super::paths::{Active, Mode, path_mut};
+use super::path_target::Target;
+use super::paths::{Active, Mode};
 use super::*;
 use compositor::vector_path::Closure;
 
@@ -14,22 +15,27 @@ pub(super) enum Command {
 }
 impl Editor {
     pub(super) fn path_header(&self, cx: &mut ViewContext<'_, Self>) -> Element {
-        let path = self.active_path();
+        let target = self.tools.paths.active.map(|a| a.target);
+        let doc = self.current_document();
         let picker = self.tools.paths.picker.element(
             cx,
             self.colors,
-            ("path-picker", "Saved paths"),
+            ("path-picker", "Paths and shape layers"),
             |e| &mut e.tools.paths.picker,
-            self.tool_header_control(path.map_or("New path", |p| p.name.as_str()))
-                .w(145.)
-                .overflow_hidden()
-                .whitespace_nowrap(),
+            self.tool_header_control(
+                target
+                    .and_then(|t| doc.and_then(|doc| t.name(doc)))
+                    .unwrap_or("New path"),
+            )
+            .w(145.)
+            .overflow_hidden()
+            .whitespace_nowrap(),
             |e, id, cx| {
                 let result = e.finish_path_drag(true);
                 if result.is_ok() {
                     e.cancel_path_rename();
-                    e.tools.paths.active = id.map(|id| Active {
-                        id,
+                    e.tools.paths.active = id.map(|target| Active {
+                        target,
                         selected: None,
                         mode: Mode::Editing,
                     });
@@ -46,7 +52,8 @@ impl Editor {
             ("path-continue", "Continue", Command::Continue),
             (
                 "path-close",
-                if path.is_some_and(|p| p.geometry.closure == Closure::Closed) {
+                if target.and_then(|t| doc.and_then(|doc| t.closure(doc))) == Some(Closure::Closed)
+                {
                     "Open"
                 } else {
                     "Close"
@@ -59,7 +66,8 @@ impl Editor {
             ("path-delete", "Delete", Command::Delete),
         ] {
             let disabled = !self.can_edit_layers()
-                || (path.is_none() && !matches!(command, Command::New))
+                || (target.is_none() && !matches!(command, Command::New))
+                || (matches!(command, Command::Delete) && matches!(target, Some(Target::Shape(_))))
                 || (matches!(command, Command::Fill | Command::Stroke) && !self.can_edit_pixels());
             row = row.child(
                 self.tool_header_control(label)
@@ -71,7 +79,7 @@ impl Editor {
                     })),
             );
         }
-        row
+        row.child(self.path_shape_button(cx))
     }
     pub(super) fn path_command(&mut self, command: Command) -> Result<()> {
         if !self.can_edit_layers() {
@@ -90,15 +98,15 @@ impl Editor {
             Command::New => {}
             Command::Continue | Command::Close => {
                 self.session_mut().edit("Change Path Closure", |doc| {
-                    let path = path_mut(doc, active.id)?;
-                    path.geometry.closure = if matches!(command, Command::Continue)
-                        || path.geometry.closure == Closure::Closed
+                    let mut geometry = active.target.snapshot(doc)?.geometry;
+                    geometry.closure = if matches!(command, Command::Continue)
+                        || geometry.closure == Closure::Closed
                     {
                         Closure::Open
                     } else {
                         Closure::Closed
                     };
-                    Ok(())
+                    active.target.replace(doc, geometry)
                 })?;
                 self.tools.paths.active = Some(Active {
                     mode: if matches!(command, Command::Continue) {
@@ -110,9 +118,12 @@ impl Editor {
                 });
             }
             Command::Delete => {
+                let Target::Saved(id) = active.target else {
+                    return Ok(());
+                };
                 self.cancel_path_rename();
                 self.session_mut().edit("Delete Path", |doc| {
-                    doc.paths.retain(|p| p.id != active.id);
+                    doc.paths.retain(|p| p.id != id);
                     Ok(())
                 })?;
                 self.tools.paths.active = None;
@@ -139,7 +150,7 @@ impl Editor {
                     },
                 };
                 self.queue(jobs::Job::Path {
-                    path: active.id,
+                    path: active.target,
                     operation,
                 });
             }
