@@ -7,13 +7,13 @@ pub(super) enum ForegroundStyle {
 }
 
 impl Editor {
-    pub(super) fn color_well(color: Color, label: &'static str) -> Element {
+    pub(super) fn color_well(&self, color: Color, label: &'static str) -> Element {
         button()
             .size(44., 24.)
             .flex_shrink_0()
             .rounded(5.)
             .bg(color)
-            .border(1., Color::rgb8(120, 120, 120))
+            .border(1., self.colors.neutral(120))
             .focus(super::controls::focus_outline)
             .accessibility_label(label)
     }
@@ -44,7 +44,7 @@ impl Editor {
                     .size_full()
                     .rounded(3.)
                     .bg(color)
-                    .border(1., Color::rgba8(0, 0, 0, 128)),
+                    .border(1., self.colors.neutral(0).with_alpha(128. / 255.)),
             ),
         };
         div()

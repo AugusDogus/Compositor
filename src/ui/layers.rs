@@ -11,7 +11,7 @@ impl Editor {
             .justify_center()
             .p(16.)
             .gap(10.)
-            .text_color(Color::rgb8(160, 160, 160))
+            .text_color(self.colors.neutral(160))
             .child(Icon::Layers.element(25.))
             .child(
                 text("No layers yet")
@@ -74,13 +74,13 @@ impl Editor {
         let blend = active.map_or("Normal", |l| l.blend.label());
         div()
             .id("layers-panel")
-            .border_left(1., Color::rgb8(62, 62, 62))
+            .border_left(1., self.colors.neutral(62))
             .w(self.panel_layout.width)
             .flex_shrink_0()
             .relative()
             .h_full()
             .flex_col()
-            .bg(Color::rgb8(36, 36, 36))
+            .bg(self.colors.neutral(36))
             .child(
                 div()
                     .flex_row()
@@ -102,10 +102,10 @@ impl Editor {
                                 quickgui::FontFeatures::new()
                                     .enable(quickgui::FontFeatureTag::TABULAR_NUMBERS),
                             )
-                            .text_color(Color::rgb8(135, 135, 135)),
+                            .text_color(self.colors.neutral(135)),
                     ),
             )
-            .child(Self::divider())
+            .child(self.divider())
             .child(
                 div()
                     .flex_col()
@@ -155,9 +155,9 @@ impl Editor {
                             ),
                     ),
             )
-            .child(Self::divider())
+            .child(self.divider())
             .child(rows)
-            .child(Self::divider())
+            .child(self.divider())
             .child(
                 div()
                     .flex_row()
@@ -174,7 +174,7 @@ impl Editor {
                         )
                         .w(33.)
                         .h(41.)
-                        .text_color(Color::rgb8(164, 164, 164))
+                        .text_color(self.colors.neutral(164))
                         .tooltip("New blank layer (Ctrl+Shift+N)")
                         .disabled(!self.can_edit_layers()),
                     )
@@ -188,7 +188,7 @@ impl Editor {
                         )
                         .w(33.)
                         .h(41.)
-                        .text_color(Color::rgb8(164, 164, 164))
+                        .text_color(self.colors.neutral(164))
                         .accessibility_label("New folder")
                         .tooltip("Group selected layers (Ctrl+G)")
                         .disabled(!self.can_edit_layers()),
@@ -197,14 +197,14 @@ impl Editor {
                         self.layer_mask_button(cx)
                             .w(33.)
                             .h(41.)
-                            .text_color(Color::rgb8(164, 164, 164)),
+                            .text_color(self.colors.neutral(164)),
                     )
                     .child(self.effects_button(cx))
                     .child(
                         self.layer_menu_button(cx)
                             .w(33.)
                             .h(41.)
-                            .text_color(Color::rgb8(164, 164, 164)),
+                            .text_color(self.colors.neutral(164)),
                     )
                     .child(div().flex_1())
                     .child(
@@ -225,13 +225,13 @@ impl Editor {
                         )
                         .w(33.)
                         .h(41.)
-                        .text_color(Color::rgb8(164, 164, 164))
+                        .text_color(self.colors.neutral(164))
                         .disabled(!self.can_edit_layers() || active.is_none()),
                     ),
             )
             .child(self.panel_resize_edge(cx))
     }
-    pub(super) fn divider() -> Element {
-        div().h(1.).flex_shrink_0().bg(Color::rgb8(53, 53, 53))
+    pub(super) fn divider(&self) -> Element {
+        div().h(1.).flex_shrink_0().bg(self.colors.neutral(53))
     }
 }

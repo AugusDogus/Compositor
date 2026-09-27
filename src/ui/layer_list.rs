@@ -156,7 +156,7 @@ impl Editor {
                     .w(6.)
                     .h(thumb)
                     .rounded(3.)
-                    .bg(Color::rgba8(170, 170, 170, 120))
+                    .bg(self.colors.neutral(170).with_alpha(120. / 255.))
                     .on_pointer(
                         cx.pointer_listener("layer-list-scrollbar", |this, event, cx| {
                             let height = this.layer_list.scroll.viewport().height;

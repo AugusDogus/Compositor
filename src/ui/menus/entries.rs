@@ -148,7 +148,9 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command(
                 "Luminosity Sharpen…",
                 "",
-                Action::Filter(compositor::filters::Filter::LuminositySharpen(Default::default())),
+                Action::Filter(compositor::filters::Filter::LuminositySharpen(
+                    Default::default(),
+                )),
             ),
             command(
                 "Add Noise…",
@@ -217,6 +219,11 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             Sep,
             command("Delete Layer", "", Action::DeleteLayer),
         ],
+        21 => vec![
+            Entry::Item("Dark", "", Command::Theme(theme::Choice::Dark)),
+            Entry::Item("Light", "", Command::Theme(theme::Choice::Light)),
+            Entry::Item("Omarchy (live)", "", Command::Theme(theme::Choice::Omarchy)),
+        ],
         2 => vec![
             command("Fit Canvas", "Ctrl+0", Action::Fit),
             command("Actual Pixels", "Ctrl+1", Action::Actual),
@@ -233,6 +240,8 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command("Lock Guides", "", Action::LockGuides),
             command("Clear Guides", "", Action::ClearGuides),
             Entry::Item("Show Transform Controls", "Ctrl+H", Command::Handles),
+            Sep,
+            Entry::Submenu("Theme", 21),
         ],
         7 => vec![
             Entry::Item("Keyboard Shortcuts…", "", Command::Shortcuts),

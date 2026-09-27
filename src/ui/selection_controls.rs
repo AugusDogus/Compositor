@@ -7,7 +7,7 @@ impl Editor {
     pub(super) fn object_edge_control(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         div().flex_row().items_center().gap(6.).flex_shrink_0()
             .tooltip("Adjust each detected object before adding or subtracting it: positive contracts, negative expands")
-            .child(self.scrub_label(cx,"object-edge-label",Scalar::ObjectEdge,(-10.,10.),1.,Self::tool_header_control("Edge")))
+            .child(self.scrub_label(cx,"object-edge-label",Scalar::ObjectEdge,(-10.,10.),1.,self.tool_header_control("Edge")))
             .child(self.scrub_unit_suffix(self.brush_value(cx, "object-edge-offset", Scalar::ObjectEdge, (-10., 10.)).text_right().w(40.),"px",cx,"scrub-unit-objectedge",Scalar::ObjectEdge,(-10.,10.)))
     }
     pub(super) fn displayed_selection_mode(&self) -> SelectionMode {
@@ -29,7 +29,7 @@ impl Editor {
             div()
                 .w(1.)
                 .h(18.)
-                .bg(Color::rgb8(72, 72, 72))
+                .bg(self.colors.neutral(72))
                 .flex_shrink_0(),
         );
         for (expand, label, id, scalar) in [
@@ -53,7 +53,7 @@ impl Editor {
                 .gap(6.)
                 .flex_shrink_0()
                 .tooltip(format!("{label} the selection by this many pixels"))
-                .child(Self::tool_header_control(label).on_click(cx.listener(
+                .child(self.tool_header_control(label).on_click(cx.listener(
                     if expand { 413_u64 } else { 414_u64 },
                     move |this, cx| {
                         let amount = if expand {
@@ -88,7 +88,7 @@ impl Editor {
             .items_center()
             .gap(6.)
             .flex_shrink_0()
-            .child(Self::tool_header_control("Feather").on_click(cx.listener(
+            .child(self.tool_header_control("Feather").on_click(cx.listener(
                 "selection-feather",
                 |this, cx| {
                     let result = this.feather_selection(this.tools.selection_feather_amount);
@@ -126,12 +126,12 @@ impl Editor {
                     text("Empty selection")
                         .text_size(12.)
                         .line_height(15.)
-                        .text_color(Color::rgb8(160, 160, 160))
+                        .text_color(self.colors.neutral(160))
                         .whitespace_nowrap(),
                 );
             }
             row = row.child(
-                Self::tool_header_control("Deselect")
+                self.tool_header_control("Deselect")
                     .disabled(!self.can_edit_layers())
                     .on_click(cx.listener("header-deselect", |this, cx| {
                         this.action(Action::Deselect, cx)
@@ -147,7 +147,7 @@ impl Editor {
             .gap(2.)
             .p(2.)
             .rounded(6.)
-            .bg(Color::rgb8(29, 29, 29))
+            .bg(self.colors.neutral(29))
             .flex_shrink_0();
         for (mode, label) in [
             (SelectionMode::Replace, "New"),
@@ -156,7 +156,7 @@ impl Editor {
         ] {
             let id = format!("selection-mode-{label}");
             row = row.child(
-                Self::segment(label, mode == active)
+                self.segment(label, mode == active)
                     .tooltip("Hold Shift to add or Alt to subtract for one outline")
                     .on_click(cx.listener(id, move |this, cx| {
                         this.tools.selection_mode = mode;

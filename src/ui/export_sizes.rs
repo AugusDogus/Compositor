@@ -65,7 +65,7 @@ impl Editor {
             ("Video", "1280x720, 1920x1080, 3840x2160"),
             ("Print", "2480x3508, 2550x3300"),
         ] {
-            presets = presets.child(Self::control(label).on_click(cx.listener(
+            presets = presets.child(self.control(label).on_click(cx.listener(
                 format!("export-sizes-{label}"),
                 move |this, cx| {
                     this.update_form_field(0, sizes);

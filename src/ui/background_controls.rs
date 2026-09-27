@@ -36,7 +36,7 @@ impl Editor {
             return div();
         }
         let mut choices = div().flex_row().gap(2.).p(2.).rounded(6.)
-            .bg(Color::rgb8(29, 29, 29))
+            .bg(self.colors.neutral(29))
             .accessibility_label("Quality")
             .tooltip("Basic is quick; Advanced refines the mask against the layer's own detail, for hair and fur");
         for (id, label, mode) in [
@@ -44,7 +44,7 @@ impl Editor {
             ("background-advanced", "Advanced", Mode::Advanced),
         ] {
             choices = choices.child(
-                Self::segment(label, self.background_mode == mode)
+                self.segment(label, self.background_mode == mode)
                     .text_size(13.)
                     .line_height(16.)
                     .flex_1()

@@ -42,11 +42,11 @@ impl Editor {
             .px(8.)
             .flex_row()
             .items_center()
-            .bg(Color::rgb8(52, 52, 52))
+            .bg(self.colors.neutral(52))
             .rounded_t(7.)
             .child(
                 Icon::X
-                    .button("Cancel color selection")
+                    .button(self.colors, "Cancel color selection")
                     .size(20., 20.)
                     .on_click(cx.listener("color-picker-close", |this, cx| {
                         let result = this.finish_color(false);
@@ -89,8 +89,8 @@ impl Editor {
             .max_h((available.height - 20.).max(100.))
             .overflow_y_scroll()
             .flex_col()
-            .bg(Color::rgb8(45, 45, 45))
-            .border(1., Color::rgb8(90, 90, 90))
+            .bg(self.colors.neutral(45))
+            .border(1., self.colors.neutral(90))
             .rounded(8.)
             .shadow(crate::ui::surfaces::panel_shadow())
             .child(header)
@@ -118,7 +118,7 @@ impl Editor {
                 div()
                     .absolute()
                     .size_full()
-                    .border(1., Color::rgba8(0, 0, 0, 153)),
+                    .border(1., self.colors.neutral(0).with_alpha(153. / 255.)),
             )
             .cursor(quickgui::CursorStyle::Crosshair)
             .on_pointer(cx.pointer_listener("color-field", |this, event, cx| {
@@ -148,7 +148,7 @@ impl Editor {
                     .left(7.)
                     .w(20.)
                     .h(256.)
-                    .border(1., Color::rgba8(0, 0, 0, 153)),
+                    .border(1., self.colors.neutral(0).with_alpha(153. / 255.)),
             )
             .child(
                 Icon::HueMarkers
@@ -171,19 +171,20 @@ impl Editor {
             .flex_col()
             .gap(8.)
             .child(
-                Self::control("OK")
+                self.control("OK")
                     .w_full()
                     .h(30.)
                     .justify_center()
-                    .bg(Color::rgb8(0, 122, 255))
-                    .hover(|s| s.bg(Color::rgb8(24, 137, 255)))
+                    .bg(self.colors.accent())
+                    .text_color(self.colors.accent_text())
+                    .hover(|s| s.bg(self.colors.accent_variant([24, 137, 255])))
                     .on_click(cx.listener("form-apply", |this, cx| {
                         let result = this.finish_color(true);
                         this.operation_result(alerts::Operation::Paint, result, cx);
                     })),
             )
             .child(
-                Self::control("Cancel")
+                self.control("Cancel")
                     .w_full()
                     .h(30.)
                     .justify_center()
@@ -197,7 +198,7 @@ impl Editor {
             .h(64.)
             .rounded(5.)
             .bg(color(picker.current().hsb.rgb()))
-            .border(1., Color::rgba8(0, 0, 0, 153))
+            .border(1., self.colors.neutral(0).with_alpha(153. / 255.))
             .accessibility_label("New color");
         let fields = self.picker_channels(cx, picker);
         div()
@@ -212,7 +213,7 @@ impl Editor {
                 text("Click the canvas to sample")
                     .text_size(10.)
                     .line_height(13.)
-                    .text_color(Color::rgb8(170, 170, 170))
+                    .text_color(self.colors.neutral(170))
                     .mt(8.)
                     .wrap(),
             )
@@ -230,15 +231,16 @@ impl Editor {
                     .clone()
                     .unwrap_or_else(|| picker.current().hex())
             };
-            let input = Self::text_field(value)
+            let input = self
+                .text_field(value)
                 .h(26.)
                 .w(if index < 3 { 52. } else { 84. })
                 .text_input_padding(6.)
                 .rounded(5.)
                 .text_size(13.)
                 .line_height(16.)
-                .bg(Color::rgb8(29, 29, 29))
-                .border(1., Color::rgb8(72, 72, 72))
+                .bg(self.colors.neutral(29))
+                .border(1., self.colors.neutral(72))
                 .accessibility_label(["Red", "Green", "Blue", "Hex color"][index])
                 .on_input(
                     cx.input_listener(51_000 + index as u64, move |this, value, cx| {

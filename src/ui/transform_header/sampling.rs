@@ -41,10 +41,10 @@ impl Editor {
             .map_or(Sampling::High, |t| t.sampling);
         let selector = self.tools.transform_sampling.element_with(
             cx,
-            "transform-sampling",
-            "Sampling",
+            self.colors,
+            ("transform-sampling", "Sampling"),
             StateAccessor::new(|this: &mut Self| &mut this.tools.transform_sampling),
-            Self::tool_header_control(label(value))
+            self.tool_header_control(label(value))
                 .px(6.)
                 .whitespace_nowrap()
                 .flex_1()

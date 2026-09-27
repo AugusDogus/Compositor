@@ -220,7 +220,7 @@ impl Editor {
             };
             panel = panel
                 .child(text(instructions).wrap())
-                .child(Self::control("Open GitHub Releases").on_click(cx.listener("update-appimage", |this, cx| {
+                .child(self.control("Open GitHub Releases").on_click(cx.listener("update-appimage", |this, cx| {
                     let result = cx.open_url(compositor::update::RELEASES_URL)
                         .map_err(|error| compositor::invalid(format!("Could not open GitHub Releases: {error}. Visit {} in your browser.", compositor::update::RELEASES_URL)));
                     this.result(result, cx);
@@ -229,7 +229,7 @@ impl Editor {
         if let Err(message) = &self.updates.service {
             return panel.child(text(message.clone()).wrap());
         }
-        panel = panel.child(Self::control(if self.updates.automatic {
+        panel = panel.child(self.control(if self.updates.automatic {
             "Automatic checks on launch: on"
         } else { "Automatic checks on launch: off" }).on_click(cx.listener("update-automatic", |this, cx| {
             let enabled = !this.updates.automatic;
@@ -293,7 +293,7 @@ impl Editor {
         };
         panel = panel.child(text(message).wrap());
         if let Some(label) = action {
-            panel = panel.child(Self::control(label).on_click(cx.listener(
+            panel = panel.child(self.control(label).on_click(cx.listener(
                 "update-next",
                 |this, cx| {
                     this.updates.advance();

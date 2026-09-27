@@ -250,11 +250,11 @@ impl Editor {
                     .top(0.)
                     .w(RULER)
                     .h(RULER)
-                    .bg(Color::rgb8(48, 48, 48))
+                    .bg(self.colors.neutral(48))
                     .child(
                         text("px")
                             .text_size(9.)
-                            .text_color(Color::rgb8(170, 170, 170)),
+                            .text_color(self.colors.neutral(170)),
                     ),
             );
         }
@@ -274,7 +274,7 @@ impl Editor {
             .absolute()
             .left(0.)
             .top(0.)
-            .bg(Color::rgb8(45, 45, 45))
+            .bg(self.colors.neutral(45))
             .overflow_hidden();
         ruler = if horizontal {
             ruler.w(length).h(RULER)
@@ -282,7 +282,7 @@ impl Editor {
             ruler.w(RULER).h(length)
         };
         for (at, value, major) in ticks {
-            let mut tick = div().absolute().bg(Color::rgb8(123, 123, 123));
+            let mut tick = div().absolute().bg(self.colors.neutral(123));
             tick = if horizontal {
                 tick.left(at)
                     .top(if major { RULER - 8. } else { RULER - 4. })
@@ -310,7 +310,7 @@ impl Editor {
                 let label = text(value_label)
                     .absolute()
                     .text_size(9.)
-                    .text_color(Color::rgb8(185, 185, 185));
+                    .text_color(self.colors.neutral(185));
                 ruler = ruler.child(if horizontal {
                     label.left(at + 3.).top(1.)
                 } else {

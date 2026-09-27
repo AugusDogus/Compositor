@@ -37,6 +37,8 @@ impl Editor {
                         == 20
                     {
                         self.can_switch_projects()
+                    } else if child == 21 {
+                        true
                     } else {
                         self.can_edit_layers()
                     })
@@ -49,6 +51,7 @@ impl Editor {
                         self.menu_label(label, command)
                     };
                     let checked = match command {
+                        Command::Theme(choice) => Some(self.appearance.choice == choice),
                         Command::Handles => Some(self.tools.show_transform_controls),
                         Command::Edit(Action::PixelGrid) => Some(self.tools.pixel_grid),
                         Command::Edit(action) => self.layout_checked(action),
@@ -157,7 +160,8 @@ impl Editor {
         }
         if matches!(
             command,
-            Command::About
+            Command::Theme(_)
+                | Command::About
                 | Command::Shortcuts
                 | Command::Updates
                 | Command::Quit

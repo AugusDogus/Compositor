@@ -79,11 +79,11 @@ impl Editor {
         };
         let dialog = Dialog::alert("psd-conversion", true).initial_focus("psd-cancel");
         let contents =
-            Self::alert_contents(dialog, title, report.description(), cx.size().height)
-                .child(Self::alert_button("Continue").on_click(
+            self.alert_contents(dialog, title, report.description(), cx.size().height)
+                .child(self.alert_button("Continue").on_click(
                     cx.listener("psd-continue", |this, cx| this.confirm_psd_conversion(cx)),
                 ))
-                .child(Self::alert_button("Cancel").on_click(
+                .child(self.alert_button("Cancel").on_click(
                     cx.listener("psd-cancel", |this, cx| this.cancel_psd_conversion(cx)),
                 ));
         let dismiss = cx.dismiss_listener(dialog.popover_id(), |this, cx| {

@@ -80,11 +80,9 @@ impl Editor {
                 self.raw_button(cx, &format!("raw-curve-{i}"), name, move |d| {
                     d.curve_channel = i
                 })
-                .bg(if channel == i {
-                    Color::rgb8(40, 85, 130)
-                } else {
-                    Color::rgb8(48, 48, 48)
-                }),
+                .selected(channel == i)
+                .bg(self.colors.neutral(48))
+                .selected_style(|s| self.colors.accent_style(s, [40, 85, 130])),
             );
         }
         let mut panel = div()
@@ -102,11 +100,9 @@ impl Editor {
         {
             bands = bands.child(
                 self.raw_button(cx, &format!("raw-band-{i}"), name, move |d| d.hsl_band = i)
-                    .bg(if band == i {
-                        Color::rgb8(40, 85, 130)
-                    } else {
-                        Color::rgb8(48, 48, 48)
-                    }),
+                    .selected(band == i)
+                    .bg(self.colors.neutral(48))
+                    .selected_style(|s| self.colors.accent_style(s, [40, 85, 130])),
             );
         }
         panel = panel
@@ -133,17 +129,15 @@ impl Editor {
             mix = mix.opacity(0.45);
         }
         panel = panel
-            .child(
-                Self::check_control("Monochrome", mono).on_click(cx.listener(
-                    "raw-monochrome",
-                    |this, cx| {
-                        if let Some(d) = &mut this.develop {
-                            d.edit(|s| s.monochrome = !s.monochrome);
-                        }
-                        cx.invalidate();
-                    },
-                )),
-            )
+            .child(self.check_control("Monochrome", mono).on_click(cx.listener(
+                "raw-monochrome",
+                |this, cx| {
+                    if let Some(d) = &mut this.develop {
+                        d.edit(|s| s.monochrome = !s.monochrome);
+                    }
+                    cx.invalidate();
+                },
+            )))
             .child(mix)
             .child(self.raw_fields(
                 cx,
@@ -219,11 +213,9 @@ impl Editor {
                 self.raw_button(cx, &format!("raw-mask-{i}"), &mask.name, move |d| {
                     d.selected_mask = Some(i)
                 })
-                .bg(if d.selected_mask == Some(i) {
-                    Color::rgb8(40, 85, 130)
-                } else {
-                    Color::rgb8(48, 48, 48)
-                }),
+                .selected(d.selected_mask == Some(i))
+                .bg(self.colors.neutral(48))
+                .selected_style(|s| self.colors.accent_style(s, [40, 85, 130])),
             );
         }
         if let Some((i, mask)) = d
@@ -232,7 +224,7 @@ impl Editor {
         {
             panel = panel
                 .child(
-                    Self::text_field(mask.name.clone())
+                    self.text_field(mask.name.clone())
                         .id("raw-mask-name")
                         .on_input(cx.input_listener("raw-mask-name", move |this, value, cx| {
                             if let Some(d) = &mut this.develop {
@@ -275,7 +267,7 @@ impl Editor {
                 ("raw-mask-invert", "Invert", mask.invert),
                 ("raw-mask-show", "Show mask", d.show_mask),
             ] {
-                panel = panel.child(Self::check_control(label, checked).on_click(cx.listener(
+                panel = panel.child(self.check_control(label, checked).on_click(cx.listener(
                     id,
                     move |this, cx| {
                         if let Some(d) = &mut this.develop {
@@ -376,7 +368,7 @@ impl Editor {
                         .child(
                             text(label)
                                 .text_size(11.)
-                                .text_color(Color::rgb8(150, 158, 170)),
+                                .text_color(self.colors.tinted_neutral([150, 158, 170])),
                         )
                         .child(
                             text(if value.is_empty() {

@@ -98,26 +98,27 @@ impl Editor {
             let chord = draft.settings.chord(&definition).label();
             let key = format!("shortcut-record-{id}");
             let click_id = id.clone();
-            let control = Self::control(if recording {
-                "Press a key…".into()
-            } else {
-                chord
-            })
-            .id(key.clone())
-            .w(165.)
-            .selected(recording)
-            .on_click(cx.listener(key.clone(), move |this, cx| {
-                if let Some(Form::Shortcuts(draft)) = &mut this.modal {
-                    draft.recording = Some(click_id.clone());
-                }
-                cx.focus(quickgui::FocusHandle::new(format!(
-                    "shortcut-record-{click_id}"
-                )));
-                cx.invalidate();
-            }))
-            .on_key_down(cx.key_down_listener(key, |this, event, cx| {
-                this.record_shortcut(&event.key, event.modifiers, cx)
-            }));
+            let control = self
+                .control(if recording {
+                    "Press a key…".into()
+                } else {
+                    chord
+                })
+                .id(key.clone())
+                .w(165.)
+                .selected(recording)
+                .on_click(cx.listener(key.clone(), move |this, cx| {
+                    if let Some(Form::Shortcuts(draft)) = &mut this.modal {
+                        draft.recording = Some(click_id.clone());
+                    }
+                    cx.focus(quickgui::FocusHandle::new(format!(
+                        "shortcut-record-{click_id}"
+                    )));
+                    cx.invalidate();
+                }))
+                .on_key_down(cx.key_down_listener(key, |this, event, cx| {
+                    this.record_shortcut(&event.key, event.modifiers, cx)
+                }));
             let reset = format!("shortcut-reset-{id}");
             let row = div()
                 .w_full()
@@ -132,7 +133,7 @@ impl Editor {
                         .wrap(),
                 )
                 .child(control)
-                .child(Self::segment("Reset", false).on_click(cx.listener(
+                .child(self.segment("Reset", false).on_click(cx.listener(
                     reset,
                     move |this, cx| {
                         if let Some(Form::Shortcuts(draft)) = &mut this.modal {
@@ -166,7 +167,7 @@ impl Editor {
             .gap(14.)
             .p(22.)
             .rounded(10.)
-            .bg(Color::rgb8(43, 43, 43))
+            .bg(self.colors.neutral(43))
             .w(700_f32.min((cx.size().width - 40.).max(320.)))
             .max_h((cx.size().height - 60.).max(300.));
         contents = contents
@@ -177,7 +178,7 @@ impl Editor {
                     .wrap(),
             )
             .child(
-                Self::text_field(draft.query.clone())
+                self.text_field(draft.query.clone())
                     .id("shortcut-search")
                     .placeholder("Search commands")
                     .w_full()
@@ -202,14 +203,14 @@ impl Editor {
             contents = contents.child(
                 text(draft.error.clone())
                     .text_size(12.)
-                    .text_color(Color::rgb8(255, 140, 125))
+                    .text_color(self.colors.error([255, 140, 125]))
                     .wrap(),
             );
         }
         let buttons = div()
             .flex_row()
             .gap(8.)
-            .child(Self::segment("Reset all", false).on_click(cx.listener(
+            .child(self.segment("Reset all", false).on_click(cx.listener(
                 "shortcuts-reset-all",
                 |this, cx| {
                     if let Some(Form::Shortcuts(draft)) = &mut this.modal {
@@ -222,11 +223,11 @@ impl Editor {
             )))
             .child(div().flex_1())
             .child(
-                Self::segment("Cancel", false)
+                self.segment("Cancel", false)
                     .on_click(cx.listener("shortcuts-cancel", |this, cx| this.cancel_form(cx))),
             )
             .child(
-                Self::segment("Save", true)
+                self.segment("Save", true)
                     .disabled(draft.settings.validate().is_err())
                     .on_click(cx.listener("shortcuts-save", |this, cx| {
                         if let Err(error) = this.save_shortcuts()

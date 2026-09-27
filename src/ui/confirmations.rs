@@ -45,16 +45,18 @@ impl Editor {
         } else {
             "Bake keeps the current masked appearance in the dependent layers’ pixels. Remove Links reveals their pixels. You can undo either choice."
         };
-        let contents = Self::alert_contents(dialog, title, description, cx.size().height);
-        let cancel = Self::alert_button("Cancel")
+        let contents = self.alert_contents(dialog, title, description, cx.size().height);
+        let cancel = self
+            .alert_button("Cancel")
             .on_click(cx.listener("form-cancel", |this, cx| this.cancel_form(cx)));
         let buttons = div().w_full().flex_col().gap(8.);
         let buttons = if closing {
             buttons
                 .child(
-                    Self::alert_button("Save")
-                        .bg(Color::rgb8(0, 122, 255))
-                        .hover(|s| s.bg(Color::rgb8(24, 137, 255)))
+                    self.alert_button("Save")
+                        .bg(self.colors.accent())
+                        .text_color(self.colors.accent_text())
+                        .hover(|s| s.bg(self.colors.accent_variant([24, 137, 255])))
                         .on_click(cx.listener("save-close", |this, cx| {
                             this.modal = None;
                             this.blend_picker.close();
@@ -62,7 +64,7 @@ impl Editor {
                         })),
                 )
                 .child(cancel)
-                .child(Self::alert_button("Don’t Save").on_click(cx.listener(
+                .child(self.alert_button("Don’t Save").on_click(cx.listener(
                     "discard-close",
                     |this, cx| {
                         if let Some(intent) = this.close_intent.take() {
@@ -74,21 +76,20 @@ impl Editor {
         } else {
             buttons
                 .child(
-                    Self::alert_button("Bake and Delete")
-                        .bg(Color::rgb8(0, 122, 255))
-                        .hover(|s| s.bg(Color::rgb8(24, 137, 255)))
+                    self.alert_button("Bake and Delete")
+                        .bg(self.colors.accent())
+                        .text_color(self.colors.accent_text())
+                        .hover(|s| s.bg(self.colors.accent_variant([24, 137, 255])))
                         .on_click(cx.listener(70_001_u64, |this, cx| {
                             this.action(Action::DeleteLayerBaked, cx);
                         })),
                 )
                 .child(cancel)
                 .child(
-                    Self::alert_button("Remove Links and Delete").on_click(cx.listener(
-                        70_002_u64,
-                        |this, cx| {
+                    self.alert_button("Remove Links and Delete")
+                        .on_click(cx.listener(70_002_u64, |this, cx| {
                             this.action(Action::DeleteLayerUnlinked, cx);
-                        },
-                    )),
+                        })),
                 )
         };
         self.mount_form(

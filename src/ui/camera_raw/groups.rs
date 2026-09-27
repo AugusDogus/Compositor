@@ -12,7 +12,8 @@ pub(super) fn menu() -> Dropdown<Group> {
 }
 impl Editor {
     pub(super) fn camera_group_picker(&self, cx: &mut ViewContext<'_, Self>) -> Element {
-        let trigger = Self::control(self.camera_raw.group.name())
+        let trigger = self
+            .control(self.camera_raw.group.name())
             .w_full()
             .flex_row()
             .items_center()
@@ -20,8 +21,8 @@ impl Editor {
             .child(Icon::PopupChevron.element(14.));
         self.camera_raw.groups.element(
             cx,
-            "camera-group",
-            "Camera Raw group",
+            self.colors,
+            ("camera-group", "Camera Raw group"),
             |this| &mut this.camera_raw.groups,
             trigger,
             |this, group, cx| {

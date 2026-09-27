@@ -181,14 +181,16 @@ impl Editor {
             return div();
         };
         let control = match action {
-            Action::CanvasSize => Self::check_control("Lock original aspect ratio", link.locked)
+            Action::CanvasSize => self
+                .check_control("Lock original aspect ratio", link.locked)
                 .text_size(13.)
                 .line_height(16.),
-            Action::ImageSize => Self::check_control("Lock aspect ratio", link.locked)
+            Action::ImageSize => self
+                .check_control("Lock aspect ratio", link.locked)
                 .text_size(13.)
                 .line_height(16.)
                 .disabled(!self.image_sizing.resamples()),
-            _ => Self::control("Constrain proportions").gap(8.).child(
+            _ => self.control("Constrain proportions").gap(8.).child(
                 if link.locked {
                     Icon::Link
                 } else {

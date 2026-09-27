@@ -156,16 +156,17 @@ impl Editor {
         let mut pages = div().flex_row().gap(6.);
         for (label, value) in [("Parametric", Page::Parametric), ("Point", Page::Point)] {
             pages = pages.child(
-                Self::check_control(label, page == value).on_click(cx.listener(
-                    format!("camera-curve-page-{label}"),
-                    move |this, cx| {
-                        this.camera_change(|e| {
-                            e.curve_page = value;
-                            e.curve_interaction = Interaction::Idle;
-                        });
-                        this.changed(cx);
-                    },
-                )),
+                self.check_control(label, page == value)
+                    .on_click(cx.listener(
+                        format!("camera-curve-page-{label}"),
+                        move |this, cx| {
+                            this.camera_change(|e| {
+                                e.curve_page = value;
+                                e.curve_interaction = Interaction::Idle;
+                            });
+                            this.changed(cx);
+                        },
+                    )),
             )
         }
         let mut controls = div().flex_col().gap(8.).child(pages).child(graph);
@@ -185,7 +186,7 @@ impl Editor {
                 ("Medium contrast", 0.07),
                 ("Strong contrast", 0.15),
             ] {
-                presets = presets.child(Self::control(label).on_click(cx.listener(
+                presets = presets.child(self.control(label).on_click(cx.listener(
                     format!("camera-curve-preset-{label}"),
                     move |this, cx| {
                         this.camera_change(|e| {
@@ -211,7 +212,7 @@ impl Editor {
                 )));
             }
             controls = controls.child(presets).child(
-                Self::control("Remove selected point")
+                self.control("Remove selected point")
                     .disabled(self.camera_raw.curve_selected.is_none_or(|i| {
                         i == 0 || i + 1 >= self.camera_raw.settings.curves.channels[channel].len()
                     }))

@@ -24,7 +24,7 @@ impl Editor {
             (Basis::BottomRight, "Bottom Right Pixel Color"),
         ] {
             content = content.child(
-                Self::segment(label, options.basis == basis)
+                self.segment(label, options.basis == basis)
                     .id(format!("trim-basis-{label}"))
                     .on_click(cx.listener(format!("trim-basis-{label}"), move |this, cx| {
                         if let Some(Form::Trim(o)) = &mut this.modal {
@@ -34,10 +34,10 @@ impl Editor {
                     })),
             );
         }
-        content = content.child(Self::divider()).child(text("Trim Away"));
+        content = content.child(self.divider()).child(text("Trim Away"));
         for (i, label) in ["Left", "Top", "Right", "Bottom"].into_iter().enumerate() {
             content = content.child(
-                Self::check_control(label, options.edges[i])
+                self.check_control(label, options.edges[i])
                     .id(format!("trim-edge-{i}"))
                     .on_click(cx.listener(format!("trim-edge-{i}"), move |this, cx| {
                         if let Some(Form::Trim(o)) = &mut this.modal {
@@ -52,13 +52,13 @@ impl Editor {
                 .flex_row()
                 .gap(8.)
                 .child(
-                    Self::control("Cancel")
+                    self.control("Cancel")
                         .id("trim-cancel")
                         .on_click(cx.listener("trim-cancel", |this, cx| this.cancel_form(cx))),
                 )
                 .child(div().flex_1())
                 .child(
-                    Self::control("OK")
+                    self.control("OK")
                         .id("form-apply")
                         .disabled(!options.edges.contains(&true))
                         .on_click(cx.listener("form-apply", |this, cx| this.submit_trim(cx))),

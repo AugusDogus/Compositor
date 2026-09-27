@@ -9,7 +9,7 @@ impl Editor {
         label: &str,
         change: impl Fn(&mut Develop) + Send + Sync + 'static,
     ) -> Element {
-        Self::control(label.to_owned())
+        self.control(label.to_owned())
             .text_size(12.)
             .on_click(cx.listener(id.to_owned(), move |this, cx| {
                 if let Some(d) = &mut this.develop
@@ -66,7 +66,7 @@ impl Editor {
         })
         .w(260.)
         .h(76.)
-        .bg(Color::rgb8(25, 27, 31));
+        .bg(self.colors.tinted_neutral([25, 27, 31]));
         div().flex_col().gap(4.).child(graph).child(
             text(format!(
                 "Clipped shadows {:.1}% · highlights {:.1}%",
@@ -100,11 +100,9 @@ impl Editor {
                     d.compare = compare;
                     d.fit = true;
                 })
-                .bg(if d.compare == compare {
-                    Color::rgb8(40, 85, 130)
-                } else {
-                    Color::rgb8(48, 48, 48)
-                }),
+                .selected(d.compare == compare)
+                .bg(self.colors.neutral(48))
+                .selected_style(|s| self.colors.accent_style(s, [40, 85, 130])),
             );
         }
         toolbar = toolbar
@@ -120,27 +118,23 @@ impl Editor {
                 d.changed();
             }))
             .child(
-                Self::check_control("Full preview", d.full_preview).on_click(cx.listener(
-                    "raw-full",
-                    |this, cx| {
+                self.check_control("Full preview", d.full_preview)
+                    .on_click(cx.listener("raw-full", |this, cx| {
                         if let Some(d) = &mut this.develop {
                             d.full_preview = !d.full_preview;
                             d.changed();
                         }
                         cx.invalidate();
-                    },
-                )),
+                    })),
             )
             .child(
-                Self::check_control("Clipping", d.clipping).on_click(cx.listener(
-                    "raw-clipping",
-                    |this, cx| {
+                self.check_control("Clipping", d.clipping)
+                    .on_click(cx.listener("raw-clipping", |this, cx| {
                         if let Some(d) = &mut this.develop {
                             d.clipping = !d.clipping;
                         }
                         cx.invalidate();
-                    },
-                )),
+                    })),
             );
         let mut tabs = div().flex_row().gap(4.).flex_wrap();
         for (i, name) in ["Basic", "Tone", "Detail", "Lens", "Masks", "Info"]
@@ -149,11 +143,9 @@ impl Editor {
         {
             tabs = tabs.child(
                 self.raw_button(cx, &format!("raw-panel-{i}"), name, move |d| d.panel = i)
-                    .bg(if panel == i {
-                        Color::rgb8(40, 85, 130)
-                    } else {
-                        Color::rgb8(48, 48, 48)
-                    }),
+                    .selected(panel == i)
+                    .bg(self.colors.neutral(48))
+                    .selected_style(|s| self.colors.accent_style(s, [40, 85, 130])),
             );
         }
         let mut controls = match panel {
@@ -173,7 +165,7 @@ impl Editor {
             .flex_col()
             .gap(10.)
             .p(12.)
-            .bg(Color::rgb8(35, 37, 42))
+            .bg(self.colors.tinted_neutral([35, 37, 42]))
             .child(self.raw_histogram())
             .child(self.raw_builtin_presets(cx))
             .child(tabs)
@@ -214,7 +206,7 @@ impl Editor {
             ("raw-export", "16-bit TIFF…", dialogs::Dialog::Export),
         ] {
             footer = footer.child(
-                Self::control(label)
+                self.control(label)
                     .text_size(12.)
                     .disabled(busy)
                     .on_click(cx.listener(id, move |this, cx| this.raw_dialog(kind, cx))),
@@ -223,10 +215,11 @@ impl Editor {
         footer = footer
             .child(div().flex_1())
             .child(
-                Self::control("Cancel").on_click(cx.listener("raw-cancel", |this, cx| {
-                    this.cancel_develop();
-                    cx.invalidate();
-                })),
+                self.control("Cancel")
+                    .on_click(cx.listener("raw-cancel", |this, cx| {
+                        this.cancel_develop();
+                        cx.invalidate();
+                    })),
             )
             .child(
                 self.raw_button(cx, "raw-apply", "Develop", |d| {
@@ -235,7 +228,9 @@ impl Editor {
                     d.committing = true;
                 })
                 .disabled(busy)
-                .bg(Color::rgb8(0, 122, 255)),
+                .bg(self.colors.accent())
+                .text_color(self.colors.accent_text())
+                .hover(|s| self.colors.accent_style(s, [24, 137, 255])),
             );
         let status = if let Some(error) = &d.error {
             error.clone()
@@ -260,17 +255,17 @@ impl Editor {
             .px(12.)
             .py(5.)
             .text_color(if d.error.is_some() {
-                Color::rgb8(255, 150, 140)
+                self.colors.error([255, 150, 140])
             } else {
-                Color::rgb8(174, 180, 190)
+                self.colors.tinted_neutral([174, 180, 190])
             });
         div()
             .id("workspace")
             .focusable()
             .size_full()
             .flex_col()
-            .bg(Color::rgb8(24, 26, 30))
-            .text_color(Color::rgb8(224, 228, 234))
+            .bg(self.colors.tinted_neutral([24, 26, 30]))
+            .text_color(self.colors.tinted_neutral([224, 228, 234]))
             .on_key_down(cx.key_down_listener("workspace", |this, event, cx| {
                 if let Some(d) = &mut this.develop {
                     if event.modifiers.contains(Modifiers::CONTROL)

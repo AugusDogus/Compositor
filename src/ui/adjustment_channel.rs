@@ -76,7 +76,7 @@ impl Editor {
             "adjustment-channel-items",
             |this| &mut this.adjustment_channel_menu,
             div().w(width).flex_col().p(5.).gap(1.),
-            |item, state| super::menus::style::choice(item.label().clone(), state),
+            |item, state| super::menus::style::choice(self.colors, item.label().clone(), state),
             |this, cx| this.close_adjustment_channel(cx),
         );
         Popover::new("adjustment-channel", "adjustment-channel-popup", true)
@@ -85,7 +85,7 @@ impl Editor {
             .align(quickgui::AnchorAlign::Start)
             .initial_focus("adjustment-channel-items")
             .surface_with(
-                super::menus::style::surface()
+                super::menus::style::surface(self.colors)
                     .child(content)
                     .on_action(cx.action_listener(
                         "adjustment-channel-popup",

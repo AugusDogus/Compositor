@@ -162,7 +162,7 @@ impl Editor {
             .h(330.)
             .flex_shrink_0()
             .relative()
-            .bg(Color::rgb8(31, 31, 31))
+            .bg(self.colors.neutral(31))
             .overflow_hidden();
         if let Some(rendered) = &edit.preview {
             preview = preview.child(
@@ -179,7 +179,7 @@ impl Editor {
                     .top(146.)
                     .p(10.)
                     .rounded(8.)
-                    .bg(Color::rgba8(45, 45, 45, 217))
+                    .bg(self.colors.neutral(45).with_alpha(217. / 255.))
                     .backdrop_blur(20.)
                     .child(super::icons::progress("jpeg-preview-progress", 18.))
                     .accessibility_label("Updating JPEG preview"),
@@ -221,12 +221,11 @@ impl Editor {
             )
             .child(div().flex_1())
             .child(
-                Self::color_well(Color::rgb8(r, g, b), "JPEG background color").on_click(
-                    cx.listener("jpeg-background", |this, cx| {
+                self.color_well(Color::rgb8(r, g, b), "JPEG background color")
+                    .on_click(cx.listener("jpeg-background", |this, cx| {
                         this.open_jpeg_background_picker();
                         this.changed(cx);
-                    }),
-                ),
+                    })),
             );
         div()
             .flex_col()
@@ -241,7 +240,7 @@ impl Editor {
                 ))
                 .text_size(13.)
                 .line_height(16.)
-                .text_color(Color::rgb8(180, 180, 180)),
+                .text_color(self.colors.neutral(180)),
             )
     }
     pub(super) fn jpeg_status(&self, error: &str) -> Element {
@@ -250,7 +249,7 @@ impl Editor {
                 .id("jpeg-status")
                 .text_size(13.)
                 .line_height(16.)
-                .text_color(Color::rgb8(255, 69, 58))
+                .text_color(self.colors.error([255, 69, 58]))
                 .wrap();
         }
         let preview = self
@@ -263,7 +262,7 @@ impl Editor {
             quickgui::StyledText::new(format!("{size} · encoded preview, fitted to window"))
                 .with_highlights([(
                     0..size.len(),
-                    quickgui::HighlightStyle::default().color(Color::rgb8(224, 224, 224)),
+                    quickgui::HighlightStyle::default().color(self.colors.neutral(224)),
                 )])
         } else {
             quickgui::StyledText::new("Updating preview…")
@@ -273,7 +272,7 @@ impl Editor {
             .id("jpeg-status")
             .text_size(13.)
             .line_height(16.)
-            .text_color(Color::rgb8(180, 180, 180))
+            .text_color(self.colors.neutral(180))
             .wrap()
     }
 

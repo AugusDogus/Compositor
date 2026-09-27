@@ -124,17 +124,20 @@ impl Editor {
             text("Sample")
                 .text_size(10.)
                 .line_height(13.)
-                .text_color(Color::rgb8(170, 170, 170)),
+                .text_color(self.colors.neutral(170)),
         );
         let workspace = cx.focus_handle("workspace");
         for mode in [LevelsSample::Black, LevelsSample::Gray, LevelsSample::White] {
             let id = format!("levels-sample-{}", mode.label());
             row = row.child(
-                Self::control(mode.label())
+                self.control(mode.label())
                     .flex_row_reverse()
                     .gap(5.)
                     .selected(self.levels_sample_mode() == Some(mode))
-                    .selected_style(|s| s.bg(Color::rgb8(65, 107, 158)))
+                    .selected_style(|s| {
+                        s.bg(self.colors.selection())
+                            .text_color(self.colors.accent_text())
+                    })
                     .child(Icon::Pipette.element(13.))
                     .id(id.clone())
                     .on_click(cx.listener(id, move |this, cx| {
@@ -158,7 +161,7 @@ impl Editor {
                 ))
                 .text_size(10.)
                 .line_height(13.)
-                .text_color(Color::rgb8(180, 180, 180))
+                .text_color(self.colors.neutral(180))
                 .wrap(),
             );
         }

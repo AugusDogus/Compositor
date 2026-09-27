@@ -44,6 +44,7 @@ impl Editor {
             cx.focus(quickgui::FocusHandle::new("workspace"));
             match command {
                 Command::Edit(action) => this.action(action, cx),
+                Command::Theme(choice) => this.choose_theme(choice, cx),
                 Command::About => this.open_about(cx),
                 Command::Shortcuts => this.open_shortcuts(cx),
                 Command::Updates => this.open_updates(cx),
@@ -90,7 +91,7 @@ impl Editor {
                 .flex_col()
                 .p(5.)
                 .gap(1.),
-            menu_row,
+            |item, state| menu_row(self.colors, item, state),
             |this, cx| {
                 this.menus.close();
                 cx.focus(quickgui::FocusHandle::new("workspace"));
@@ -141,7 +142,7 @@ impl Editor {
             // Keep the submenu outside the parent's material group: it must sample the
             // canvas behind it, while retaining popover ancestry for dismissal and commands.
             div()
-                .child(style::surface().child(content))
+                .child(style::surface(self.colors).child(content))
                 .child(submenu)
                 .on_action(action)
                 .on_action(cx.action_listener(
@@ -214,7 +215,7 @@ impl Editor {
             "application-submenu-items",
             |this| &mut this.menus.submenu,
             div().min_w(225.).flex_col().p(5.).gap(1.),
-            menu_row,
+            |item, state| menu_row(self.colors, item, state),
             |this, cx| this.menus.close_submenu(cx),
         );
         Popover::new(anchor, "application-submenu-popup", true)
@@ -224,7 +225,7 @@ impl Editor {
             .side_offset(0.)
             .initial_focus("application-submenu-items")
             .surface_with(
-                style::surface()
+                style::surface(self.colors)
                     .child(menu)
                     .on_action(cx.action_listener(
                         "application-submenu-popup",
@@ -244,9 +245,13 @@ impl Editor {
     }
 }
 
-fn menu_row(item: &PopoverMenuItem, state: quickgui::PopoverMenuItemState) -> Element {
+fn menu_row(
+    colors: theme::palette::Palette,
+    item: &PopoverMenuItem,
+    state: quickgui::PopoverMenuItemState,
+) -> Element {
     if item.kind() == PopoverMenuItemKind::Separator {
-        return div().h(1.).my(4.).mx(6.).bg(Color::rgb8(80, 80, 80));
+        return div().h(1.).my(4.).mx(6.).bg(colors.neutral(80));
     }
     let trailing = if item.kind() == PopoverMenuItemKind::Submenu {
         Icon::ChevronRight.element(12.)
@@ -257,14 +262,14 @@ fn menu_row(item: &PopoverMenuItem, state: quickgui::PopoverMenuItemState) -> El
             .flex_shrink_0()
             .whitespace_nowrap()
             .text_color(if state.disabled {
-                Color::rgb8(117, 117, 117)
+                colors.neutral(117)
             } else if state.highlighted {
-                Color::rgb8(231, 231, 231)
+                colors.accent_text()
             } else {
-                Color::rgb8(166, 166, 166)
+                colors.neutral(166)
             })
     };
-    style::choice(item.label().clone(), state)
+    style::choice(colors, item.label().clone(), state)
         .font_semibold()
         .child(trailing)
 }

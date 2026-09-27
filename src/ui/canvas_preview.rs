@@ -238,7 +238,8 @@ impl Editor {
             // Normal repaint work retains the previous frame without flashing
             // implementation status over the canvas. Failures remain actionable.
             Work::Idle | Work::Running(_) => div().into_element(),
-            Work::Failed(_) => Self::control("Retry preview")
+            Work::Failed(_) => self
+                .control("Retry preview")
                 .id("canvas-retry")
                 .absolute()
                 .translate(12., 12.)

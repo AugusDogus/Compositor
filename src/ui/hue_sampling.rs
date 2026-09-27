@@ -171,7 +171,7 @@ impl Editor {
             }
             let id = format!("hue-{label}");
             if matches!(mode, HueSampling::Target) && range != ColorRange::Master {
-                row = row.child(div().w(1.).h(16.).bg(Color::rgb8(65, 65, 65)));
+                row = row.child(div().w(1.).h(16.).bg(self.colors.neutral(65)));
             }
             row = row.child(
                 (if matches!(mode, HueSampling::Target) {
@@ -179,7 +179,7 @@ impl Editor {
                 } else {
                     Icon::Pipette
                 })
-                .button(label)
+                .button(self.colors, label)
                 .accessibility_label(if matches!(mode, HueSampling::Target) { "Targeted adjustment" } else if matches!(mode, HueSampling::Sample(HueSample::Center)) { "Sample color" } else { label })
                 .tooltip(match mode {
                     HueSampling::Sample(HueSample::Center) => "Click the image to center this range on that color",
@@ -192,7 +192,7 @@ impl Editor {
                 .relative()
                 .rounded(4.)
                 .selected(sampling.active(mode))
-                .selected_style(|s| s.bg(Color::rgba8(65, 107, 158, 64)))
+                .selected_style(|s| s.bg(self.colors.selection().with_alpha(64. / 255.)))
                 .child(if label == "Add color" {
                     Icon::Plus.element(8.).absolute().right(0.).bottom(0.)
                 } else if label == "Remove color" {

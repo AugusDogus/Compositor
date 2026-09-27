@@ -97,12 +97,15 @@ impl Editor {
         for (index, info) in import.pack.tips().iter().enumerate() {
             let label = format!("{} · {} × {}", info.name, info.size[0], info.size[1]);
             rows = rows.child(
-                Self::control("")
+                self.control("")
                     .h(32.)
                     .flex_shrink_0()
                     .rounded(6.)
                     .selected(import.selected.contains(&index))
-                    .selected_style(|s| s.bg(Color::rgb8(65, 107, 158)))
+                    .selected_style(|s| {
+                        s.bg(self.colors.selection())
+                            .text_color(self.colors.accent_text())
+                    })
                     .child(text(label).truncate().min_w(0.))
                     .disabled(info.unavailable().is_some())
                     .tooltip(info.unavailable().unwrap_or("Select this sampled tip"))
@@ -138,13 +141,14 @@ impl Editor {
                     .flex_row()
                     .gap(8.)
                     .child(
-                        Self::control("Back").on_click(cx.listener("abr-back", |this, cx| {
-                            this.open_brush_tips();
-                            cx.invalidate();
-                        })),
+                        self.control("Back")
+                            .on_click(cx.listener("abr-back", |this, cx| {
+                                this.open_brush_tips();
+                                cx.invalidate();
+                            })),
                     )
                     .child(
-                        Self::control("Import selected tips")
+                        self.control("Import selected tips")
                             .disabled(import.selected.is_empty() || self.pending)
                             .on_click(cx.listener("abr-import", |this, cx| {
                                 this.import_abr_selection();

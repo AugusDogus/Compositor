@@ -200,7 +200,7 @@ impl Editor {
                     .w(248.)
                     .h(4.)
                     .rounded(2.)
-                    .bg(Color::rgb8(72, 77, 84)),
+                    .bg(self.colors.tinted_neutral([72, 77, 84])),
             )
             .child(
                 div()
@@ -209,7 +209,7 @@ impl Editor {
                     .top(5.)
                     .size(12., 12.)
                     .rounded(6.)
-                    .bg(Color::rgb8(70, 148, 235)),
+                    .bg(self.colors.accent_variant([70, 148, 235])),
             );
         div()
             .flex_col()
@@ -221,7 +221,7 @@ impl Editor {
                     .items_center()
                     .child(text(label.to_owned()).text_size(12.).flex_1())
                     .child(
-                        Self::text_field(displayed)
+                        self.text_field(displayed)
                             .id(id)
                             .w(72.)
                             .h(25.)

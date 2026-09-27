@@ -92,8 +92,8 @@ impl<T: Clone + 'static> Dropdown<T> {
     pub(super) fn element<Change>(
         &self,
         cx: &mut ViewContext<'_, Editor>,
-        id: impl Into<ElementId>,
-        label: impl Into<Arc<str>>,
+        colors: theme::palette::Palette,
+        identity: (impl Into<ElementId>, impl Into<Arc<str>>),
         access: fn(&mut Editor) -> &mut Self,
         trigger: Element,
         change: Change,
@@ -101,14 +101,21 @@ impl<T: Clone + 'static> Dropdown<T> {
     where
         Change: Fn(&mut Editor, T, &mut EventContext) + Clone + 'static,
     {
-        self.element_with(cx, id, label, StateAccessor::from(access), trigger, change)
+        self.element_with(
+            cx,
+            colors,
+            identity,
+            StateAccessor::from(access),
+            trigger,
+            change,
+        )
     }
 
     pub(super) fn element_with<Change>(
         &self,
         cx: &mut ViewContext<'_, Editor>,
-        id: impl Into<ElementId>,
-        label: impl Into<Arc<str>>,
+        colors: theme::palette::Palette,
+        identity: (impl Into<ElementId>, impl Into<Arc<str>>),
         access: StateAccessor<Editor, Self>,
         trigger: Element,
         change: Change,
@@ -116,6 +123,7 @@ impl<T: Clone + 'static> Dropdown<T> {
     where
         Change: Fn(&mut Editor, T, &mut EventContext) + Clone + 'static,
     {
+        let (id, label) = identity;
         let id = id.into();
         let label = label.into();
         let click_access = access.clone();
@@ -139,7 +147,7 @@ impl<T: Clone + 'static> Dropdown<T> {
             return trigger;
         };
         let surface = SelectState::<T>::surface_id(id);
-        let mut content = super::menus::style::surface()
+        let mut content = super::menus::style::surface(colors)
             // A sheet already occupies the overlay plane. Raise its nested menu
             // above later sheet fields for both painting and pointer dispatch.
             .z_index(1)
@@ -169,6 +177,7 @@ impl<T: Clone + 'static> Dropdown<T> {
                     item.label().clone(),
                     state,
                     super::menus::style::choice(
+                        colors,
                         item.label().clone(),
                         quickgui::PopoverMenuItemState {
                             highlighted: state.active,

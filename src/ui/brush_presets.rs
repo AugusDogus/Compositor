@@ -129,9 +129,12 @@ impl Editor {
             .max_h(300.)
             .overflow_y_scroll()
             .child(
-                Self::control("Round tip")
+                self.control("Round tip")
                     .selected(matches!(self.tools.brush_shape, Shape::Round))
-                    .selected_style(|s| s.bg(Color::rgb8(65, 107, 158)))
+                    .selected_style(|s| {
+                        s.bg(self.colors.selection())
+                            .text_color(self.colors.accent_text())
+                    })
                     .on_click(cx.listener("brush-tip-round", |this, cx| {
                         if this.pending {
                             return;
@@ -146,13 +149,16 @@ impl Editor {
             let (width, height) = entry.brush.tip().pixels().dimensions();
             let scale = 40. / width.max(height) as f32;
             choices = choices.child(
-                Self::control("")
+                self.control("")
                     .h(48.)
                     .flex_shrink_0()
                     .rounded(6.)
                     .gap(8.)
                     .selected(selected)
-                    .selected_style(|s| s.bg(Color::rgb8(65, 107, 158)))
+                    .selected_style(|s| {
+                        s.bg(self.colors.selection())
+                            .text_color(self.colors.accent_text())
+                    })
                     .child(
                         div()
                             .w(40.)
@@ -183,14 +189,14 @@ impl Editor {
         }
         let sampled = matches!(self.tools.brush_shape, Shape::Sampled(_));
         div().flex_col().gap(12.).child(choices)
-            .child(Self::control("Load Brushes…").on_click(cx.listener("brush-tip-load", |this, cx| this.load_brush_tip(cx))))
+            .child(self.control("Load Brushes…").on_click(cx.listener("brush-tip-load", |this, cx| this.load_brush_tip(cx))))
             .child(text("GBR, GIH and ABR brushes use the foreground color. Embedded colors are not used. Brushes stay loaded until Compositor closes.").wrap().text_size(12.))
             .child(div().flex_row().items_center().gap(8.).child(text("Spacing (%)"))
-                .child(Self::text_field(draft.spacing.clone()).id("brush-tip-spacing").w(90.).disabled(!sampled)
+                .child(self.text_field(draft.spacing.clone()).id("brush-tip-spacing").w(90.).disabled(!sampled)
                     .on_input(cx.input_listener("brush-tip-spacing", |this, value, cx| { this.brush_spacing_input(value); cx.invalidate(); }))))
-            .child(Self::control("Unload selected tip").disabled(!sampled).on_click(cx.listener("brush-tip-unload", |this, cx| { this.unload_brush_tip(); cx.invalidate(); })))
+            .child(self.control("Unload selected tip").disabled(!sampled).on_click(cx.listener("brush-tip-unload", |this, cx| { this.unload_brush_tip(); cx.invalidate(); })))
             .child(text(draft.error.clone()).text_size(12.).wrap())
-            .child(Self::control("Close").on_click(cx.listener("brush-tips-close", |this, cx| this.cancel_form(cx))))
+            .child(self.control("Close").on_click(cx.listener("brush-tips-close", |this, cx| this.cancel_form(cx))))
     }
 }
 

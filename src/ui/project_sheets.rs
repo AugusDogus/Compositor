@@ -40,7 +40,7 @@ impl Editor {
                     })
                     .text_size(12.)
                     .line_height(15.)
-                    .text_color(Color::rgb8(181, 181, 181)),
+                    .text_color(self.colors.neutral(181)),
                 )
         })
     }

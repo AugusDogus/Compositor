@@ -72,7 +72,7 @@ impl Editor {
                         .map_or(100., |l| l.opacity * 100.)
                 )
             });
-        Self::text_field(value)
+        self.text_field(value)
             .id(FIELD)
             .accessibility_label("Opacity percent")
             .w(44.)
@@ -80,8 +80,8 @@ impl Editor {
             .text_input_padding(5.)
             .rounded(5.)
             .text_size(13.)
-            .bg(Color::rgb8(29, 29, 29))
-            .border(1., Color::rgb8(72, 72, 72))
+            .bg(self.colors.neutral(29))
+            .border(1., self.colors.neutral(72))
             .disabled(!self.can_edit_opacity())
             .on_input(cx.input_listener(FIELD, |this, value, cx| {
                 if !this.can_edit_opacity() {

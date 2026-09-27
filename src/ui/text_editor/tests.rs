@@ -214,3 +214,44 @@ fn selected_text_color_survives_picker_typing_undo_and_apply() {
     })
     .unwrap();
 }
+
+#[test]
+fn light_theme_text_inputs_have_light_backgrounds_and_dark_glyphs() {
+    let mut editor = Editor::with_test_document();
+    editor.colors = theme::palette::Palette::LIGHT;
+    editor.begin_text([20., 30.], [20., 30.], false).unwrap();
+    let (mut cx, view) = Application::new()
+        .font(crate::UI_FONT)
+        .into_test_context(WindowOptions::new("Light text").size(1400., 1000.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    let shot = cx.capture_screenshot(window).unwrap();
+    let scale = shot.width() as f32 / 1400.;
+    for id in ["text-font", "text-number-0", "text-color"] {
+        let field = cx.element_bounds(window, id).unwrap();
+        let y = (field.y + field.height / 2.) * scale;
+        let background = shot
+            .pixel(((field.x + 4.) * scale) as u32, y as u32)
+            .unwrap();
+        assert!(
+            background[..3].iter().all(|v| *v > 200),
+            "{id} has a dark background: {background:?}"
+        );
+        let mut dark_ink = 0;
+        for y in (field.y as u32 + 4)..((field.y + field.height) as u32 - 4) {
+            for x in (field.x as u32 + 10)..((field.x + field.width) as u32 - 10) {
+                let pixel = shot
+                    .pixel((x as f32 * scale) as u32, (y as f32 * scale) as u32)
+                    .unwrap();
+                if pixel[..3].iter().all(|v| *v < 100) {
+                    dark_ink += 1;
+                }
+            }
+        }
+        assert!(dark_ink > 3, "{id} has no readable dark glyphs");
+    }
+    if let Ok(dir) = std::env::var("COMPOSITOR_THEME_SCREENSHOTS") {
+        shot.write_png(PathBuf::from(dir).join("theme-light-text.png"))
+            .unwrap();
+    }
+}

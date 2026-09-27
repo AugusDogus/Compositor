@@ -79,7 +79,7 @@ impl Editor {
             }
             _ => cx.propagate(),
         });
-        Self::text_field(edit.name.clone())
+        self.text_field(edit.name.clone())
             .id("layer-rename")
             .auto_focus()
             .w_full()
@@ -89,7 +89,7 @@ impl Editor {
             .text_size(13.)
             .rounded(3.)
             .text_input_padding(5.)
-            .bg(Color::rgb8(25, 25, 25))
+            .bg(self.colors.neutral(25))
             .on_mouse_down(
                 quickgui::MouseButton::Left,
                 cx.mouse_down_listener("layer-rename", |_, _, cx| cx.stop_propagation()),

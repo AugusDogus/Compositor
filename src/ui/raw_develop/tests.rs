@@ -482,3 +482,37 @@ fn numeric_field_commits_before_neutral_picker_without_replacing_sampled_balance
     })
     .unwrap();
 }
+
+#[test]
+fn light_theme_raw_fields_and_selected_buttons_have_readable_foregrounds() {
+    let mut editor = Editor::new(Vec::new()).unwrap();
+    editor.colors = theme::palette::Palette::LIGHT;
+    editor.develop = Some(ready());
+    let (mut cx, view) = Application::new()
+        .font(crate::UI_FONT)
+        .into_test_context(WindowOptions::new("Light RAW").size(1440., 1000.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    let shot = cx.capture_screenshot(window).unwrap();
+    let scale = shot.width() as f32 / 1440.;
+    let button = cx.element_bounds(window, "raw-compare-Edited").unwrap();
+    let mut light_ink = 0;
+    for y in (button.y as u32 + 4)..((button.y + button.height) as u32 - 4) {
+        for x in (button.x as u32 + 4)..((button.x + button.width) as u32 - 4) {
+            let pixel = shot
+                .pixel((x as f32 * scale) as u32, (y as f32 * scale) as u32)
+                .unwrap();
+            if pixel[..3].iter().all(|v| *v > 220) {
+                light_ink += 1;
+            }
+        }
+    }
+    assert!(
+        light_ink > 10,
+        "Selected RAW labels need a light foreground over the blue accent"
+    );
+    if let Ok(dir) = std::env::var("COMPOSITOR_THEME_SCREENSHOTS") {
+        shot.write_png(PathBuf::from(dir).join("theme-light-raw.png"))
+            .unwrap();
+    }
+}

@@ -168,7 +168,7 @@ impl Editor {
         let dialog = quickgui::Dialog::alert("external-project-dialog", true)
             .initial_focus("external-keep")
             .restore_focus_to("workspace");
-        let contents = Self::alert_contents(
+        let contents = self.alert_contents(
             dialog,
             format!("{name} changed outside Compositor"),
             "Your open edits are preserved. Open the external version in a separate unsaved tab to compare it. Use Save As to keep your edits without overwriting the external file.",
@@ -178,9 +178,8 @@ impl Editor {
             .flex_col()
             .gap(8.)
             .child(
-                Self::alert_button("Open External Copy").on_click(cx.listener(
-                    "external-copy",
-                    |this, cx| {
+                self.alert_button("Open External Copy")
+                    .on_click(cx.listener("external-copy", |this, cx| {
                         if let Some(change) = this.external_projects.changes.pop_front() {
                             let result = this.show_opened_projects(vec![
                                 project_open::OpenedProject::Loaded {
@@ -191,10 +190,9 @@ impl Editor {
                             ]);
                             this.operation_result(alerts::Operation::Open, result, cx);
                         }
-                    },
-                )),
+                    })),
             )
-            .child(Self::alert_button("Keep Editing").on_click(cx.listener(
+            .child(self.alert_button("Keep Editing").on_click(cx.listener(
                 "external-keep",
                 |this, cx| {
                     this.external_projects.changes.pop_front();

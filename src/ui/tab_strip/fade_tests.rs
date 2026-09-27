@@ -20,7 +20,7 @@ impl View for FadeSample {
                     .h(34.)
                     .on_click(cx.listener("under-fade", |this, _| this.clicks += 1)),
             )
-            .child(leading_edge_fade(self.scrolled))
+            .child(leading_edge_fade(Default::default(), self.scrolled))
     }
 }
 

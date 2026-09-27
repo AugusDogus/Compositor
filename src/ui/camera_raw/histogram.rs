@@ -145,20 +145,18 @@ impl Editor {
                     .flex_row()
                     .gap(8.)
                     .child(
-                        Self::check_control("Histogram", mode == Scope::Histogram).on_click(
-                            cx.listener("camera-scope-histogram", |this, cx| {
+                        self.check_control("Histogram", mode == Scope::Histogram)
+                            .on_click(cx.listener("camera-scope-histogram", |this, cx| {
                                 this.camera_raw.scope = Scope::Histogram;
                                 cx.invalidate();
-                            }),
-                        ),
+                            })),
                     )
                     .child(
-                        Self::check_control("Vectorscope", mode == Scope::Vectorscope).on_click(
-                            cx.listener("camera-scope-vector", |this, cx| {
+                        self.check_control("Vectorscope", mode == Scope::Vectorscope)
+                            .on_click(cx.listener("camera-scope-vector", |this, cx| {
                                 this.camera_raw.scope = Scope::Vectorscope;
                                 cx.invalidate();
-                            }),
-                        ),
+                            })),
                     ),
             )
             .child(histogram)

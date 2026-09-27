@@ -33,6 +33,7 @@ struct Invoke {
 enum Command {
     Edit(Action),
     About,
+    Theme(theme::Choice),
     Shortcuts,
     Updates,
     Quit,
@@ -208,7 +209,7 @@ impl Editor {
             Icon::Adjustment,
             "New adjustment layer",
         );
-        icon.button(label)
+        icon.button(self.colors, label)
             .gap(2.)
             .child(Icon::ChevronDown.element(8.))
             .disabled(!self.can_edit_layers())
@@ -235,7 +236,7 @@ impl Editor {
             .flex_row()
             .items_center()
             .px(8.)
-            .bg(Color::rgb8(36, 36, 36));
+            .bg(self.colors.neutral(36));
         for (index, title) in TITLES.into_iter().enumerate() {
             if let Some(item) = bar.item(self.menus.bar, index) {
                 let element = item.item_with(
@@ -245,11 +246,11 @@ impl Editor {
                         .items_center()
                         .rounded(12.)
                         .bg(if item.is_open() {
-                            Color::rgb8(76, 76, 76)
+                            self.colors.neutral(76)
                         } else {
                             Color::TRANSPARENT
                         })
-                        .hover(|s| s.bg(Color::rgb8(62, 62, 62)))
+                        .hover(|s| s.bg(self.colors.neutral(62)))
                         .child(text(title).text_size(13.).font_semibold()),
                 );
                 let id = item.item_id();

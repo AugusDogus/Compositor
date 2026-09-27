@@ -3,7 +3,12 @@
 use super::*;
 use quickgui::{CursorStyle, MouseButton, ResizeDirection};
 
-fn control(id: &'static str, label: &'static str, glyph: Element) -> Element {
+fn control(
+    colors: theme::palette::Palette,
+    id: &'static str,
+    label: &'static str,
+    glyph: Element,
+) -> Element {
     button()
         .id(id)
         .w(36.)
@@ -14,15 +19,15 @@ fn control(id: &'static str, label: &'static str, glyph: Element) -> Element {
         .justify_center()
         .rounded(4.)
         .bg(Color::TRANSPARENT)
-        .hover(|s| s.bg(Color::rgb8(62, 62, 62)))
+        .hover(|s| s.bg(colors.neutral(62)))
         .focus(controls::focus_outline)
         .accessibility_label(label)
         .tooltip(label)
         .child(glyph)
 }
 
-fn maximize_icon(maximized: bool) -> Element {
-    let color = Color::rgb8(210, 210, 210);
+fn maximize_icon(colors: theme::palette::Palette, maximized: bool) -> Element {
+    let color = colors.neutral(210);
     let square = div().absolute().size(9., 9.).border(1., color);
     let mut icon = div().relative().size(12., 12.);
     if maximized {
@@ -93,9 +98,10 @@ impl Editor {
                 }),
             );
         let minimize = control(
+            self.colors,
             "window-minimize",
             "Minimize",
-            div().w(10.).h(1.).bg(Color::rgb8(210, 210, 210)),
+            div().w(10.).h(1.).bg(self.colors.neutral(210)),
         )
         .on_click(cx.listener("window-minimize", |this, cx| {
             let result = cx.minimize_window();
@@ -107,13 +113,14 @@ impl Editor {
             );
         }));
         let maximize = control(
+            self.colors,
             "window-maximize",
             if maximized {
                 "Restore window"
             } else {
                 "Maximize"
             },
-            maximize_icon(maximized),
+            maximize_icon(self.colors, maximized),
         )
         .on_click(cx.listener("window-maximize", |this, cx| {
             let result = cx.zoom_window();
@@ -126,12 +133,17 @@ impl Editor {
                 cx,
             );
         }));
-        let close = control("window-close", "Close window", Icon::X.element(14.))
-            .hover(|s| s.bg(Color::rgb8(185, 48, 48)))
-            .on_click(cx.listener("window-close", |this, cx| {
-                this.request_close(CloseIntent::Window, cx);
-                cx.invalidate();
-            }));
+        let close = control(
+            self.colors,
+            "window-close",
+            "Close window",
+            Icon::X.element(14.),
+        )
+        .hover(|s| s.bg(Color::rgb8(185, 48, 48)))
+        .on_click(cx.listener("window-close", |this, cx| {
+            this.request_close(CloseIntent::Window, cx);
+            cx.invalidate();
+        }));
         div()
             .id("window-titlebar")
             .relative()
@@ -139,7 +151,7 @@ impl Editor {
             .flex_shrink_0()
             .flex_row()
             .items_center()
-            .bg(Color::rgb8(36, 36, 36))
+            .bg(self.colors.neutral(36))
             // Center against the window, not the remaining space after the menus.
             // Omit the title in narrow windows where it would collide with the menus.
             .children((cx.size().width >= 960.).then(|| {
@@ -152,7 +164,7 @@ impl Editor {
                         text("Compositor")
                             .id("window-titlebar-title")
                             .text_size(12.)
-                            .text_color(Color::rgb8(155, 155, 155)),
+                            .text_color(self.colors.neutral(155)),
                     )
             }))
             .child(menu)

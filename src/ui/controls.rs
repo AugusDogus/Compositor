@@ -12,8 +12,8 @@ impl Editor {
             .w(24.)
             .h(24.)
             .rounded(12.)
-            .border(1., Color::rgb8(90, 90, 90))
-            .bg(Color::rgb8(65, 65, 65))
+            .border(1., self.colors.neutral(90))
+            .bg(self.colors.neutral(65))
             .disabled(!can_switch);
         // The drop ring overlays the circular button without changing its shape or hit area.
         let new_target = div()
@@ -24,7 +24,7 @@ impl Editor {
             .rounded(6.)
             .disabled(!can_switch)
             .drag_over(|s| {
-                s.outline_offset(2., Color::rgb8(0, 122, 255), -2.)
+                s.outline_offset(2., self.colors.accent(), -2.)
                     .cursor_copy()
             })
             .can_drop(move |drag: &super::layer_drag::LayerDrag| {
@@ -63,8 +63,8 @@ impl Editor {
             .gap(8.)
             .flex_row()
             .items_center()
-            .bg(Color::rgb8(43, 43, 43))
-            .border_bottom(1., Color::rgb8(62, 62, 62))
+            .bg(self.colors.neutral(43))
+            .border_bottom(1., self.colors.neutral(62))
             .child(new)
             .child(tabs)
             .child(div().flex_1())
@@ -90,7 +90,7 @@ impl Editor {
             .flex_row()
             .flex_shrink_0()
             .rounded(12.)
-            .bg(Color::rgb8(65, 65, 65))
+            .bg(self.colors.neutral(65))
             .child(
                 self.icon_action(cx, 123, Icon::ZoomIn, "Zoom in (Ctrl++)", Action::ZoomIn)
                     .h(24.)
@@ -119,8 +119,8 @@ impl Editor {
             .gap(10.)
             .padding(16., 0., 12., 0.)
             .overflow_y_scroll()
-            .bg(Color::rgb8(36, 36, 36))
-            .border_right(1., Color::rgb8(62, 62, 62));
+            .bg(self.colors.neutral(36))
+            .border_right(1., self.colors.neutral(62));
         for (tool, icon, label) in [
             (Tool::Move, Icon::Move, "Move / Transform (V)"),
             (
@@ -199,6 +199,7 @@ impl Editor {
                 // SF Symbols' 17-point font size includes glyphs with different
                 // bounds. Match their visible rail size, not the SVG viewBox.
                 .button_with_icon_size(
+                    self.colors,
                     label,
                     match icon {
                         Icon::Move
@@ -216,19 +217,19 @@ impl Editor {
                 )
                 .w(36.)
                 .h(36.)
-                .text_color(Color::rgb8(225, 225, 225))
+                .text_color(self.colors.neutral(225))
                 .selected(self.tools.tool == tool)
                 .rounded(7.)
                 .border(
                     1.,
                     if self.tools.tool == tool {
-                        Color::rgb8(79, 79, 79)
+                        self.colors.neutral(79)
                     } else {
                         Color::TRANSPARENT
                     },
                 )
                 .bg(if self.tools.tool == tool {
-                    Color::rgb8(65, 65, 65)
+                    self.colors.neutral(65)
                 } else {
                     Color::TRANSPARENT
                 })
@@ -257,7 +258,7 @@ impl Editor {
                 .gap(12.)
                 .flex_row()
                 .items_center()
-                .bg(Color::rgb8(38, 38, 38))
+                .bg(self.colors.neutral(38))
                 .child(
                     text("Gradient")
                         .text_size(13.)
@@ -277,7 +278,7 @@ impl Editor {
             })
             .flex_row()
             .items_center()
-            .bg(Color::rgb8(38, 38, 38))
+            .bg(self.colors.neutral(38))
             .flex_shrink_0()
             .overflow_x_scroll()
             .child(
@@ -325,12 +326,11 @@ impl Editor {
         }
         if self.tools.tool == Tool::Eyedropper {
             bar = bar.child(
-                Self::check_control("Sample Ring", self.tools.shows_sample_ring).on_click(
-                    cx.listener("sample-ring-toggle", |this, cx| {
+                self.check_control("Sample Ring", self.tools.shows_sample_ring)
+                    .on_click(cx.listener("sample-ring-toggle", |this, cx| {
                         this.tools.shows_sample_ring = !this.tools.shows_sample_ring;
                         cx.invalidate();
-                    }),
-                ),
+                    })),
             );
         }
         if self.tools.tool.is_tonal() {
@@ -358,7 +358,7 @@ impl Editor {
                     text("Alt-click to set the source")
                         .text_size(12.)
                         .line_height(15.)
-                        .text_color(Color::rgb8(160, 160, 160))
+                        .text_color(self.colors.neutral(160))
                         .whitespace_nowrap(),
                 );
             }
@@ -367,7 +367,7 @@ impl Editor {
                     text("Mask")
                         .text_size(12.)
                         .line_height(15.)
-                        .text_color(Color::rgb8(160, 160, 160)),
+                        .text_color(self.colors.neutral(160)),
                 );
             }
         }
@@ -387,7 +387,7 @@ impl Editor {
             }
             if self.tools.tool != Tool::Rectangle {
                 bar = bar.child(
-                    Self::check_control("Anti-alias", self.tools.selection_antialiased)
+                    self.check_control("Anti-alias", self.tools.selection_antialiased)
                         .tooltip("Smooth selection edges; turn off for hard pixel edges")
                         .on_click(cx.listener("selection-antialias", |this, cx| {
                             this.tools.selection_antialiased = !this.tools.selection_antialiased;
@@ -438,11 +438,11 @@ impl Editor {
             .flex_row()
             .items_center()
             .rounded(6.)
-            .bg(Color::rgb8(29, 29, 29))
+            .bg(self.colors.neutral(29))
             .p(2.)
             .flex_shrink_0();
         for &(tool, label) in modes {
-            row = row.child(Self::segment(label, tool == self.tools.tool).on_click(
+            row = row.child(self.segment(label, tool == self.tools.tool).on_click(
                 cx.listener(format!("tool-mode-{tool:?}"), move |this, cx| {
                     this.select_tool(tool, cx)
                 }),
@@ -476,7 +476,7 @@ mod tests {
             let mut column = div().flex_col().gap(12.).p(12.);
             for (id, height) in [("regular", 24.), ("large", 30.)] {
                 column = column.child(
-                    Editor::control("Normal")
+                    theme::control(Default::default(), "Normal")
                         .id(id)
                         .w(190.)
                         .h(height)

@@ -238,7 +238,7 @@ impl EffectsEditor {
 }
 impl Editor {
     pub(super) fn effects_button(&self, cx: &mut ViewContext<'_, Self>) -> Element {
-        Self::control("fx")
+        self.control("fx")
             .id("layer-effects")
             .w(33.)
             .h(41.)
@@ -247,8 +247,8 @@ impl Editor {
             .justify_center()
             .rounded(6.)
             .bg(Color::TRANSPARENT)
-            .text_color(Color::rgb8(164, 164, 164))
-            .hover(|s| s.bg(Color::rgb8(66, 66, 66)))
+            .text_color(self.colors.neutral(164))
+            .hover(|s| s.bg(self.colors.neutral(66)))
             .disabled_style(|s| s.opacity(0.4))
             .accessibility_label("Edit layer effects")
             .tooltip("Edit layer effects")

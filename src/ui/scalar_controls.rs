@@ -160,7 +160,7 @@ impl Editor {
             .child(input)
             .child(text(unit).text_size(12.).line_height(15.))
     }
-    pub(super) fn check_control(label: &'static str, checked: bool) -> Element {
+    pub(super) fn check_control(&self, label: &'static str, checked: bool) -> Element {
         quickgui::Checkbox::new(checked)
             .root()
             .text_size(12.)
@@ -180,14 +180,16 @@ impl Editor {
                     .flex_shrink_0()
                     .rounded(3.)
                     .group_focus(super::controls::focus_outline)
-                    .border(1., Color::rgb8(112, 112, 112))
+                    .border(1., self.colors.neutral(112))
                     .bg(if checked {
-                        Color::rgb8(89, 126, 170)
+                        self.colors.accent_variant([89, 126, 170])
                     } else {
-                        Color::rgb8(44, 44, 44)
+                        self.colors.neutral(44)
                     })
                     .child(if checked {
-                        Icon::Check.element(11.)
+                        Icon::Check
+                            .element(11.)
+                            .text_color(self.colors.accent_text())
                     } else {
                         div()
                     }),
@@ -339,7 +341,7 @@ impl Editor {
                 track_colors.colors.clone(),
             )
         } else {
-            track.bg(Color::rgb8(83, 83, 83))
+            track.bg(self.colors.neutral(83))
         };
         let mut control = slider
             .root_with(div().w(width).h(24.).relative().flex_shrink_0())
@@ -356,7 +358,8 @@ impl Editor {
                     .w(THUMB_SIZE / 2. + (width - THUMB_SIZE) * state.fraction(0))
                     .h(6.)
                     .rounded(3.)
-                    .bg(Color::rgb8(0, 122, 255))
+                    .bg(self.colors.accent())
+                    .text_color(self.colors.accent_text())
             }))
             .child(
                 div()
@@ -368,7 +371,7 @@ impl Editor {
                     .h(THUMB_HEIGHT)
                     .rounded(8.)
                     .group_focus(super::controls::focus_outline)
-                    .bg(Color::rgb8(216, 216, 216)),
+                    .bg(self.colors.neutral(216)),
             );
         if let Some(track) = colored {
             control = control.tooltip("Double-click to reset").on_mouse_down(
@@ -401,15 +404,15 @@ impl Editor {
         scalar: Scalar,
         range: (f64, f64),
     ) -> Element {
-        Self::text_field(format!("{:.0}", scalar.value(self)))
+        self.text_field(format!("{:.0}", scalar.value(self)))
             .w(44.)
             .h(24.)
             .text_input_padding(5.)
             .rounded(5.)
             .text_size(12.)
             .line_height(15.)
-            .bg(Color::rgb8(29, 29, 29))
-            .border(1., Color::rgb8(67, 67, 67))
+            .bg(self.colors.neutral(29))
+            .border(1., self.colors.neutral(67))
             .on_input(cx.input_listener(id, move |this, input, cx| {
                 if let Ok(value) = input.parse::<f64>()
                     && value.is_finite()

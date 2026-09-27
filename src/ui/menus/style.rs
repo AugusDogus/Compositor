@@ -1,16 +1,17 @@
 //! Shared AppKit-style surfaces and rows for application and picker menus.
 use super::*;
 
-pub(in crate::ui) fn surface() -> Element {
+pub(in crate::ui) fn surface(colors: theme::palette::Palette) -> Element {
     div()
-        .bg(Color::rgba8(64, 64, 64, 217))
+        .bg(colors.neutral(64).with_alpha(217. / 255.))
         .backdrop_blur(20.)
-        .border(1., Color::rgb8(87, 87, 87))
+        .border(1., colors.neutral(87))
         .rounded(12.)
         .shadow(crate::ui::surfaces::menu_shadow())
 }
 
 pub(in crate::ui) fn choice(
+    colors: theme::palette::Palette,
     label: impl Into<Arc<str>>,
     state: quickgui::PopoverMenuItemState,
 ) -> Element {
@@ -28,14 +29,16 @@ pub(in crate::ui) fn choice(
         .gap(24.)
         .rounded(5.)
         .bg(if state.highlighted && !state.disabled {
-            Color::rgb8(0, 106, 216)
+            colors.accent_variant([0, 106, 216])
         } else {
             Color::TRANSPARENT
         })
         .text_color(if state.disabled {
-            Color::rgb8(117, 117, 117)
+            colors.neutral(117)
+        } else if state.highlighted {
+            colors.accent_text()
         } else {
-            Color::rgb8(231, 231, 231)
+            colors.neutral(231)
         })
         .child(mark)
         .child(
@@ -74,17 +77,24 @@ mod tests {
                 .font_family("Inter Variable")
                 .child(backdrop);
             for x in [20., 160.] {
-                root = root.child(surface().absolute().left(x).top(16.).w(88.).h(64.).child(
-                    choice(
-                        "Menu",
-                        quickgui::PopoverMenuItemState {
-                            highlighted: false,
-                            disabled: false,
-                            checked: None,
-                            has_submenu: false,
-                        },
-                    ),
-                ));
+                root = root.child(
+                    surface(Default::default())
+                        .absolute()
+                        .left(x)
+                        .top(16.)
+                        .w(88.)
+                        .h(64.)
+                        .child(choice(
+                            Default::default(),
+                            "Menu",
+                            quickgui::PopoverMenuItemState {
+                                highlighted: false,
+                                disabled: false,
+                                checked: None,
+                                has_submenu: false,
+                            },
+                        )),
+                );
             }
             root
         }

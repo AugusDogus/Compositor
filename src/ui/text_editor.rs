@@ -419,7 +419,7 @@ impl Editor {
             .gap(12.)
             .child(text("Click for point text · Drag for paragraph text").text_size(12.))
             .child(
-                Self::segment("Edit selected text", false)
+                self.segment("Edit selected text", false)
                     .disabled(!editable)
                     .on_click(cx.listener("edit-active-text", |this, cx| {
                         let result = this.edit_active_text();

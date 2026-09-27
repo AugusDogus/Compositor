@@ -392,7 +392,7 @@ impl Editor {
             return div();
         };
         div().flex_row().items_center().gap(8.).child(
-            Self::check_control("Preview", edit.enabled)
+            self.check_control("Preview", edit.enabled)
                 .text_size(13.)
                 .line_height(16.)
                 .on_click(cx.listener("filter-preview", |this, cx| {

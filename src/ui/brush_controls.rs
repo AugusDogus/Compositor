@@ -118,7 +118,7 @@ impl Editor {
                 compositor::brush::sampled::Shape::Round => "Round tip",
                 compositor::brush::sampled::Shape::Sampled(_) => "Sampled tip",
             };
-            row = row.child(Self::control(label).on_click(cx.listener(
+            row = row.child(self.control(label).on_click(cx.listener(
                 "brush-tip-picker",
                 |this, cx| {
                     this.open_brush_tips();
@@ -151,11 +151,11 @@ impl Editor {
                 | Tool::Sponge
         ) {
             row = row
-                .child(Self::segment("Pressure", self.tools.pen_pressure)
+                .child(self.segment("Pressure", self.tools.pen_pressure)
                     .id("pen-pressure")
                     .tooltip("Use tablet pressure for brush size. Mouse strokes keep the configured size.")
                     .on_click(cx.listener("pen-pressure", |this, cx| { this.tools.pen_pressure = !this.tools.pen_pressure; cx.invalidate(); })))
-                .child(Self::segment("Tilt", self.tools.pen_tilt)
+                .child(self.segment("Tilt", self.tools.pen_tilt)
                     .id("pen-tilt")
                     .tooltip("Use tablet tilt for an elliptical brush tip.")
                     .on_click(cx.listener("pen-tilt", |this, cx| { this.tools.pen_tilt = !this.tools.pen_tilt; cx.invalidate(); })));
@@ -185,10 +185,10 @@ impl Editor {
         };
         let selector = self.tools.mask_paint_picker.element(
             cx,
-            "mask-paint",
-            "Paint",
+            self.colors,
+            ("mask-paint", "Paint"),
             |this| &mut this.tools.mask_paint_picker,
-            Self::tool_header_control(label)
+            self.tool_header_control(label)
                 .flex_1()
                 .min_w(0.)
                 .flex_row()
@@ -209,7 +209,7 @@ impl Editor {
             .child(text("Paint").text_size(12.).line_height(15.))
             .child(selector)
     }
-    pub(super) fn segment(label: &'static str, active: bool) -> Element {
+    pub(super) fn segment(&self, label: &'static str, active: bool) -> Element {
         button()
             .flex_row()
             .items_center()
@@ -223,7 +223,7 @@ impl Editor {
             .px(9.)
             .rounded(5.)
             .bg(if active {
-                Color::rgb8(76, 76, 76)
+                self.colors.neutral(76)
             } else {
                 Color::TRANSPARENT
             })
@@ -243,7 +243,7 @@ impl Editor {
 
         if self.tools.tool == Tool::Clone {
             controls = controls.child(
-                Self::check_control("Aligned", self.tools.clone_aligned)
+                self.check_control("Aligned", self.tools.clone_aligned)
                     .tooltip("Keep the source moving with the brush between strokes; off starts every stroke at the source point").on_click(cx.listener(
                     "clone-alignment",
                     |this, cx| {
@@ -269,9 +269,9 @@ impl Editor {
                 .p(2.)
                 .gap(2.)
                 .rounded(6.)
-                .bg(Color::rgb8(29, 29, 29));
+                .bg(self.colors.neutral(29));
             for (value, label) in [(false, "This Layer"), (true, "All Layers")] {
-                modes = modes.child(Self::segment(label, value == all).on_click(cx.listener(
+                modes = modes.child(self.segment(label, value == all).on_click(cx.listener(
                     format!("sample-layers-{value}"),
                     move |this, cx| {
                         if clone {
@@ -293,7 +293,7 @@ impl Editor {
         }
         if self.tools.tool == Tool::Wand {
             controls = controls.child(
-                Self::check_control("Contiguous", self.tools.wand_contiguous)
+                self.check_control("Contiguous", self.tools.wand_contiguous)
                     .tooltip("Select only similar pixels connected to the one you click; off selects them everywhere").on_click(
                     cx.listener("wand-contiguous", |this, cx| {
                         this.tools.wand_contiguous = !this.tools.wand_contiguous;
@@ -308,7 +308,7 @@ impl Editor {
                 .p(2.)
                 .gap(2.)
                 .rounded(6.)
-                .bg(Color::rgb8(29, 29, 29))
+                .bg(self.colors.neutral(29))
                 .flex_1()
                 .min_w(0.);
             for (mode, label) in [
@@ -317,7 +317,7 @@ impl Editor {
                 (Healing::Proximity, "Proximity Match"),
             ] {
                 modes = modes.child(
-                    Self::segment(label, self.tools.healing == mode)
+                    self.segment(label, self.tools.healing == mode)
                         .flex_1()
                         .px(2.)
                         .on_click(cx.listener(format!("healing-{label}"), move |this, cx| {

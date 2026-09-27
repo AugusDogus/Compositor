@@ -18,12 +18,12 @@ impl Editor {
             .gap(2.)
             .p(2.)
             .rounded(6.)
-            .bg(Color::rgb8(29, 29, 29))
+            .bg(self.colors.neutral(29))
             .flex_shrink_0();
         for kind in [ShapeKind::Rectangle, ShapeKind::Ellipse, ShapeKind::Line] {
             let label = kind.label();
             modes = modes.child(
-                Self::segment(label, self.tools.shape_kind == kind)
+                self.segment(label, self.tools.shape_kind == kind)
                     .tooltip("Shift-U cycles Rectangle, Ellipse, and Line")
                     .on_click(cx.listener(format!("shape-{label}"), move |this, cx| {
                         this.set_shape_kind(kind);

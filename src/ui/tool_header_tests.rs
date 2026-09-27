@@ -67,8 +67,18 @@ impl View for SegmentSample {
             .items_start()
             .gap(12.)
             .p(12.)
-            .child(Editor::segment("Rectangle", true).id("active").w(160.))
-            .child(Editor::segment("Ellipse", false).id("inactive").w(120.))
+            .child(
+                Editor::with_test_document()
+                    .segment("Rectangle", true)
+                    .id("active")
+                    .w(160.),
+            )
+            .child(
+                Editor::with_test_document()
+                    .segment("Ellipse", false)
+                    .id("inactive")
+                    .w(120.),
+            )
     }
 }
 

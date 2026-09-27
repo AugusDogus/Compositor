@@ -45,7 +45,7 @@ impl Editor {
             .min_h(0.)
             .relative()
             .overflow_hidden()
-            .bg(Color::rgb8(22, 24, 28));
+            .bg(self.colors.tinted_neutral([22, 24, 28]));
         if let Some(r) = &d.ready {
             let shown = if d.clipping { &r.warnings } else { &r.preview };
             match d.compare {

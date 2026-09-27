@@ -77,7 +77,7 @@ impl Editor {
     ) -> Element {
         let mut controls = div().flex_row().gap(8.);
         for (white, label) in [(false, "Black · Hide"), (true, "White · Reveal")] {
-            controls = controls.child(Self::control(label).on_click(cx.listener(
+            controls = controls.child(self.control(label).on_click(cx.listener(
                 format!("mask-color-{white}"),
                 move |this, cx| {
                     this.tools.mask_paint_white = match target {
@@ -100,8 +100,8 @@ impl Editor {
                 .p(16.)
                 .rounded(7.)
                 .shadow(super::surfaces::menu_shadow())
-                .bg(Color::rgb8(48, 48, 48))
-                .border(1., Color::rgb8(82, 82, 82))
+                .bg(self.colors.neutral(48))
+                .border(1., self.colors.neutral(82))
                 .child(
                     popup.title_with(
                         text(target.title())

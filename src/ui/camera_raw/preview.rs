@@ -65,32 +65,30 @@ impl Editor {
             .flex_wrap()
             .gap(8.)
             .child(
-                Self::check_control("Shadow clipping", options.shadow_overlay).on_click(
-                    cx.listener("camera-shadow-overlay", |this, cx| {
+                self.check_control("Shadow clipping", options.shadow_overlay)
+                    .on_click(cx.listener("camera-shadow-overlay", |this, cx| {
                         this.camera_raw.preview.shadow_overlay =
                             !this.camera_raw.preview.shadow_overlay;
                         this.refresh_filter();
                         this.changed(cx);
-                    }),
-                ),
+                    })),
             )
             .child(
-                Self::check_control("Highlight clipping", options.highlight_overlay).on_click(
-                    cx.listener("camera-highlight-overlay", |this, cx| {
+                self.check_control("Highlight clipping", options.highlight_overlay)
+                    .on_click(cx.listener("camera-highlight-overlay", |this, cx| {
                         this.camera_raw.preview.highlight_overlay =
                             !this.camera_raw.preview.highlight_overlay;
                         this.refresh_filter();
                         this.changed(cx);
-                    }),
-                ),
+                    })),
             );
         if self.camera_raw.group == Group::Mixer
             && self.camera_raw.mixer_page == MixerPage::Points
             && !self.camera_raw.settings.mixer.points.is_empty()
         {
             controls = controls.child(
-                Self::check_control("Visualize range", options.point_color.is_some()).on_click(
-                    cx.listener("camera-point-visualize", |this, cx| {
+                self.check_control("Visualize range", options.point_color.is_some())
+                    .on_click(cx.listener("camera-point-visualize", |this, cx| {
                         this.camera_raw.preview.point_color =
                             if this.camera_raw.preview.point_color.is_some() {
                                 None
@@ -99,8 +97,7 @@ impl Editor {
                             };
                         this.refresh_filter();
                         this.changed(cx);
-                    }),
-                ),
+                    })),
             );
         }
         controls

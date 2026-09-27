@@ -9,7 +9,7 @@ impl Editor {
             .items_center()
             .justify_between()
             .child(
-                Self::check_control("Enable group", self.camera_raw.settings.enabled(group))
+                self.check_control("Enable group", self.camera_raw.settings.enabled(group))
                     .on_click(cx.listener("camera-group-enabled", move |this, cx| {
                         this.camera_change(|e| {
                             e.settings.enabled[group as usize] = !e.settings.enabled[group as usize]
@@ -17,7 +17,7 @@ impl Editor {
                         this.changed(cx);
                     })),
             )
-            .child(Self::control("Reset group").on_click(cx.listener(
+            .child(self.control("Reset group").on_click(cx.listener(
                 "camera-group-reset",
                 move |this, cx| {
                     this.camera_change(|e| e.settings.reset(group));
@@ -50,7 +50,7 @@ impl Editor {
     fn camera_group_color(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         let result = div().flex_col().gap(8.);
         let mut choices = div().flex_row().flex_wrap().gap(4.);
-        choices = choices.child(Self::control("Auto White Balance").on_click(cx.listener(
+        choices = choices.child(self.control("Auto White Balance").on_click(cx.listener(
             "camera-auto-wb",
             |this, cx| {
                 this.camera_auto_balance();
@@ -69,12 +69,13 @@ impl Editor {
             ("Halation", GlowStyle::Halation),
         ] {
             choices = choices.child(
-                Self::check_control(label, self.camera_raw.settings.glow_style == style).on_click(
-                    cx.listener(format!("camera-glow-{label}"), move |this, cx| {
-                        this.camera_change(|e| e.settings.glow_style = style);
-                        this.changed(cx);
-                    }),
-                ),
+                self.check_control(label, self.camera_raw.settings.glow_style == style)
+                    .on_click(
+                        cx.listener(format!("camera-glow-{label}"), move |this, cx| {
+                            this.camera_change(|e| e.settings.glow_style = style);
+                            this.changed(cx);
+                        }),
+                    ),
             );
         }
         for (label, style) in [
@@ -83,7 +84,7 @@ impl Editor {
             ("Paint overlay", VignetteStyle::PaintOverlay),
         ] {
             choices = choices.child(
-                Self::check_control(label, self.camera_raw.settings.vignette_style == style)
+                self.check_control(label, self.camera_raw.settings.vignette_style == style)
                     .on_click(
                         cx.listener(format!("camera-vignette-{label}"), move |this, cx| {
                             this.camera_change(|e| e.settings.vignette_style = style);
@@ -103,17 +104,15 @@ impl Editor {
         let mut choices = div().flex_row().flex_wrap().gap(4.);
         for (i, label) in ["RGB", "Red", "Green", "Blue"].into_iter().enumerate() {
             choices = choices.child(
-                Self::check_control(label, self.camera_raw.channel == i).on_click(cx.listener(
-                    format!("camera-curve-{i}"),
-                    move |this, cx| {
+                self.check_control(label, self.camera_raw.channel == i)
+                    .on_click(cx.listener(format!("camera-curve-{i}"), move |this, cx| {
                         this.camera_change(|e| {
                             e.channel = i;
                             e.curve_selected = None;
                             e.curve_interaction = super::curve::Interaction::Idle;
                         });
                         this.changed(cx);
-                    },
-                )),
+                    })),
             );
         }
 
@@ -127,30 +126,29 @@ impl Editor {
             ("Point Color", MixerPage::Points),
         ] {
             choices = choices.child(
-                Self::check_control(label, self.camera_raw.mixer_page == page).on_click(
-                    cx.listener(format!("camera-mixer-{label}"), move |this, cx| {
-                        this.camera_change(|e| e.mixer_page = page);
-                        this.changed(cx);
-                    }),
-                ),
+                self.check_control(label, self.camera_raw.mixer_page == page)
+                    .on_click(
+                        cx.listener(format!("camera-mixer-{label}"), move |this, cx| {
+                            this.camera_change(|e| e.mixer_page = page);
+                            this.changed(cx);
+                        }),
+                    ),
             );
         }
         if self.camera_raw.mixer_page == MixerPage::Families {
             for (i, label) in ColorMixer::NAMES.into_iter().enumerate() {
                 choices = choices.child(
-                    Self::check_control(label, self.camera_raw.color == i).on_click(cx.listener(
-                        format!("camera-color-{i}"),
-                        move |this, cx| {
+                    self.check_control(label, self.camera_raw.color == i)
+                        .on_click(cx.listener(format!("camera-color-{i}"), move |this, cx| {
                             this.camera_change(|e| e.color = i);
                             this.changed(cx);
-                        },
-                    )),
+                        })),
                 );
             }
         } else {
             for i in 0..self.camera_raw.settings.mixer.points.len() {
                 choices = choices.child(
-                    Self::check_control(
+                    self.check_control(
                         [
                             "Color 1", "Color 2", "Color 3", "Color 4", "Color 5", "Color 6",
                             "Color 7", "Color 8",
@@ -167,7 +165,7 @@ impl Editor {
                 );
             }
             if self.camera_raw.settings.mixer.points.len() < 8 {
-                choices = choices.child(Self::control("Add color").on_click(cx.listener(
+                choices = choices.child(self.control("Add color").on_click(cx.listener(
                     "camera-point-add",
                     |this, cx| {
                         this.camera_change(|e| {
@@ -179,7 +177,7 @@ impl Editor {
                 )));
             }
             if !self.camera_raw.settings.mixer.points.is_empty() {
-                choices = choices.child(Self::control("Remove color").on_click(cx.listener(
+                choices = choices.child(self.control("Remove color").on_click(cx.listener(
                     "camera-point-remove",
                     |this, cx| {
                         this.camera_change(|e| {
@@ -202,7 +200,7 @@ impl Editor {
             .enumerate()
         {
             choices = choices.child(
-                Self::check_control(
+                self.check_control(
                     label,
                     self.camera_raw.wheel == i
                         && self.camera_raw.grading_page == super::grading::Page::Single,
@@ -227,7 +225,7 @@ impl Editor {
         let mut choices = div().flex_row().flex_wrap().gap(4.);
         choices = choices
             .child(
-                Self::check_control(
+                self.check_control(
                     "Chromatic aberration",
                     self.camera_raw.settings.remove_chromatic,
                 )
@@ -239,7 +237,7 @@ impl Editor {
                 })),
             )
             .child(
-                Self::check_control("Lens profile", self.camera_raw.settings.lens_profile)
+                self.check_control("Lens profile", self.camera_raw.settings.lens_profile)
                     .on_click(cx.listener("camera-lens-profile", |this, cx| {
                         this.camera_change(|e| e.settings.lens_profile = !e.settings.lens_profile);
                         this.changed(cx);
@@ -261,7 +259,7 @@ impl Editor {
             ("Rectilinear", Projection::Rectilinear),
         ] {
             choices = choices.child(
-                Self::check_control(label, self.camera_raw.settings.projection == projection)
+                self.check_control(label, self.camera_raw.settings.projection == projection)
                     .on_click(cx.listener(
                         format!("camera-projection-{label}"),
                         move |this, cx| {
@@ -273,15 +271,14 @@ impl Editor {
         }
         choices = choices
             .child(
-                Self::check_control("Guided", self.camera_raw.settings.guided).on_click(
-                    cx.listener("camera-guided", |this, cx| {
+                self.check_control("Guided", self.camera_raw.settings.guided)
+                    .on_click(cx.listener("camera-guided", |this, cx| {
                         this.camera_change(|e| e.settings.guided = !e.settings.guided);
                         this.changed(cx);
-                    }),
-                ),
+                    })),
             )
             .child(
-                Self::check_control("Constrain crop", self.camera_raw.settings.constrain_crop)
+                self.check_control("Constrain crop", self.camera_raw.settings.constrain_crop)
                     .on_click(cx.listener("camera-constrain", |this, cx| {
                         this.camera_change(|e| {
                             e.settings.constrain_crop = !e.settings.constrain_crop
@@ -290,7 +287,7 @@ impl Editor {
                     })),
             );
         if self.camera_raw.settings.guides.len() < 4 {
-            choices = choices.child(Self::control("Add guide").on_click(cx.listener(
+            choices = choices.child(self.control("Add guide").on_click(cx.listener(
                 "camera-guide-add",
                 |this, cx| {
                     this.camera_change(|e| {
@@ -305,7 +302,7 @@ impl Editor {
             )));
         }
         if !self.camera_raw.settings.guides.is_empty() {
-            choices = choices.child(Self::control("Remove guide").on_click(cx.listener(
+            choices = choices.child(self.control("Remove guide").on_click(cx.listener(
                 "camera-guide-remove",
                 |this, cx| {
                     this.camera_change(|e| {
@@ -333,7 +330,7 @@ impl Editor {
         .enumerate()
         {
             choices = choices.child(
-                Self::check_control(
+                self.check_control(
                     [
                         "Version 1",
                         "Version 2",

@@ -357,7 +357,7 @@ impl Editor {
             .h_full()
             .relative()
             .overflow_hidden()
-            .bg(Color::rgb8(27, 27, 27))
+            .bg(self.colors.neutral(27))
             .on_pointer(pointer)
             .on_drop(cx.drop_listener(
                 "canvas",

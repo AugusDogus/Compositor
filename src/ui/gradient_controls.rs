@@ -35,10 +35,10 @@ impl Editor {
     fn gradient_style_picker(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         self.tools.gradient_picker.element(
             cx,
-            "gradient-style",
-            "Colors",
+            self.colors,
+            ("gradient-style", "Colors"),
             |this| &mut this.tools.gradient_picker,
-            Self::tool_header_control(label(self.tools.gradient.style))
+            self.tool_header_control(label(self.tools.gradient.style))
                 .w(205.)
                 .flex_row()
                 .items_center()
@@ -62,10 +62,10 @@ impl Editor {
             .p(2.)
             .gap(2.)
             .rounded(6.)
-            .bg(Color::rgb8(29, 29, 29));
+            .bg(self.colors.neutral(29));
         for (shape, label) in [(Shape::Linear, "Linear"), (Shape::Radial, "Radial")] {
             shapes = shapes.child(
-                Self::segment(label, self.tools.gradient.shape == shape)
+                self.segment(label, self.tools.gradient.shape == shape)
                     .tooltip("Linear runs along the line; Radial spreads out from the start point")
                     .on_click(
                         cx.listener(format!("gradient-shape-{label}"), move |this, cx| {
@@ -113,7 +113,7 @@ impl Editor {
                     .absolute()
                     .size_full()
                     .rounded(3.)
-                    .border(1., Color::rgba8(0, 0, 0, 128)),
+                    .border(1., self.colors.neutral(0).with_alpha(128. / 255.)),
             )
             .tooltip("Edit gradient color stops")
             .accessibility_label("Edit gradient color stops")
@@ -130,14 +130,12 @@ impl Editor {
             .child(swatch)
             .child(self.gradient_style_picker(cx))
             .child(
-                Self::check_control("Reverse", self.tools.gradient.reversed).on_click(cx.listener(
-                    "gradient-reverse",
-                    |this, cx| {
+                self.check_control("Reverse", self.tools.gradient.reversed)
+                    .on_click(cx.listener("gradient-reverse", |this, cx| {
                         this.tools.gradient.reversed = !this.tools.gradient.reversed;
                         let result = this.refresh_gradient();
                         this.operation_result(alerts::Operation::Paint, result, cx);
-                    },
-                )),
+                    })),
             )
             .child(self.scrub_label(
                 cx,
@@ -175,12 +173,12 @@ impl Editor {
                 text("Mask")
                     .text_size(12.)
                     .line_height(15.)
-                    .text_color(Color::rgb8(160, 160, 160)),
+                    .text_color(self.colors.neutral(160)),
             );
         }
         if edit {
             row = row
-                .child(Self::tool_header_control("Cancel").on_click(cx.listener(
+                .child(self.tool_header_control("Cancel").on_click(cx.listener(
                     "gradient-cancel",
                     |this, cx| {
                         this.pending_gradient = None;
@@ -189,7 +187,7 @@ impl Editor {
                     },
                 )))
                 .child(
-                    Self::tool_header_control("Apply")
+                    self.tool_header_control("Apply")
                         .disabled(!edit)
                         .on_click(cx.listener("gradient-apply", |this, cx| {
                             let result = this.commit_gradient();

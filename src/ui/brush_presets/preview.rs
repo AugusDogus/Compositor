@@ -147,7 +147,7 @@ impl Editor {
                         .items_center()
                         .justify_center()
                         .rounded(6.)
-                        .bg(Color::rgb8(28, 28, 28))
+                        .bg(self.colors.neutral(28))
                         .child(
                             quickgui::img(image.clone())
                                 .id("abr-tip-preview")
@@ -159,7 +159,7 @@ impl Editor {
                 let index = *index;
                 panel
                     .child(text(error.as_str()).wrap().text_size(12.))
-                    .child(Self::control("Retry preview").on_click(cx.listener(
+                    .child(self.control("Retry preview").on_click(cx.listener(
                         "abr-preview-retry",
                         move |this, cx| {
                             if let Some(import) = this.brush_import_mut() {

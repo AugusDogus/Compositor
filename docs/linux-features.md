@@ -4,6 +4,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- View > Theme offers Dark, Light and live Omarchy colors. Omarchy reads `$XDG_STATE_HOME/omarchy/current/theme/colors.toml` (default `~/.local/state/omarchy/current/theme/colors.toml`) every two seconds. Invalid palettes keep the last valid appearance; image colors stay unchanged.
 - Luminosity Sharpen sharpens brightness edges; Reduce Noise limits sharpening of small variations. It edits pixels with selection-aware preview and undo. Vulkan processes supported image sizes, with CPU fallback for unavailable GPUs or larger images.
 - File > Export Sizes writes up to 16 PNG or JPEG sizes into a new folder, with social, video and print presets or custom pixel dimensions. Fit adds padding; Fill crops centrally. PNG keeps transparency; JPEG uses white. The source project and existing exports stay unchanged.
 - Channel Mixer adjusts each output channel with signed red, green and blue contributions plus a constant, or produces monochrome output. It edits pixels with selection-aware preview and undo; it is not an editable adjustment layer.

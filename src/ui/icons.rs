@@ -120,8 +120,9 @@ impl Icon {
             .flex_shrink_0()
             .accessibility_hidden(true)
     }
-    pub fn button(self, label: impl Into<Arc<str>>) -> Element {
+    pub fn button(self, colors: theme::palette::Palette, label: impl Into<Arc<str>>) -> Element {
         self.button_with_icon_size(
+            colors,
             label,
             match self {
                 Self::Stamp | Self::LassoSelect | Self::Gradient => 18.,
@@ -131,7 +132,12 @@ impl Icon {
             },
         )
     }
-    pub fn button_with_icon_size(self, label: impl Into<Arc<str>>, size: f32) -> Element {
+    pub fn button_with_icon_size(
+        self,
+        colors: theme::palette::Palette,
+        label: impl Into<Arc<str>>,
+        size: f32,
+    ) -> Element {
         let label = label.into();
         button()
             .w(32.)
@@ -143,8 +149,8 @@ impl Icon {
             .justify_center()
             .rounded(6.)
             .bg(Color::TRANSPARENT)
-            .text_color(Color::rgb8(210, 210, 210))
-            .hover(|s| s.bg(Color::rgb8(66, 66, 66)))
+            .text_color(colors.neutral(210))
+            .hover(|s| s.bg(colors.neutral(66)))
             .focus(super::controls::focus_outline)
             .disabled_style(|s| s.opacity(0.4))
             .accessibility_label(label.clone())
@@ -161,7 +167,7 @@ impl Editor {
         label: &'static str,
         action: Action,
     ) -> Element {
-        icon.button(label)
+        icon.button(self.colors, label)
             .on_click(cx.listener(id, move |this, cx| this.action(action, cx)))
     }
 }

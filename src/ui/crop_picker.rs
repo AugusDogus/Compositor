@@ -77,10 +77,10 @@ impl Editor {
             });
         let selector = self.tools.crop_picker.element_with(
             cx,
-            "crop-ratio",
-            "Crop ratio",
+            self.colors,
+            ("crop-ratio", "Crop ratio"),
             StateAccessor::new(|this: &mut Self| &mut this.tools.crop_picker),
-            Self::tool_header_control(label)
+            self.tool_header_control(label)
                 .flex_1()
                 .min_w(0.)
                 .flex_row()

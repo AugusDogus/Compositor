@@ -461,7 +461,8 @@ impl Editor {
             _ => None,
         };
         if let Some(label) = label {
-            let selector = Self::control(label)
+            let selector = self
+                .control(label)
                 .w(if edit.settings.kind == Kind::HueSaturation {
                     160.
                 } else {
@@ -528,10 +529,10 @@ impl Editor {
                     text("Limited to the selection")
                         .text_size(12.)
                         .line_height(15.)
-                        .text_color(Color::rgb8(180, 180, 180)),
+                        .text_color(self.colors.neutral(180)),
                 );
             }
-            return controls.child(Self::divider());
+            return controls.child(self.divider());
         }
         if edit.settings.kind == Kind::Levels && edit.settings.brightness_contrast().is_none() {
             controls = controls.child(self.levels_sample_controls(cx));
@@ -548,7 +549,7 @@ impl Editor {
             .enumerate()
             {
                 row = row.child(
-                    Self::control(label)
+                    self.control(label)
                         .disabled(
                             edit.histogram
                                 .as_ref()
@@ -577,7 +578,7 @@ impl Editor {
                         text("Auto")
                             .text_size(10.)
                             .line_height(13.)
-                            .text_color(Color::rgb8(180, 180, 180)),
+                            .text_color(self.colors.neutral(180)),
                     )
                     .child(row),
             );
@@ -587,7 +588,7 @@ impl Editor {
             .items_center()
             .gap(8.)
             .child(
-                Self::check_control("Preview", edit.preview)
+                self.check_control("Preview", edit.preview)
                     .text_size(13.)
                     .line_height(16.)
                     .on_click(cx.listener("adjustment-preview", |this, cx| {
@@ -600,7 +601,7 @@ impl Editor {
             )
             .child(div().flex_1().min_w(0.));
         if edit.settings.kind == Kind::Levels {
-            row = row.child(Self::control("Reset").on_click(cx.listener(
+            row = row.child(self.control("Reset").on_click(cx.listener(
                 "adjustment-reset",
                 |this, cx| {
                     this.stop_adjustment_sampling();
@@ -627,10 +628,10 @@ impl Editor {
                 })
                 .text_size(10.)
                 .line_height(13.)
-                .text_color(Color::rgb8(180, 180, 180))
+                .text_color(self.colors.neutral(180))
                 .wrap(),
             );
         }
-        controls.child(Self::divider())
+        controls.child(self.divider())
     }
 }

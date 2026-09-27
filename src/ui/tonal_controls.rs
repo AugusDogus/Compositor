@@ -32,12 +32,11 @@ impl Editor {
         if self.tools.tool == Tool::Sponge {
             for (saturate, label) in [(false, "Desaturate"), (true, "Saturate")] {
                 row = row.child(
-                    Self::segment(label, self.tools.sponge_saturate == saturate).on_click(
-                        cx.listener(format!("sponge-{label}"), move |this, cx| {
+                    self.segment(label, self.tools.sponge_saturate == saturate)
+                        .on_click(cx.listener(format!("sponge-{label}"), move |this, cx| {
                             this.tools.sponge_saturate = saturate;
                             cx.invalidate();
-                        }),
-                    ),
+                        })),
                 );
             }
         } else {
@@ -49,13 +48,13 @@ impl Editor {
                 (Range::Highlights, "Highlights"),
             ] {
                 row = row.child(
-                    Self::segment(label, self.tools.tonal_range == range).on_click(cx.listener(
-                        format!("tonal-range-{label}"),
-                        move |this, cx| {
-                            this.tools.tonal_range = range;
-                            cx.invalidate();
-                        },
-                    )),
+                    self.segment(label, self.tools.tonal_range == range)
+                        .on_click(
+                            cx.listener(format!("tonal-range-{label}"), move |this, cx| {
+                                this.tools.tonal_range = range;
+                                cx.invalidate();
+                            }),
+                        ),
                 );
             }
         }

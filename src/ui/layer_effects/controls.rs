@@ -8,7 +8,7 @@ impl Editor {
         let mut tabs = div().flex_row().flex_wrap().gap(4.);
         for kind in EffectKind::ALL {
             tabs = tabs.child(
-                Self::segment(kind.label(), edit.kind == kind)
+                self.segment(kind.label(), edit.kind == kind)
                     .id(format!("effect-tab-{}", kind.label()))
                     .on_click(cx.listener(
                         format!("effect-tab-{}", kind.label()),
@@ -46,7 +46,7 @@ impl Editor {
             if kind == EffectKind::Stroke {
                 let inside = edit.effects.stroke.as_ref().is_some_and(|s| s.inside);
                 content = content.child(
-                    Self::control(if inside {
+                    self.control(if inside {
                         "Position: Inside"
                     } else {
                         "Position: Outside"
@@ -68,7 +68,7 @@ impl Editor {
         }
         if enabled.is_some() {
             content = content.child(
-                Self::control("Copy this effect to…")
+                self.control("Copy this effect to…")
                     .id("effect-copy")
                     .on_click(cx.listener("effect-copy", |this, cx| {
                         if let Some(Form::Effects(edit)) = &mut this.modal {
@@ -87,7 +87,7 @@ impl Editor {
                     .filter(|l| l.id != edit.id && l.raster().is_some())
                 {
                     let id = layer.id;
-                    destinations = destinations.child(Self::control(layer.name.clone()).on_click(
+                    destinations = destinations.child(self.control(layer.name.clone()).on_click(
                         cx.listener(format!("effect-copy-{id}"), move |this, cx| {
                             let result = this.copy_effect_to(id);
                             this.result(result, cx);
@@ -101,7 +101,7 @@ impl Editor {
             content = content.child(
                 text(edit.error.clone())
                     .wrap()
-                    .text_color(Color::rgb8(255, 159, 10)),
+                    .text_color(self.colors.warning()),
             );
         }
         content.child(self.effect_footer(cx, edit))
@@ -142,7 +142,7 @@ impl Editor {
                 165.,
             ))
             .child(
-                Self::text_field(format!("{value:.1}"))
+                self.text_field(format!("{value:.1}"))
                     .w(65.)
                     .h(26.)
                     .accessibility_label(label)

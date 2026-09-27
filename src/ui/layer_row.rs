@@ -62,7 +62,7 @@ impl Editor {
                 text(detail)
                     .id(format!("layer-detail-{}", layer.id))
                     .text_size(10.)
-                    .text_color(Color::rgb8(155, 155, 155))
+                    .text_color(self.colors.neutral(155))
                     .truncate(),
             )
     }
@@ -210,7 +210,7 @@ impl Editor {
             .flex_shrink_0()
             .px(8.)
             .bg(if doc.selected.contains(&id) {
-                Color::rgb8(69, 69, 69)
+                self.colors.neutral(69)
             } else {
                 Color::TRANSPARENT
             })
@@ -220,14 +220,17 @@ impl Editor {
                 } else {
                     Icon::EyeOff
                 })
-                .button(if layer.visible {
-                    "Hide layer"
-                } else {
-                    "Show layer"
-                })
+                .button(
+                    self.colors,
+                    if layer.visible {
+                        "Hide layer"
+                    } else {
+                        "Show layer"
+                    },
+                )
                 .w(20.)
                 .h(32.)
-                .text_color(Color::rgb8(164, 164, 164))
+                .text_color(self.colors.neutral(164))
                 .accessibility_label(format!(
                     "{} {}",
                     if layer.visible { "Hide" } else { "Show" },
@@ -274,7 +277,7 @@ impl Editor {
                 } else {
                     Icon::ChevronDown
                 })
-                .button("Expand or collapse folder")
+                .button(self.colors, "Expand or collapse folder")
                 .disabled(!self.can_edit_layers())
                 .w(16.)
                 .h(24.)
@@ -309,7 +312,7 @@ impl Editor {
                     .bottom(0.)
                     .w_full()
                     .h(1. / cx.scale_factor())
-                    .bg(Color::rgba8(255, 255, 255, 15)),
+                    .bg(self.colors.neutral(255).with_alpha(15. / 255.)),
             )
     }
 }

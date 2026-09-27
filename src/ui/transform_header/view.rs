@@ -16,7 +16,7 @@ impl Editor {
             .items_center()
             .gap(12.)
             .px(18.)
-            .bg(Color::rgb8(38, 38, 38))
+            .bg(self.colors.neutral(38))
             .child(
                 text(if targets_mask {
                     "Transform Mask"
@@ -38,7 +38,7 @@ impl Editor {
             )
             .child(self.transform_sampling_picker(cx))
             .child(
-                Self::tool_header_control("Cancel")
+                self.tool_header_control("Cancel")
                     .flex_shrink_0()
                     .disabled(self.transform_edit.is_none() && self.pending_pixels.is_none())
                     .disabled_style(|style| style.opacity(0.4))
@@ -49,7 +49,7 @@ impl Editor {
                     })),
             )
             .child(
-                Self::tool_header_control("Apply")
+                self.tool_header_control("Apply")
                     .flex_shrink_0()
                     .disabled(self.transform_edit.is_none() && self.pending_pixels.is_none())
                     .disabled_style(|style| style.opacity(0.4))
@@ -67,7 +67,7 @@ impl Editor {
             .gap(if cx.size().width < 1600. { 6. } else { 12. })
             .flex_shrink_0()
             .child(
-                Self::check_control("Auto Select", self.tools.transform_auto_select)
+                self.check_control("Auto Select", self.tools.transform_auto_select)
                     .tooltip("Select layers by clicking the canvas. When off, hold Ctrl to select a layer.")
                     .flex_shrink_0()
                     .on_click(cx.listener("transform-auto-select", |this, cx| {
@@ -76,7 +76,7 @@ impl Editor {
                     })),
             )
             .child(
-                Self::check_control("Show Controls", self.tools.show_transform_controls)
+                self.check_control("Show Controls", self.tools.show_transform_controls)
                     .tooltip("Show the transform box and handles (Ctrl+H). When hidden, drag anywhere to move the layer.")
                     .flex_shrink_0()
                     .on_click(cx.listener("transform-show-controls", |this, cx| {
@@ -106,7 +106,8 @@ impl Editor {
             .flex_shrink_0();
         for (index, label) in ["X", "Y", "W", "H", "Scale", "°"].into_iter().enumerate() {
             let id = format!("transform-value-{index}");
-            let mut field = Self::text_field(current[index].clone())
+            let mut field = self
+                .text_field(current[index].clone())
                 .flex_1()
                 .min_w(0.)
                 .h(24.)
@@ -114,8 +115,8 @@ impl Editor {
                 .rounded(5.)
                 .text_size(12.)
                 .line_height(15.)
-                .bg(Color::rgb8(29, 29, 29))
-                .border(1., Color::rgb8(67, 67, 67))
+                .bg(self.colors.neutral(29))
+                .border(1., self.colors.neutral(67))
                 .accessibility_label(format!("Transform {label}"))
                 .disabled(disabled)
                 .on_input(cx.input_listener(id.clone(), move |this, input, cx| {
@@ -191,7 +192,7 @@ impl Editor {
                             text(label)
                                 .text_size(10.)
                                 .line_height(13.)
-                                .text_color(Color::rgb8(165, 165, 165)),
+                                .text_color(self.colors.neutral(165)),
                         )
                         .disabled(disabled),
                     )
@@ -200,7 +201,7 @@ impl Editor {
                         text("%")
                             .text_size(10.)
                             .line_height(13.)
-                            .text_color(Color::rgb8(165, 165, 165))
+                            .text_color(self.colors.neutral(165))
                     } else {
                         div()
                     }),
@@ -212,7 +213,7 @@ impl Editor {
                     } else {
                         Icon::Unlink
                     })
-                    .button("Lock aspect ratio")
+                    .button(self.colors, "Lock aspect ratio")
                     .disabled(disabled)
                     .w(24.)
                     .on_click(cx.listener("transform-ratio", |this, cx| {
@@ -227,7 +228,7 @@ impl Editor {
             (false, "Flip V", "transform-flip-v"),
         ] {
             row = row.child(
-                Self::tool_header_control(label)
+                self.tool_header_control(label)
                     .px(if compact { 6. } else { 11. })
                     .flex_shrink_0()
                     .disabled(disabled)

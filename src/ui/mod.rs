@@ -158,6 +158,7 @@ mod tablet_tests;
 #[cfg(test)]
 mod tests;
 mod text_editor;
+mod theme;
 mod thumbnails;
 mod titlebar;
 mod tonal_controls;
@@ -364,6 +365,8 @@ pub struct Editor {
     next_tab_number: usize,
     tools: project_tools::ProjectTools,
     tool_defaults: tool_defaults::Preferences,
+    colors: theme::palette::Palette,
+    appearance: theme::Appearance,
     tab_scrolling: tab_strip::TabScrolling,
     launch_queue: crate::launch::LaunchQueue,
     space_pan: bool,
@@ -495,6 +498,8 @@ impl Editor {
             current: 0,
             tools: project_tools::ProjectTools::default(),
             tool_defaults: tool_defaults::Preferences::default(),
+            colors: theme::palette::Palette::default(),
+            appearance: theme::Appearance::default(),
             next_tab_number: 2,
             tab_scrolling: tab_strip::TabScrolling::default(),
             launch_queue,
@@ -652,27 +657,20 @@ impl Editor {
         self.status = self.tool_hint().into();
         self.changed(cx);
     }
-    fn text_field(value: impl Into<Arc<str>>) -> Element {
-        quickgui::text_input(value).focus(controls::focus_outline)
+    fn text_field(&self, value: impl Into<Arc<str>>) -> Element {
+        quickgui::text_input(value)
+            .bg(self.colors.tinted_neutral([28, 30, 35]))
+            .border(1., self.colors.tinted_neutral([70, 74, 85]))
+            .text_color(self.colors.neutral(224))
+            .focus(controls::focus_outline)
     }
 
-    fn control(label: impl Into<Arc<str>>) -> Element {
-        button()
-            .flex_row()
-            .items_center()
-            .text_size(13.)
-            .line_height(16.)
-            .h(24.)
-            .px(11.)
-            .rounded(12.)
-            .border(1., Color::TRANSPARENT)
-            .bg(Color::rgb8(49, 49, 49))
-            .hover(|s| s.bg(Color::rgb8(68, 68, 68)))
-            .focus(controls::focus_outline)
-            .child(text(label))
+    fn control(&self, label: impl Into<Arc<str>>) -> Element {
+        theme::control(self.colors, label)
     }
-    fn tool_header_control(label: impl Into<Arc<str>>) -> Element {
-        Self::control(label).text_size(12.).line_height(15.)
+
+    fn tool_header_control(&self, label: impl Into<Arc<str>>) -> Element {
+        self.control(label).text_size(12.).line_height(15.)
     }
     fn action_button(
         &self,
@@ -681,7 +679,8 @@ impl Editor {
         label: impl Into<Arc<str>>,
         action: Action,
     ) -> Element {
-        Self::control(label).on_click(cx.listener(id, move |this, cx| this.action(action, cx)))
+        self.control(label)
+            .on_click(cx.listener(id, move |this, cx| this.action(action, cx)))
     }
 }
 
@@ -754,6 +753,7 @@ impl View for Editor {
         }
     }
     fn render(&mut self, cx: &mut ViewContext<'_, Self>) -> impl IntoElement {
+        self.monitor_theme(cx);
         self.sync_native_cursor(cx);
         cx.on_any_child_window_closed(|this, closed, cx| {
             if this.about_window == Some(closed) {
@@ -862,7 +862,7 @@ impl Editor {
         let mut panel = self.layers_panel(cx);
         let mut tool_options = self
             .tool_options(cx)
-            .border_bottom(1., Color::rgb8(62, 62, 62));
+            .border_bottom(1., self.colors.neutral(62));
         if controls_blocked {
             for control in [&mut menu_bar, &mut toolbar, &mut tools, &mut panel] {
                 control.disable_subtree();
@@ -982,8 +982,8 @@ impl Editor {
             ))
             .size_full()
             .flex_col()
-            .bg(Color::rgb8(30, 30, 30))
-            .text_color(Color::rgb8(224, 224, 224))
+            .bg(self.colors.neutral(30))
+            .text_color(self.colors.neutral(224))
             .child(content)
             .child(self.status_bar())
     }

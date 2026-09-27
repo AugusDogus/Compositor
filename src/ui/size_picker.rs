@@ -122,13 +122,16 @@ impl SizeMenus {
         }
     }
 }
-fn trigger<T>(state: &Dropdown<T>) -> Element {
-    Editor::control(state.value_text().unwrap_or_else(|| "Choose…".into()))
-        .w(190.)
-        .flex_row()
-        .items_center()
-        .child(div().flex_1())
-        .child(Icon::PopupChevron.element(14.))
+fn trigger<T>(colors: theme::palette::Palette, state: &Dropdown<T>) -> Element {
+    theme::control(
+        colors,
+        state.value_text().unwrap_or_else(|| "Choose…".into()),
+    )
+    .w(190.)
+    .flex_row()
+    .items_center()
+    .child(div().flex_1())
+    .child(Icon::PopupChevron.element(14.))
 }
 impl Editor {
     pub(super) fn sync_size_menus(&mut self, form: &Form) {
@@ -174,8 +177,8 @@ impl Editor {
         };
         state.element_with(
             cx,
-            "size-unit",
-            "Units",
+            self.colors,
+            ("size-unit", "Units"),
             quickgui::StateAccessor::new(move |this: &mut Self| {
                 if print {
                     &mut this.size_menus.print_units
@@ -183,7 +186,7 @@ impl Editor {
                     &mut this.size_menus.units
                 }
             }),
-            trigger(state),
+            trigger(self.colors, state),
             move |this, unit, cx| {
                 if matches!(action, Action::CanvasSize) {
                     this.update_form_field(4, unit.value());
@@ -202,10 +205,10 @@ impl Editor {
         let state = &self.size_menus.sampling;
         state.element(
             cx,
-            "size-sampling",
-            "Sampling",
+            self.colors,
+            ("size-sampling", "Sampling"),
             |this| &mut this.size_menus.sampling,
-            trigger(state),
+            trigger(self.colors, state),
             |this, sampling, cx| {
                 this.update_form_field(
                     3,
@@ -223,10 +226,10 @@ impl Editor {
         let state = &self.size_menus.fill;
         state.element(
             cx,
-            "size-fill",
-            "Canvas extension",
+            self.colors,
+            ("size-fill", "Canvas extension"),
             |this| &mut this.size_menus.fill,
-            trigger(state),
+            trigger(self.colors, state),
             |this, fill, cx| {
                 if matches!(fill, Fill::Custom) {
                     let [r, g, b] = this.size_menus.custom_fill;

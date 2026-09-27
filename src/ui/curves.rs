@@ -36,6 +36,7 @@ impl Editor {
         });
         let grid = self.guide_grid_shader.clone();
         let scale = cx.scale_factor();
+        let accent = self.colors.accent();
         let graph = quickgui::canvas(move |bounds, painter| {
             painter.fill_rect(bounds, Color::BLACK.with_alpha(0.35));
             painter.paint_shader(
@@ -66,7 +67,7 @@ impl Editor {
                     quickgui::Rect::new(p.x - 4., p.y - 4., 8., 8.),
                     4.,
                     if selected == Some(i) {
-                        Color::rgb8(0, 122, 255)
+                        accent
                     } else {
                         Color::WHITE
                     },
@@ -86,7 +87,7 @@ impl Editor {
                 text("Click to add a point. Drag to adjust.")
                     .text_size(10.)
                     .line_height(13.)
-                    .text_color(Color::rgb8(181, 181, 181))
+                    .text_color(self.colors.neutral(181))
                     .wrap(),
             )
             .child(
@@ -116,7 +117,7 @@ impl Editor {
                         .truncate(),
                     )
                     .child(
-                        Self::control("Remove point")
+                        self.control("Remove point")
                             .disabled_style(|style| style.opacity(0.4))
                             .disabled(selected.is_none_or(|index| {
                                 index == 0
@@ -131,7 +132,7 @@ impl Editor {
                     ),
             )
             .child(
-                Self::control("Reset curve")
+                self.control("Reset curve")
                     .self_start()
                     .on_click(cx.listener("curve-reset", |this, cx| {
                         if let Some(edit) = &mut this.adjustment_edit {

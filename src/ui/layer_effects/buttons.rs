@@ -8,7 +8,7 @@ impl Editor {
         let kind = edit.kind;
         let enabled = kind.enabled(&edit.effects);
         let mut actions = div().flex_row().gap(8.).child(
-            Self::control(if enabled.is_none() {
+            self.control(if enabled.is_none() {
                 "Add effect"
             } else if enabled == Some(true) {
                 "Hide effect"
@@ -65,7 +65,7 @@ impl Editor {
             })),
         );
         if enabled.is_some() {
-            actions = actions.child(Self::control("Remove").id("effect-remove").on_click(
+            actions = actions.child(self.control("Remove").id("effect-remove").on_click(
                 cx.listener("effect-remove", move |this, cx| {
                     this.change_effect(|e| match kind {
                         EffectKind::Stroke => e.effects.stroke = None,
@@ -107,7 +107,7 @@ impl Editor {
                     .border(1., Color::WHITE),
             )
             .child(
-                Self::text_field(edit.color.clone())
+                self.text_field(edit.color.clone())
                     .id("effect-color")
                     .w(100.)
                     .h(26.)
@@ -134,7 +134,7 @@ impl Editor {
             .justify_end()
             .gap(8.)
             .child(
-                Self::control("Cancel")
+                self.control("Cancel")
                     .id("effects-cancel")
                     .on_click(cx.listener("effects-cancel", |this, cx| {
                         let r = this.finish_effects(false);
@@ -142,7 +142,7 @@ impl Editor {
                     })),
             )
             .child(
-                Self::control("OK")
+                self.control("OK")
                     .id("effects-apply")
                     .disabled(!edit.error.is_empty())
                     .on_click(cx.listener("effects-apply", |this, cx| {

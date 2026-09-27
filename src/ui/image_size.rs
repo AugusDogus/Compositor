@@ -239,7 +239,7 @@ impl Editor {
     }
 
     pub(super) fn image_resample_control(&self, cx: &mut ViewContext<'_, Self>) -> Element {
-        Self::check_control("Resample", self.image_sizing.resamples())
+        self.check_control("Resample", self.image_sizing.resamples())
             .text_size(13.)
             .line_height(16.)
             .on_click(cx.listener("image-size-resample", |this, cx| {

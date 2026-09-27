@@ -82,8 +82,8 @@ impl Editor {
                 .flex_shrink_0()
                 .max_h(panel_max_height)
                 .flex_col()
-                .bg(Color::rgb8(45, 45, 45))
-                .border(1., Color::rgb8(90, 90, 90))
+                .bg(self.colors.neutral(45))
+                .border(1., self.colors.neutral(90))
                 .rounded(8.)
                 .shadow(super::surfaces::panel_shadow())
                 .child(self.floating_panel_title(cx, dialog, kind, title))
@@ -197,12 +197,12 @@ impl Editor {
                     .px(8.)
                     .flex_row()
                     .items_center()
-                    .bg(Color::rgb8(52, 52, 52))
+                    .bg(self.colors.neutral(52))
                     .rounded_t(7.)
                     .cursor(quickgui::CursorStyle::OpenHand)
                     .child(
                         Icon::X
-                            .button("Close panel")
+                            .button(self.colors, "Close panel")
                             .tab_index(-1)
                             .size(20., 20.)
                             .on_click(cx.listener("floating-panel-close", |this, cx| {

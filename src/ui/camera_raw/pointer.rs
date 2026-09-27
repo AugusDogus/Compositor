@@ -197,16 +197,16 @@ impl Editor {
         let mut row = div().flex_row().flex_wrap().gap(4.);
         for &(label, tool) in tools {
             row = row.child(
-                Self::check_control(label, self.camera_raw.tool == tool).on_click(cx.listener(
-                    format!("camera-tool-{label}"),
-                    move |this, cx| {
-                        this.camera_change(|e| {
-                            e.tool = if e.tool == tool { Tool::None } else { tool };
-                            e.drag = None;
-                        });
-                        this.changed(cx);
-                    },
-                )),
+                self.check_control(label, self.camera_raw.tool == tool)
+                    .on_click(
+                        cx.listener(format!("camera-tool-{label}"), move |this, cx| {
+                            this.camera_change(|e| {
+                                e.tool = if e.tool == tool { Tool::None } else { tool };
+                                e.drag = None;
+                            });
+                            this.changed(cx);
+                        }),
+                    ),
             );
         }
         row

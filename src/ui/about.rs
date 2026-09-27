@@ -3,6 +3,7 @@ use quickgui::WindowOptions;
 use std::sync::OnceLock;
 
 struct About {
+    colors: theme::palette::Palette,
     icon: Image,
 }
 
@@ -43,7 +44,10 @@ impl Editor {
                     .minimizable(false)
                     .maximizable(false)
                     .icon(icon.clone()),
-                About { icon },
+                About {
+                    icon,
+                    colors: self.colors,
+                },
             ),
         );
         cx.invalidate();
@@ -75,25 +79,31 @@ impl View for About {
 
     fn render(&mut self, cx: &mut ViewContext<'_, Self>) -> impl IntoElement {
         div()
+            .on_action(
+                cx.action_listener("about-theme", |this, change: &theme::Changed, cx| {
+                    this.colors = change.0;
+                    cx.invalidate();
+                }),
+            )
             .font_family("Inter Variable")
             .size_full()
             .flex_col()
             .items_center()
             .justify_center()
             .gap(12.)
-            .bg(Color::rgb8(36, 36, 36))
-            .text_color(Color::rgb8(224, 224, 224))
+            .bg(self.colors.neutral(36))
+            .text_color(self.colors.neutral(224))
             .child(quickgui::img(self.icon.clone()).w(96.).h(96.))
             .child(text("Compositor").text_size(22.).font_semibold())
             .child(text(concat!("Version ", env!("CARGO_PKG_VERSION"))).text_size(13.))
             .child(
                 text("Copyright © 2026 Wonder Assembly LLC")
                     .text_size(11.)
-                    .text_color(Color::rgb8(165, 165, 165)),
+                    .text_color(self.colors.neutral(165)),
             )
             .child(text("MIT License").text_size(11.))
             .child(
-                Editor::control("Close")
+                theme::control(self.colors, "Close")
                     .id("about-close")
                     .auto_focus()
                     .mt(6.)

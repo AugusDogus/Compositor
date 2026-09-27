@@ -104,18 +104,20 @@ impl Editor {
     pub(super) fn error_view(&mut self, cx: &mut ViewContext<'_, Self>) -> Option<Element> {
         let failure = self.errors.front()?;
         let dialog = Dialog::alert("operation-error", true).initial_focus("error-ok");
-        let contents = Self::alert_contents(
-            dialog,
-            failure.operation.title(),
-            failure.message.clone(),
-            cx.size().height,
-        )
-        .child(
-            Self::alert_button("OK")
-                .bg(Color::rgb8(0, 122, 255))
-                .hover(|s| s.bg(Color::rgb8(24, 137, 255)))
-                .on_click(cx.listener("error-ok", |this, cx| this.dismiss_error(cx))),
-        );
+        let contents = self
+            .alert_contents(
+                dialog,
+                failure.operation.title(),
+                failure.message.clone(),
+                cx.size().height,
+            )
+            .child(
+                self.alert_button("OK")
+                    .bg(self.colors.accent())
+                    .text_color(self.colors.accent_text())
+                    .hover(|s| s.bg(self.colors.accent_variant([24, 137, 255])))
+                    .on_click(cx.listener("error-ok", |this, cx| this.dismiss_error(cx))),
+            );
         let dismiss = cx.dismiss_listener(dialog.popover_id(), |this, cx| this.dismiss_error(cx));
         Some(
             dialog
@@ -139,6 +141,7 @@ impl Editor {
     }
 
     pub(super) fn alert_contents(
+        &self,
         dialog: Dialog,
         title: impl Into<Arc<str>>,
         description: impl Into<Arc<str>>,
@@ -152,8 +155,8 @@ impl Editor {
             .gap(16.)
             .flex_col()
             .items_center()
-            .bg(Color::rgb8(45, 45, 45))
-            .border(1., Color::rgb8(90, 90, 90))
+            .bg(self.colors.neutral(45))
+            .border(1., self.colors.neutral(90))
             .rounded(12.)
             .shadow(super::surfaces::panel_shadow());
         contents = match super::about::app_icon() {
@@ -180,8 +183,8 @@ impl Editor {
             .child(dialog.description_with(text(description).text_size(12.).text_center().wrap()))
     }
 
-    pub(super) fn alert_button(label: &'static str) -> Element {
-        Self::control(label)
+    pub(super) fn alert_button(&self, label: &'static str) -> Element {
+        self.control(label)
             .w_full()
             .h(30.)
             .rounded(6.)

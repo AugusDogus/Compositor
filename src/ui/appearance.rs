@@ -140,7 +140,7 @@ impl Editor {
             .align(quickgui::AnchorAlign::Start)
             .initial_focus("blend-menu-items")
             .surface_with(
-                super::menus::style::surface()
+                super::menus::style::surface(self.colors)
                     .child(content)
                     .on_action(cx.action_listener(
                         "blend-popup",
@@ -177,7 +177,7 @@ impl Editor {
                 .flex_col()
                 .p(5.)
                 .gap(1.),
-            |item, state| super::menus::style::choice(item.label().clone(), state),
+            |item, state| super::menus::style::choice(self.colors, item.label().clone(), state),
             |this, cx| this.close_blend(cx),
         )
     }

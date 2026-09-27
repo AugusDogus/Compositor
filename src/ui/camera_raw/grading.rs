@@ -46,15 +46,13 @@ impl Editor {
         div()
             .flex_col()
             .gap(8.)
-            .child(
-                Self::check_control("Three-way", three).on_click(cx.listener(
-                    "camera-grading-three",
-                    |this, cx| {
-                        this.camera_change(|e| e.grading_page = Page::ThreeWay);
-                        this.changed(cx);
-                    },
-                )),
-            )
+            .child(self.check_control("Three-way", three).on_click(cx.listener(
+                "camera-grading-three",
+                |this, cx| {
+                    this.camera_change(|e| e.grading_page = Page::ThreeWay);
+                    this.changed(cx);
+                },
+            )))
             .child(row)
             .child(
                 text("Drag to set hue and saturation. Reset restores a neutral tint.")
@@ -158,7 +156,7 @@ impl Editor {
             .child(graph)
             .child(text(readout).text_size(11.))
             .child(track)
-            .child(Self::control("Reset").on_click(cx.listener(
+            .child(self.control("Reset").on_click(cx.listener(
                 format!("camera-grading-reset-{index}"),
                 move |this, cx| {
                     this.camera_change(|e| {

@@ -23,10 +23,10 @@ impl Editor {
     pub(super) fn wand_sample_picker(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         self.tools.wand_picker.element(
             cx,
-            "wand-sample",
-            "Sample Size",
+            self.colors,
+            ("wand-sample", "Sample Size"),
             |this| &mut this.tools.wand_picker,
-            Self::tool_header_control(label(self.tools.wand_radius))
+            self.tool_header_control(label(self.tools.wand_radius))
                 .w(155.)
                 .tooltip("Match the clicked pixel, or the average of the pixels around it")
                 .flex_row()

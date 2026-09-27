@@ -77,7 +77,7 @@ impl Editor {
             && job.error().is_some()
         {
             controls = controls.child(
-                Self::control("Retry histogram")
+                self.control("Retry histogram")
                     .id("histogram-retry")
                     .on_click(cx.listener("histogram-retry", |this, cx| {
                         if let Some(job) = this

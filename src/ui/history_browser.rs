@@ -49,12 +49,12 @@ impl Editor {
                 if state.saved { " · Saved" } else { "" }
             );
             rows = rows.child(
-                Self::control(label)
+                self.control(label)
                     .flex_shrink_0()
                     .w_full()
                     .selected(state.current)
                     .bg(if state.current {
-                        Color::rgb8(76, 76, 76)
+                        self.colors.neutral(76)
                     } else {
                         Color::TRANSPARENT
                     })

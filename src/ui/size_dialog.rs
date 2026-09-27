@@ -2,11 +2,11 @@
 use super::*;
 use compositor::{canvas_size, invalid};
 
-fn callout(value: impl Into<Arc<str>>) -> Element {
+fn callout(colors: theme::palette::Palette, value: impl Into<Arc<str>>) -> Element {
     text(value)
         .text_size(12.)
         .line_height(15.)
-        .text_color(Color::rgb8(180, 180, 180))
+        .text_color(colors.neutral(180))
         .wrap()
 }
 fn memory([width, height]: [u32; 2]) -> String {
@@ -163,11 +163,11 @@ impl Editor {
         let doc = &self.session().document;
         let mut controls = div().flex_col().gap(16.).flex_shrink_0()
             .child(text(format!("Current: {} × {} pixels", doc.width, doc.height)).text_size(13.).line_height(16.))
-            .child(callout(format!("{} uncompressed RGBA canvas", memory([doc.width, doc.height]))))
-            .child(Self::divider())
+            .child(callout(self.colors, format!("{} uncompressed RGBA canvas", memory([doc.width, doc.height]))))
+            .child(self.divider())
             .child(row("Units", self.size_unit_picker(cx, Action::CanvasSize), 60.))
             .child(self.size_dimensions(cx, fields, 60.))
-            .child(Self::check_control("Relative to current dimensions", fields[5].1 == "1").text_size(13.).line_height(16.)
+            .child(self.check_control("Relative to current dimensions", fields[5].1 == "1").text_size(13.).line_height(16.)
                 .on_click(cx.listener(self.size_field_id(5), |this, cx| {
                     let checked = matches!(&this.modal, Some(Form::Edit { fields, .. }) if fields[5].1 == "1");
                     this.update_form_field(5, if checked { "0" } else { "1" });
@@ -175,14 +175,20 @@ impl Editor {
                 })))
             .child(self.dimension_controls(cx, Action::CanvasSize));
         controls = controls.child(match self.size_result(Action::CanvasSize, fields) {
-            Ok(size) => callout(format!(
-                "New: {} × {} pixels · {} uncompressed",
-                size[0],
-                size[1],
-                memory(size)
-            )),
-            Err(_) => callout("Final dimensions must be 1–30,000 pixels per side.")
-                .text_color(Color::rgb8(255, 159, 10)),
+            Ok(size) => callout(
+                self.colors,
+                format!(
+                    "New: {} × {} pixels · {} uncompressed",
+                    size[0],
+                    size[1],
+                    memory(size)
+                ),
+            ),
+            Err(_) => callout(
+                self.colors,
+                "Final dimensions must be 1–30,000 pixels per side.",
+            )
+            .text_color(self.colors.warning()),
         });
         controls = controls
             .child(self.canvas_anchor_controls(cx, fields))
@@ -190,9 +196,9 @@ impl Editor {
         if fields[6].1.starts_with('#') {
             let well = match forms::parse_color(&fields[6].1) {
                 Ok([r, g, b, _]) => {
-                    Self::color_well(Color::rgb8(r, g, b), "Choose canvas extension color")
+                    self.color_well(Color::rgb8(r, g, b), "Choose canvas extension color")
                 }
-                Err(_) => Self::control("Invalid color"),
+                Err(_) => self.control("Invalid color"),
             };
             controls = controls.child(
                 div()
@@ -224,7 +230,7 @@ impl Editor {
                 text(format!("Current: {} × {} pixels", doc.width, doc.height))
                     .text_size(13.)
                     .line_height(16.)
-                    .text_color(Color::rgb8(180, 180, 180)),
+                    .text_color(self.colors.neutral(180)),
             )
             .child(row(
                 "Units",
@@ -261,24 +267,29 @@ impl Editor {
                             .text_size(13.)
                             .line_height(16.)
                             .flex_shrink_0()
-                            .text_color(Color::rgb8(180, 180, 180)),
+                            .text_color(self.colors.neutral(180)),
                     ),
             )
             .child(self.image_resample_control(cx));
         if self.image_sizing.resamples() {
             controls = controls.child(row("Sampling", self.size_sampling_picker(cx), 75.))
-                .child(callout("Resizes layer pixels and applies existing transforms. Undo restores the originals."));
+                .child(callout(self.colors, "Resizes layer pixels and applies existing transforms. Undo restores the originals."));
         } else {
             controls = controls.child(callout(
+                self.colors,
                 "Only print dimensions and resolution change. Pixels stay unchanged.",
             ));
         }
         controls.child(match self.size_result(Action::ImageSize, fields) {
-            Ok(size) => callout(format!("Result: {} × {} pixels", size[0], size[1])),
+            Ok(size) => callout(
+                self.colors,
+                format!("Result: {} × {} pixels", size[0], size[1]),
+            ),
             Err(_) => callout(
+                self.colors,
                 "Use 1–30,000 pixels per side, up to 200 megapixels, and 1–9,600 pixels/inch.",
             )
-            .text_color(Color::rgb8(255, 159, 10)),
+            .text_color(self.colors.warning()),
         })
     }
     fn canvas_anchor_controls(
@@ -309,20 +320,14 @@ impl Editor {
                         .rounded(13.5)
                         .selected(active)
                         .focus(super::controls::focus_outline)
-                        .border(1., Color::rgb8(77, 77, 77))
-                        .bg(if active {
-                            Color::rgb8(65, 100, 143)
-                        } else {
-                            Color::rgb8(38, 38, 38)
-                        })
+                        .border(1., self.colors.neutral(77))
+                        .bg(self.colors.neutral(38))
+                        .selected_style(|s| self.colors.accent_style(s, [65, 100, 143]))
                         .accessibility_label(label)
                         .accessibility_value(if active { "Selected" } else { "" })
                         .tooltip(label)
                         .child(if active {
-                            div()
-                                .size(9., 9.)
-                                .rounded(5.)
-                                .bg(Color::rgb8(210, 225, 245))
+                            div().size(9., 9.).rounded(5.).bg(self.colors.accent_text())
                         } else {
                             Icon::Circle.element(10.)
                         })
@@ -342,6 +347,6 @@ impl Editor {
             .child(div().flex_col().gap(8.).flex_shrink_0().child(text("Anchor").text_size(13.).line_height(16.)).child(grid))
             .child(div().flex_col().gap(8.).mt(28.).flex_1().min_w(0.)
                 .child(text(selected).text_size(12.).line_height(15.).font_bold())
-                .child(callout("Keeps this point fixed. Artwork is not scaled; cropped content remains outside the canvas.")))
+                .child(callout(self.colors, "Keeps this point fixed. Artwork is not scaled; cropped content remains outside the canvas.")))
     }
 }

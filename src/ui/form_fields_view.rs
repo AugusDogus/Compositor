@@ -19,14 +19,14 @@ impl Editor {
         value: &str,
         id: u64,
     ) -> Element {
-        Self::text_field(value.to_owned())
+        self.text_field(value.to_owned())
             .h(26.)
             .flex_shrink_0()
             .text_input_padding(7.)
             .rounded(5.)
             .text_size(13.).line_height(16.)
-            .bg(Color::rgb8(29, 29, 29))
-            .border(1., Color::rgb8(72, 72, 72))
+            .bg(self.colors.neutral(29))
+            .border(1., self.colors.neutral(72))
             .on_input(cx.input_listener(id, move |this, value, cx| {
                 this.update_form_field(index, value);
                 this.changed(cx);
@@ -135,7 +135,7 @@ impl Editor {
                     text(label.to_owned())
                         .text_size(10.)
                         .line_height(13.)
-                        .text_color(Color::rgb8(181, 181, 181)),
+                        .text_color(self.colors.neutral(181)),
                 ),
             )
             .child(self.form_input(cx, index, &displayed).text_right().w_full())
@@ -152,10 +152,10 @@ impl Editor {
             .gap(2.)
             .p(2.)
             .rounded(6.)
-            .bg(Color::rgb8(30, 30, 30));
+            .bg(self.colors.neutral(30));
         for &(label, choice) in options {
             row = row.child(
-                Self::segment(label, value == choice)
+                self.segment(label, value == choice)
                     .h(25.)
                     .px(8.)
                     .rounded(4.)
@@ -410,7 +410,7 @@ impl Editor {
         label: &'static str,
         checked: bool,
     ) -> Element {
-        Self::check_control(label, checked)
+        self.check_control(label, checked)
             .text_size(13.)
             .line_height(16.)
             .on_click(cx.listener(50_000 + index as u64, move |this, cx| {

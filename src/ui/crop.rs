@@ -105,7 +105,7 @@ impl Editor {
             .gap(6.)
             .flex_shrink_0()
             .child(
-                Self::tool_header_control("Cancel")
+                self.tool_header_control("Cancel")
                     .disabled(self.tools.pending_crop.is_none())
                     .on_click(cx.listener("crop-cancel", |this, cx| {
                         this.tools.pending_crop = None;
@@ -113,7 +113,7 @@ impl Editor {
                     })),
             )
             .child(
-                Self::tool_header_control("Apply Crop")
+                self.tool_header_control("Apply Crop")
                     .disabled(self.tools.pending_crop.is_none())
                     .on_click(cx.listener("crop-apply", |this, cx| {
                         let result = this.commit_crop();

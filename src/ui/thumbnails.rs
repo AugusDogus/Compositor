@@ -303,7 +303,7 @@ impl Editor {
                         .flex_row()
                         .items_center()
                         .justify_center()
-                        .text_color(Color::rgb8(240, 70, 70))
+                        .text_color(self.colors.error([240, 70, 70]))
                         .child(text("╱").text_size(32.).font_medium()),
                 );
             }

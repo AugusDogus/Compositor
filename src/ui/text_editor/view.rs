@@ -27,7 +27,7 @@ impl Editor {
                 text(label).text_size(12.),
             ))
             .child(
-                Self::text_field(draft.numbers[index].clone())
+                self.text_field(draft.numbers[index].clone())
                     .id(format!("text-number-{index}"))
                     .w_full()
                     .on_input(cx.input_listener(
@@ -50,7 +50,7 @@ impl Editor {
                 .flex_row()
                 .gap(6.)
                 .child(
-                    Self::text_field(draft.style.font_name.clone())
+                    self.text_field(draft.style.font_name.clone())
                         .id("text-font")
                         .flex_1()
                         .on_input(cx.input_listener("text-font", |this, value, cx| {
@@ -61,7 +61,7 @@ impl Editor {
                             cx.invalidate();
                         })),
                 )
-                .child(Self::segment("Browse", false).on_click(cx.listener(
+                .child(self.segment("Browse", false).on_click(cx.listener(
                     "text-font-browse",
                     |this, cx| {
                         if let Some(Form::Text(draft)) = &mut this.modal {
@@ -76,7 +76,7 @@ impl Editor {
                 .flex_col()
                 .max_h(130.)
                 .overflow_y_scroll()
-                .bg(Color::rgb8(28, 28, 28));
+                .bg(self.colors.neutral(28));
             if let Some(renderer) = &self.text_renderer {
                 let query = draft.style.font_name.to_lowercase();
                 // Exact family in the field means Browse displays all installed families.
@@ -91,15 +91,16 @@ impl Editor {
                     .filter(|(_, name)| exact || name.to_lowercase().contains(&query))
                 {
                     let family = family.clone();
-                    list = list.child(Self::control(family.clone()).w_full().on_click(
-                        cx.listener(format!("text-font-choice-{i}"), move |this, cx| {
+                    list = list.child(self.control(family.clone()).w_full().on_click(cx.listener(
+                        format!("text-font-choice-{i}"),
+                        move |this, cx| {
                             if let Some(Form::Text(draft)) = &mut this.modal {
                                 draft.style.font_name = family.clone();
                                 draft.fonts_open = false;
                             }
                             cx.invalidate();
-                        }),
-                    ));
+                        },
+                    )));
                 }
             }
             section = section.child(list);
@@ -209,15 +210,13 @@ impl Editor {
             (Alignment::Right, "Right"),
         ] {
             alignment = alignment.child(
-                Self::segment(label, draft.style.alignment == value).on_click(cx.listener(
-                    format!("text-align-{label}"),
-                    move |this, cx| {
+                self.segment(label, draft.style.alignment == value)
+                    .on_click(cx.listener(format!("text-align-{label}"), move |this, cx| {
                         if let Some(Form::Text(draft)) = &mut this.modal {
                             draft.style.alignment = value;
                         }
                         cx.invalidate();
-                    },
-                )),
+                    })),
             );
         }
         let style = draft.parsed().unwrap_or_else(|_| draft.style.clone());
@@ -229,7 +228,7 @@ impl Editor {
                 (rgb[1] * 255.).round() as u8,
                 (rgb[2] * 255.).round() as u8,
             ))
-            .border(1., Color::rgb8(100, 100, 100))
+            .border(1., self.colors.neutral(100))
             .rounded(4.)
             .accessibility_label("Text color")
             .on_click(cx.listener("text-color-picker", |this, cx| {
@@ -239,7 +238,7 @@ impl Editor {
             }));
         controls = controls.child(
             alignment.child(div().flex_1()).child(swatch).child(
-                Self::text_field(draft.color.clone())
+                self.text_field(draft.color.clone())
                     .id("text-color")
                     .w(100.)
                     .flex_shrink_0()
@@ -252,8 +251,8 @@ impl Editor {
             ),
         );
         controls.child(
-            Self::check_control("Fixed paragraph box", draft.style.box_size.is_some()).on_click(
-                cx.listener("text-box", |this, cx| {
+            self.check_control("Fixed paragraph box", draft.style.box_size.is_some())
+                .on_click(cx.listener("text-box", |this, cx| {
                     if let Some(Form::Text(draft)) = &mut this.modal {
                         draft.style.box_size = if draft.style.box_size.is_some() {
                             None
@@ -262,8 +261,7 @@ impl Editor {
                         };
                     }
                     cx.invalidate();
-                }),
-            ),
+                })),
         )
     }
 
@@ -280,7 +278,7 @@ impl Editor {
             .flex_col()
             .gap(14.)
             .p(22.)
-            .bg(Color::rgb8(43, 43, 43))
+            .bg(self.colors.neutral(43))
             .w(560_f32.min((cx.size().width - 40.).max(320.)))
             .rounded(10.)
             .max_h((cx.size().height - 60.).max(300.))
@@ -322,7 +320,7 @@ impl Editor {
                 .text_size(16.)
                 .focus(controls::focus_outline)
                 .bg(Color::rgb8(215, 215, 215))
-                .text_color(Color::rgb8(0, 0, 0))
+                .text_color(Color::BLACK)
                 .text_input_padding(10.)
                 .on_input(cx.input_listener("text-content", |this, value, cx| {
                     if let Some(Form::Text(draft)) = &mut this.modal {
@@ -348,7 +346,7 @@ impl Editor {
         if !draft.error.is_empty() {
             contents = contents.child(
                 text(draft.error.clone())
-                    .text_color(Color::rgb8(255, 130, 120))
+                    .text_color(self.colors.error([255, 130, 120]))
                     .wrap(),
             );
         }
@@ -358,11 +356,11 @@ impl Editor {
                 .justify_end()
                 .gap(8.)
                 .child(
-                    Self::segment("Cancel", false)
+                    self.segment("Cancel", false)
                         .on_click(cx.listener("text-cancel", |this, cx| this.cancel_form(cx))),
                 )
                 .child(
-                    Self::segment("Apply", true)
+                    self.segment("Apply", true)
                         .on_click(cx.listener("text-apply", |this, cx| this.text_submit(cx))),
                 ),
         );

@@ -137,15 +137,15 @@ impl Editor {
             .w(NEW_SLOT_WIDTH)
             .h(28.)
             .rounded(14.)
-            .bg(Color::rgb8(51, 51, 51))
+            .bg(self.colors.neutral(51))
             // Tint only the dashed surface, keeping the label outside its drag-state inheritance.
-            .text_color(Color::rgb8(160, 160, 160))
+            .text_color(self.colors.neutral(160))
             .tooltip("Drop to open in a new canvas")
             .accessibility_label("Drop into new canvas")
             .drag_over(|s| {
-                s.bg(Color::rgba8(0, 122, 255, 77))
+                s.bg(self.colors.accent().with_alpha(77. / 255.))
                     .text_color(Color::TRANSPARENT)
-                    .outline_offset(2., Color::rgb8(0, 122, 255), -2.)
+                    .outline_offset(2., self.colors.accent(), -2.)
                     .cursor_copy()
             })
             .can_drop(move |drag: &super::layer_drag::LayerDrag| {
@@ -220,7 +220,7 @@ impl Editor {
                         .h(5.)
                         .rounded(2.5)
                         .flex_shrink_0()
-                        .bg(Color::rgb8(220, 220, 220))
+                        .bg(self.colors.neutral(220))
                         .accessibility_label("Unsaved changes"),
                 );
             }
@@ -263,7 +263,7 @@ impl Editor {
                             .h(28.)
                             .padding(0., 5., 0., 0.)
                             .bg(Color::TRANSPARENT)
-                            .text_color(Color::rgb8(155, 155, 155))
+                            .text_color(self.colors.neutral(155))
                             .flex_row()
                             .items_center()
                             .justify_center()
@@ -282,8 +282,8 @@ impl Editor {
                             )),
                     )
                     .drag_over(|s| {
-                        s.bg(Color::rgba8(0, 122, 255, 77))
-                            .outline_offset(2., Color::rgb8(0, 122, 255), -2.)
+                        s.bg(self.colors.accent().with_alpha(77. / 255.))
+                            .outline_offset(2., self.colors.accent(), -2.)
                             .cursor_copy()
                     })
                     .can_drop(move |drag: &super::layer_drag::LayerDrag| {
@@ -299,16 +299,16 @@ impl Editor {
                         },
                     ))
                     .bg(if index == self.current {
-                        Color::rgb8(68, 68, 68)
+                        self.colors.neutral(68)
                     } else {
-                        Color::rgb8(50, 50, 50)
+                        self.colors.neutral(50)
                     })
                     .border(
                         1.,
                         if index == self.current {
-                            Color::rgb8(90, 90, 90)
+                            self.colors.neutral(90)
                         } else {
-                            Color::rgb8(60, 60, 60)
+                            self.colors.neutral(60)
                         },
                     )
                     .on_click(cx.listener(id.clone(), move |this, cx| {
@@ -357,7 +357,10 @@ impl Editor {
             .child(tabs);
         // The toolbar has an opaque uniform background, so these passive fades
         // match the source tab mask without intercepting clicks on the tabs.
-        let viewport = viewport.child(leading_edge_fade(self.tab_scrolling.scroll.offset().x > 1.));
+        let viewport = viewport.child(leading_edge_fade(
+            self.colors,
+            self.tab_scrolling.scroll.offset().x > 1.,
+        ));
         viewport.child(
             div()
                 .absolute()
@@ -367,13 +370,13 @@ impl Editor {
                 .h(34.)
                 .bg_linear_gradient(
                     quickgui::GradientDirection::ToRight,
-                    [Color::TRANSPARENT, Color::rgb8(43, 43, 43)],
+                    [Color::TRANSPARENT, self.colors.neutral(43)],
                 ),
         )
     }
 }
 
-fn leading_edge_fade(scrolled: bool) -> Element {
+fn leading_edge_fade(colors: theme::palette::Palette, scrolled: bool) -> Element {
     div()
         .id("project-tabs-leading-fade")
         .absolute()
@@ -392,7 +395,7 @@ fn leading_edge_fade(scrolled: bool) -> Element {
         )
         .bg_linear_gradient(
             quickgui::GradientDirection::ToRight,
-            [Color::rgb8(43, 43, 43), Color::TRANSPARENT],
+            [colors.neutral(43), Color::TRANSPARENT],
         )
 }
 

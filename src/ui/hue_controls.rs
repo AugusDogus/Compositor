@@ -56,19 +56,19 @@ impl Editor {
                 continue;
             }
             let control = match option {
-                HueOption::Colorize => Self::check_control("Colorize", settings.colorize)
+                HueOption::Colorize => self
+                    .check_control("Colorize", settings.colorize)
                     .text_size(13.)
                     .line_height(16.),
-                HueOption::Invert => {
-                    Self::check_control("Apply outside this range instead", settings.invert_range)
-                        .text_size(13.)
-                        .line_height(16.)
-                }
-                HueOption::Reset => Self::control(label),
+                HueOption::Invert => self
+                    .check_control("Apply outside this range instead", settings.invert_range)
+                    .text_size(13.)
+                    .line_height(16.),
+                HueOption::Reset => self.control(label),
             };
             if matches!(option, HueOption::Reset) {
                 row = row.child(
-                    Self::check_control(
+                    self.check_control(
                         "Preview",
                         self.adjustment_edit.as_ref().is_some_and(|e| e.preview),
                     )
@@ -198,7 +198,7 @@ impl Editor {
                 .font_features(
                     quickgui::FontFeatures::new().enable(quickgui::FontFeatureTag::TABULAR_NUMBERS),
                 )
-                .text_color(Color::rgb8(180, 180, 180)),
+                .text_color(self.colors.neutral(180)),
             )
     }
 

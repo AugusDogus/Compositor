@@ -27,7 +27,7 @@ impl Editor {
                     .items_center()
                     .justify_center()
                     .bg(Color::TRANSPARENT)
-                    .text_color(Color::rgb8(155, 155, 155))
+                    .text_color(self.colors.neutral(155))
                     .accessibility_label(format!(
                         "{} mask: {}",
                         if matte.linked { "Unlink" } else { "Link" },
@@ -105,11 +105,14 @@ impl Editor {
     pub(super) fn layer_mask_button(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         let doc = self.current_document();
         Icon::Mask
-            .button(if doc.is_some_and(|doc| doc.selection.is_some()) {
-                "Add layer mask (the selection becomes black)"
-            } else {
-                "Add layer mask"
-            })
+            .button(
+                self.colors,
+                if doc.is_some_and(|doc| doc.selection.is_some()) {
+                    "Add layer mask (the selection becomes black)"
+                } else {
+                    "Add layer mask"
+                },
+            )
             .id("layer-add-mask")
             .accessibility_label("Add layer mask")
             .disabled(

@@ -36,7 +36,7 @@ impl Editor {
         if let Some(draft) = self.tabs[self.current].canvas_draft() {
             for (index, label) in ["Width", "Height"].into_iter().enumerate() {
                 let id = format!("welcome-dimension-{index}");
-                let mut input = Self::text_field(draft.dimensions[index].clone());
+                let mut input = self.text_field(draft.dimensions[index].clone());
                 if index == 0 {
                     input = input.auto_focus();
                 }
@@ -55,7 +55,7 @@ impl Editor {
                                 .px(12.)
                                 .gap(8.)
                                 .rounded(7.)
-                                .bg(Color::rgb8(40, 40, 40))
+                                .bg(self.colors.neutral(40))
                                 .child(
                                     input
                                         .flex_1()
@@ -103,7 +103,7 @@ impl Editor {
                                     text("px")
                                         .text_size(13.)
                                         .line_height(16.)
-                                        .text_color(Color::rgb8(165, 165, 165)),
+                                        .text_color(self.colors.neutral(165)),
                                 ),
                         ),
                 );
@@ -132,7 +132,7 @@ impl Editor {
                         text("A blank space for your next composition.")
                             .text_size(13.)
                             .line_height(16.)
-                            .text_color(Color::rgb8(165, 165, 165)),
+                            .text_color(self.colors.neutral(165)),
                     ),
             )
             .child(dimensions)
@@ -145,9 +145,9 @@ impl Editor {
                 .text_size(12.)
                 .line_height(15.)
                 .text_color(if valid {
-                    Color::rgb8(165, 165, 165)
+                    self.colors.neutral(165)
                 } else {
-                    Color::rgb8(255, 159, 10)
+                    self.colors.warning()
                 }),
             )
             .child(
@@ -166,14 +166,15 @@ impl Editor {
                     )
                     .child(div().flex_1())
                     .child(
-                        Self::control("Create canvas")
+                        self.control("Create canvas")
                             .px(8.)
-                            .bg(Color::rgb8(0, 122, 255))
-                            .hover(|s| s.bg(Color::rgb8(24, 137, 255)))
+                            .bg(self.colors.accent())
+                            .text_color(self.colors.accent_text())
+                            .hover(|s| s.bg(self.colors.accent_variant([24, 137, 255])))
                             .disabled(!valid)
                             .disabled_style(|s| {
-                                s.bg(Color::rgb8(55, 62, 72))
-                                    .text_color(Color::rgb8(139, 139, 139))
+                                s.bg(self.colors.tinted_neutral([55, 62, 72]))
+                                    .text_color(self.colors.neutral(139))
                             })
                             .on_click(cx.listener("welcome-create", |this, cx| {
                                 this.create_welcome_canvas(cx)
@@ -212,8 +213,8 @@ impl Editor {
             .focusable()
             .size_full()
             .flex_col()
-            .bg(Color::rgb8(26, 26, 26))
-            .text_color(Color::rgb8(224, 224, 224))
+            .bg(self.colors.neutral(26))
+            .text_color(self.colors.neutral(224))
             .on_key_down(cx.key_down_listener("workspace", |this, event, cx| {
                 if this.picking_color() {
                     if matches!(event.key, Key::Enter | Key::Escape) {

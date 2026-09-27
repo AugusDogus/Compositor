@@ -328,10 +328,10 @@ impl Editor {
             .p(24.)
             .gap(spacing)
             .flex_col()
-            .bg(Color::rgb8(45, 45, 45));
+            .bg(self.colors.neutral(45));
         if panel_kind.is_none() {
             contents = contents
-                .border(1., Color::rgb8(90, 90, 90))
+                .border(1., self.colors.neutral(90))
                 .rounded(8.)
                 .shadow(super::surfaces::panel_shadow())
                 .child(dialog.title_with(Self::sheet_heading(title, size_sheet || jpeg_sheet)));
@@ -348,7 +348,7 @@ impl Editor {
             Form::Updates => {
                 contents = contents
                     .child(self.update_controls(cx))
-                    .child(Self::control("Close").on_click(cancel));
+                    .child(self.control("Close").on_click(cancel));
             }
             Form::GradientStops(draft) => {
                 contents = contents.child(self.gradient_stops_controls(cx, &draft));
@@ -359,7 +359,7 @@ impl Editor {
             Form::History => {
                 contents = contents
                     .child(self.history_controls(cx))
-                    .child(Self::control("Close").on_click(cancel));
+                    .child(self.control("Close").on_click(cancel));
             }
             Form::Close | Form::DeleteLayers => return self.confirmation_view(cx, &form),
             Form::MaskColor(target) => return self.mask_color_popover(cx, target),
@@ -454,9 +454,9 @@ impl Editor {
                                 .text_size(if body_text { 13. } else { 12. })
                                 .line_height(if body_text { 16. } else { 15. })
                                 .text_color(if body_text {
-                                    Color::rgb8(224, 224, 224)
+                                    self.colors.neutral(224)
                                 } else {
-                                    Color::rgb8(180, 180, 180)
+                                    self.colors.neutral(180)
                                 })
                                 .wrap(),
                         );
@@ -473,7 +473,7 @@ impl Editor {
                                     .wrap()
                                     .text_size(13.)
                                     .line_height(16.)
-                                    .text_color(Color::rgb8(255, 159, 10)),
+                                    .text_color(self.colors.warning()),
                             );
                         }
                         if self
@@ -484,10 +484,10 @@ impl Editor {
                                 text("Limited to the selection")
                                     .text_size(12.)
                                     .line_height(15.)
-                                    .text_color(Color::rgb8(180, 180, 180)),
+                                    .text_color(self.colors.neutral(180)),
                             );
                         }
-                        contents = contents.child(Self::divider());
+                        contents = contents.child(self.divider());
                     }
                 }
                 if !filter_sheet && !jpeg_sheet && !error.is_empty() {
@@ -495,7 +495,7 @@ impl Editor {
                         text(error.clone())
                             .wrap()
                             .text_sm()
-                            .text_color(Color::rgb8(255, 160, 135)),
+                            .text_color(self.colors.error([255, 160, 135])),
                     );
                 }
                 let apply = cx.listener(
@@ -515,7 +515,7 @@ impl Editor {
                     footer = footer.child(self.jpeg_status(&error).flex_1().min_w(0.));
                 }
                 footer = footer.child(
-                    Self::control("Cancel")
+                    self.control("Cancel")
                         .opacity(if self.panel_applying() { 0.4 } else { 1. })
                         .on_click(cancel),
                 );
@@ -530,7 +530,7 @@ impl Editor {
                     || (size_sheet && self.size_result(action, &fields).is_err())
                     || (jpeg_sheet && !self.jpeg_ready());
                 contents = contents.child(
-                    footer.child(Self::form_apply_button(action, unavailable).on_click(apply)),
+                    footer.child(self.form_apply_button(action, unavailable).on_click(apply)),
                 );
             }
         }
@@ -539,8 +539,8 @@ impl Editor {
 
     // Keep the button's large Element temporaries out of the frame that also
     // constructs adjustment fields and sliders on the default test-thread stack.
-    fn form_apply_button(action: Action, unavailable: bool) -> Element {
-        Self::control(
+    fn form_apply_button(&self, action: Action, unavailable: bool) -> Element {
+        self.control(
             if matches!(action, Action::ExportJpeg | Action::ExportSizes) {
                 "Export…"
             } else if matches!(action, Action::ImageSize) {
@@ -550,15 +550,15 @@ impl Editor {
             },
         )
         .bg(if unavailable {
-            Color::rgb8(55, 62, 72)
+            self.colors.tinted_neutral([55, 62, 72])
         } else {
-            Color::rgb8(0, 122, 255)
+            self.colors.accent()
         })
-        .hover(|s| s.bg(Color::rgb8(24, 137, 255)))
+        .hover(|s| s.bg(self.colors.accent_variant([24, 137, 255])))
         .text_color(if unavailable {
-            Color::rgb8(139, 139, 139)
+            self.colors.neutral(139)
         } else {
-            Color::WHITE
+            self.colors.accent_text()
         })
         .disabled(unavailable)
     }

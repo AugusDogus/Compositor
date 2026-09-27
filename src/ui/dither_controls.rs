@@ -145,8 +145,10 @@ pub(super) fn values(values: &[String]) -> Result<Settings> {
     settings.validate()?;
     Ok(settings)
 }
-fn trigger(label: &'static str) -> Element {
-    Editor::tool_header_control(label)
+fn trigger(colors: theme::palette::Palette, label: &'static str) -> Element {
+    theme::control(colors, label)
+        .text_size(12.)
+        .line_height(15.)
         .w(236.)
         .flex_row()
         .items_center()
@@ -199,10 +201,10 @@ impl Editor {
             "Style",
             self.dither_menus.style.element(
                 cx,
-                "dither-style",
-                "Style",
+                self.colors,
+                ("dither-style", "Style"),
                 |e| &mut e.dither_menus.style,
-                trigger(s.style.label()),
+                trigger(self.colors, s.style.label()),
                 |e, value, cx| {
                     e.update_form_field(0, value.label());
                     e.changed(cx);
@@ -281,10 +283,10 @@ impl Editor {
             "Colors",
             self.dither_menus.colors.element(
                 cx,
-                "dither-colors",
-                "Colors",
+                self.colors,
+                ("dither-colors", "Colors"),
                 |e| &mut e.dither_menus.colors,
-                trigger(color_label(s.colors)),
+                trigger(self.colors, color_label(s.colors)),
                 |e, value, cx| {
                     e.update_form_field(10, color_label(value));
                     e.changed(cx);
@@ -323,10 +325,10 @@ impl Editor {
                 "Pixel Shape",
                 self.dither_menus.shape.element(
                     cx,
-                    "dither-pixel-shape",
-                    "Pixel Shape",
+                    self.colors,
+                    ("dither-pixel-shape", "Pixel Shape"),
                     |e| &mut e.dither_menus.shape,
-                    trigger(shape_label(s.pixel_shape)),
+                    trigger(self.colors, shape_label(s.pixel_shape)),
                     |e, value, cx| {
                         e.update_form_field(13, shape_label(value));
                         e.changed(cx);

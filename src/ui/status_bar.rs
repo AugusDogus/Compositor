@@ -99,17 +99,17 @@ impl Editor {
         );
         let mut bar = div()
             .h(30.)
-            .border_top(1., Color::rgb8(62, 62, 62))
+            .border_top(1., self.colors.neutral(62))
             .flex_shrink_0()
             .px(18.)
             .flex_row()
             .items_center()
-            .bg(Color::rgb8(40, 40, 40))
+            .bg(self.colors.neutral(40))
             .text_size(11.)
             .font_features(
                 quickgui::FontFeatures::new().enable(quickgui::FontFeatureTag::TABULAR_NUMBERS),
             )
-            .text_color(Color::rgb8(165, 165, 165))
+            .text_color(self.colors.neutral(165))
             .gap(16.);
         if let Some(session) = self.tabs[self.current].session() {
             let percent = format!("{:.1}", session.zoom * 100.);

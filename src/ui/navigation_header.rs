@@ -54,7 +54,7 @@ impl Editor {
             .items_center()
             .px(18.)
             .gap(12.)
-            .bg(Color::rgb8(38, 38, 38))
+            .bg(self.colors.neutral(38))
             .child(
                 text(if self.tools.tool == Tool::Hand {
                     "Pan"
@@ -80,7 +80,8 @@ impl Editor {
                     },
                     |draft| draft.text.clone(),
                 );
-            let field = Self::text_field(value)
+            let field = self
+                .text_field(value)
                 .id(FIELD)
                 .w(72.)
                 .h(24.)
@@ -89,8 +90,8 @@ impl Editor {
                 .text_size(12.)
                 .line_height(15.)
                 .text_right()
-                .bg(Color::rgb8(29, 29, 29))
-                .border(1., Color::rgb8(67, 67, 67))
+                .bg(self.colors.neutral(29))
+                .border(1., self.colors.neutral(67))
                 .accessibility_label("Zoom percentage")
                 .tooltip("Zoom percentage (0.1–3200%). Press Return to apply.")
                 .disabled(self.pending || !self.has_document())

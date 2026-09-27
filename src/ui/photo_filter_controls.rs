@@ -32,7 +32,8 @@ impl Editor {
             ("Cooling", "#007ECC"),
             ("Sepia", "#AC7A33"),
         ] {
-            let button = Self::segment(label, chosen.eq_ignore_ascii_case(color))
+            let button = self
+                .segment(label, chosen.eq_ignore_ascii_case(color))
                 .h(26.)
                 .px(8.)
                 .text_size(13.)
