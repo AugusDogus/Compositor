@@ -4,6 +4,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Multi-stop gradients support 2–32 color/opacity stops, numeric or dragged positioning, linear/radial painting and mask gradients.
 - Dodge, Burn and Sponge brushes support pressure, selection-aware strokes and undo. Dodge/Burn offer tonal ranges; Sponge can saturate or desaturate. Large unselected strokes use Vulkan when available.
 - Unsharp Mask sharpens raster layers with amount, radius and threshold controls, selection-aware preview and undo.
 - High Pass isolates edges around neutral gray, with radius control, selection-aware preview and undo.
