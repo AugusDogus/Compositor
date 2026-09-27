@@ -85,6 +85,16 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             Sep,
             command("Flip Canvas Horizontal", "", Action::FlipCanvasX),
             command("Flip Canvas Vertical", "", Action::FlipCanvasY),
+            command(
+                "Rotate Canvas 90° Clockwise",
+                "",
+                Action::RotateCanvas(compositor::canvas_rotation::QuarterTurn::Clockwise),
+            ),
+            command(
+                "Rotate Canvas 90° Counterclockwise",
+                "",
+                Action::RotateCanvas(compositor::canvas_rotation::QuarterTurn::CounterClockwise),
+            ),
         ],
         5 => vec![
             command(

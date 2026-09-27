@@ -61,6 +61,14 @@ fn layer_commands_name_the_actual_mask_clipping_merge_and_flip_edits() {
         (Action::FlipY, "Flip Vertical"),
         (Action::FlipCanvasX, "Flip Canvas Horizontal"),
         (Action::FlipCanvasY, "Flip Canvas Vertical"),
+        (
+            Action::RotateCanvas(compositor::canvas_rotation::QuarterTurn::Clockwise),
+            "Rotate Canvas 90° Clockwise",
+        ),
+        (
+            Action::RotateCanvas(compositor::canvas_rotation::QuarterTurn::CounterClockwise),
+            "Rotate Canvas 90° Counterclockwise",
+        ),
         (Action::Merge, "Merge Down"),
     ] {
         cx.update(view, |e, cx| {

@@ -282,6 +282,7 @@ pub enum Action {
     ImageSize,
     FlipCanvasX,
     FlipCanvasY,
+    RotateCanvas(compositor::canvas_rotation::QuarterTurn),
     CropSettings,
     Trim,
     PixelGrid,

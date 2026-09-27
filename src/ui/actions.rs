@@ -388,6 +388,9 @@ impl Editor {
                 self.tools.pixel_grid = !self.tools.pixel_grid;
                 Ok(())
             }
+            Action::RotateCanvas(turn) => self.session_mut().edit(turn.label(), |doc| {
+                compositor::canvas_rotation::rotate(doc, turn)
+            }),
             Action::FlipCanvasX | Action::FlipCanvasY => {
                 let label = if matches!(action, Action::FlipCanvasX) {
                     "Flip Canvas Horizontal"

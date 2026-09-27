@@ -3,6 +3,7 @@ pub mod background;
 pub mod blend;
 pub mod brush;
 pub mod camera_raw;
+pub mod canvas_rotation;
 pub mod canvas_size;
 pub mod clipboard;
 pub mod clipping;

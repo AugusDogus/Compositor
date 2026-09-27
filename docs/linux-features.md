@@ -6,6 +6,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 - PSD/PSB imports convert embedded ICC profiles to sRGB for pixels and editable text/shape colors. v0.6.1 ignores these profiles.
 - Compressed SVG (`.svgz`) import, with a 16 MiB limit on expanded SVG data.
+- Image-menu commands rotate the whole canvas 90° in either direction, retaining editable layers and rotating masks, selections and guides.
 
 ## New in v0.6.1
 

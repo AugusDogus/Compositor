@@ -26,6 +26,7 @@ impl Action {
                 | Self::FlipY
                 | Self::FlipCanvasX
                 | Self::FlipCanvasY
+                | Self::RotateCanvas(_)
                 | Self::Blend
                 | Self::Adjustment(_)
                 | Self::EditAdjustment
