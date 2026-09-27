@@ -58,6 +58,7 @@ impl FileJob {
             {
                 Some("tif" | "tiff") => alerts::Operation::ExportTiff,
                 Some("webp") => alerts::Operation::ExportWebp,
+                Some("gif") => alerts::Operation::ExportGif,
                 _ => alerts::Operation::ExportPng,
             },
             Self::ExportPsd { .. } => alerts::Operation::ExportPsd,
@@ -324,6 +325,12 @@ impl Editor {
                     "Exported {}. Editable project save is unchanged.",
                     path.display()
                 );
+                if path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("gif"))
+                {
+                    self.status.push_str(" GIF uses at most 256 colors; opacity below 50% is transparent, otherwise opaque.");
+                }
                 if let Some(quality) = jpeg_quality
                     && let Err(error) = super::jpeg_preferences::remember(quality)
                 {

@@ -220,10 +220,14 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
     let format = ImageFormat::from_path(path)?;
     if !matches!(
         format,
-        ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::Tiff | ImageFormat::WebP
+        ImageFormat::Png
+            | ImageFormat::Jpeg
+            | ImageFormat::Tiff
+            | ImageFormat::WebP
+            | ImageFormat::Gif
     ) {
         return Err(invalid(
-            "Choose a PNG, JPEG, TIFF, or WebP filename for export.",
+            "Choose a PNG, JPEG, TIFF, WebP, or GIF filename for export.",
         ));
     }
     let pixels = render::render(document, document.width, document.height)?;
@@ -253,6 +257,23 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
                 .map_err(|e| invalid(format!("PNG pixels could not be encoded: {e}")))?;
             png.finish()
                 .map_err(|e| invalid(format!("PNG export could not be finalized: {e}")))?;
+        } else if format == ImageFormat::Gif {
+            // GIF has one-bit transparency. Quantize alpha explicitly instead of
+            // letting the encoder make every nonzero alpha fully opaque.
+            let mut pixels = pixels;
+            for pixel in pixels.pixels_mut() {
+                if pixel[3] < 128 {
+                    *pixel = image::Rgba([0; 4]);
+                } else {
+                    pixel[3] = 255;
+                }
+            }
+            image::codecs::gif::GifEncoder::new(&mut writer).encode(
+                pixels.as_raw(),
+                pixels.width(),
+                pixels.height(),
+                image::ExtendedColorType::Rgba8,
+            )?;
         } else {
             DynamicImage::ImageRgba8(pixels).write_to(&mut writer, format)?;
         }
@@ -266,6 +287,28 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn gif_export_quantizes_alpha_and_reopens_without_changing_the_document() {
+        let mut doc = Document::new(5, 1).unwrap();
+        let source = RgbaImage::from_fn(5, 1, |x, _| {
+            image::Rgba([240, 40, 10, [0, 1, 127, 128, 255][x as usize]])
+        });
+        doc.layers[0].content = LayerContent::Raster(Some(Arc::new(source.clone())));
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("export.GIF");
+        std::fs::write(&path, b"previous destination").unwrap();
+        export(&doc, &path, 100).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        assert!(bytes.starts_with(b"GIF89a"));
+        let reopened = read_image(&path).unwrap();
+        assert_eq!(reopened.dimensions(), (5, 1));
+        for x in 0..5 {
+            assert_eq!(reopened[(x, 0)][3], if x < 3 { 0 } else { 255 });
+        }
+        assert_eq!(reopened[(4, 0)], image::Rgba([240, 40, 10, 255]));
+        assert_eq!(doc.layers[0].content, LayerContent::Raster(Some(Arc::new(source))));
+    }
+
     #[test]
     fn jpeg_preview_and_export_use_identical_quality_and_white_transparency() {
         let mut doc = Document::new(32, 32).unwrap();

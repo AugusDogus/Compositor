@@ -147,6 +147,7 @@ impl Editor {
             | Action::ExportPng
             | Action::ExportTiff
             | Action::ExportWebp
+            | Action::ExportGif
             | Action::ExportPsd => {
                 self.file_action(action, cx);
                 Ok(())

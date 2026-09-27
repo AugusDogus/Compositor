@@ -20,6 +20,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command("Export PNG…", "Ctrl+Shift+E", Action::ExportPng),
             command("Export TIFF…", "", Action::ExportTiff),
             command("Export WebP…", "", Action::ExportWebp),
+            command("Export GIF…", "", Action::ExportGif),
             command("Export PSD…", "", Action::ExportPsd),
             command("Export JPEG…", "Ctrl+Alt+Shift+S", Action::ExportJpegFile),
             Sep,

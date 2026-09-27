@@ -30,6 +30,7 @@ pub(super) enum SaveDialog {
     Png,
     Tiff,
     Webp,
+    Gif,
     Psd,
     Jpeg,
 }
@@ -42,6 +43,7 @@ impl SaveDialog {
             Self::Png => "Export PNG",
             Self::Tiff => "Export TIFF",
             Self::Webp => "Export WebP",
+            Self::Gif => "Export GIF",
             Self::Psd => "Export PSD",
             Self::Jpeg => "Export JPEG",
         }
@@ -53,6 +55,7 @@ impl SaveDialog {
             Self::Png => &["png"],
             Self::Tiff => &["tif", "tiff"],
             Self::Webp => &["webp"],
+            Self::Gif => &["gif"],
             Self::Psd => &["psd"],
             Self::Jpeg => &["jpg", "jpeg"],
         }
@@ -77,6 +80,7 @@ impl SaveDialog {
             Self::Png => "PNG image",
             Self::Tiff => "TIFF image",
             Self::Webp => "WebP image",
+            Self::Gif => "GIF image (256 colors, binary transparency)",
             Self::Psd => "Photoshop document",
             Self::Jpeg => "JPEG image",
         };
@@ -122,6 +126,7 @@ mod tests {
             (SaveDialog::Png, "Export PNG", "png"),
             (SaveDialog::Tiff, "Export TIFF", "tif"),
             (SaveDialog::Webp, "Export WebP", "webp"),
+            (SaveDialog::Gif, "Export GIF", "gif"),
             (SaveDialog::Jpeg, "Export JPEG", "jpg"),
         ] {
             for stem in ["Portrait", "Version.2", "Étude 花"] {
@@ -154,6 +159,7 @@ mod tests {
             (SaveDialog::Png, "png"),
             (SaveDialog::Tiff, "tif"),
             (SaveDialog::Webp, "webp"),
+            (SaveDialog::Gif, "gif"),
             (SaveDialog::Jpeg, "jpg"),
         ] {
             assert!(dialog.destination("/tmp/Portrait".into()).is_err());
