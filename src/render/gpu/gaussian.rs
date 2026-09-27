@@ -61,13 +61,60 @@ impl Engine {
             bytes,
             wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         );
-        let dummy = allocate("Unused blur input", 4, storage);
-        let unused_output = allocate("Unused blur pixels", 4, storage);
         let mut encoder = self.device.create_command_encoder(&Default::default());
-        for (phase, source, destination) in [(5, &input, &rows), (6, &rows, &columns)] {
+        self.encode_coverage_blur(
+            &mut encoder,
+            &input,
+            &rows,
+            &columns,
+            [image.width(), image.height()],
+            sigma,
+        );
+        encoder.copy_buffer_to_buffer(&columns, 0, &readback, 0, bytes);
+        let result = self.readback(
+            encoder,
+            &readback,
+            errors,
+            super::readback::Operation::CoverageBlur,
+            |bytes| {
+                bytes
+                    .chunks_exact(4)
+                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect()
+            },
+        );
+        result
+            .and_then(|pixels| {
+                FloatPlane::from_raw(image.width(), image.height(), pixels)
+                    .ok_or_else(|| invalid("Coverage blur returned the wrong pixel count."))
+            })
+            .map(Some)
+    }
+    pub(super) fn encode_coverage_blur(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        input: &wgpu::Buffer,
+        rows: &wgpu::Buffer,
+        columns: &wgpu::Buffer,
+        size: [u32; 2],
+        sigma: f32,
+    ) {
+        let dummy = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Unused blur input"),
+            size: 4,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let unused_output = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Unused blur output"),
+            size: 4,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        for (phase, source, destination) in [(5, input, rows), (6, rows, columns)] {
             let mut params = [0u32; 40];
-            params[0] = image.width();
-            params[1] = image.height();
+            params[0] = size[0];
+            params[1] = size[1];
             params[2] = phase;
             params[4] = sigma.to_bits();
             let uniform = self
@@ -102,27 +149,8 @@ impl Engine {
             let mut pass = encoder.begin_compute_pass(&Default::default());
             pass.set_pipeline(&self.effects_pipeline);
             pass.set_bind_group(0, &bindings, &[]);
-            pass.dispatch_workgroups(image.width().div_ceil(16), image.height().div_ceil(16), 1);
+            pass.dispatch_workgroups(size[0].div_ceil(16), size[1].div_ceil(16), 1);
         }
-        encoder.copy_buffer_to_buffer(&columns, 0, &readback, 0, bytes);
-        let result = self.readback(
-            encoder,
-            &readback,
-            errors,
-            super::readback::Operation::CoverageBlur,
-            |bytes| {
-                bytes
-                    .chunks_exact(4)
-                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                    .collect()
-            },
-        );
-        result
-            .and_then(|pixels| {
-                FloatPlane::from_raw(image.width(), image.height(), pixels)
-                    .ok_or_else(|| invalid("Coverage blur returned the wrong pixel count."))
-            })
-            .map(Some)
     }
 }
 #[cfg(test)]

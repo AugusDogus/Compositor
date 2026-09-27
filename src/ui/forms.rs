@@ -436,6 +436,9 @@ impl Editor {
                         Action::Filter(compositor::filters::Filter::ContentFill) => {
                             Some("Fill the selection using surrounding pixels from this layer.")
                         }
+                        Action::Filter(compositor::filters::Filter::LuminositySharpen(_)) => Some(
+                            "Sharpens brightness edges. Reduce Noise limits sharpening of small variations.",
+                        ),
                         Action::Filter(compositor::filters::Filter::Lens { .. }) => Some(
                             "Positive straightens lines that bow outward (barrel); negative, lines that bow inward (pincushion).",
                         ),

@@ -56,6 +56,14 @@ impl Editor {
                     ("Center Y", (settings.center[1] * 100.).to_string()),
                 ],
             ),
+            Filter::LuminositySharpen(settings) => (
+                "Luminosity Sharpen",
+                vec![
+                    ("Amount (%)", settings.amount.to_string()),
+                    ("Radius", settings.radius.to_string()),
+                    ("Reduce Noise (%)", settings.noise.to_string()),
+                ],
+            ),
             Filter::HighPass { radius } => ("High Pass", vec![("Radius", radius.to_string())]),
             Filter::UnsharpMask {
                 amount,
@@ -197,6 +205,15 @@ impl Editor {
                 };
                 settings.validate()?;
                 Filter::Radial(settings)
+            }
+            Filter::LuminositySharpen(_) => {
+                let settings = compositor::filters::luminosity_sharpen::Settings {
+                    amount: n(0)?,
+                    radius: n(1)?,
+                    noise: n(2)?,
+                };
+                settings.validate()?;
+                Filter::LuminositySharpen(settings)
             }
             Filter::HighPass { .. } => Filter::HighPass { radius: n(0)? },
             Filter::UnsharpMask { .. } => Filter::UnsharpMask {

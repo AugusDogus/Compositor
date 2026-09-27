@@ -34,6 +34,10 @@ fn filters_that_leave_pixels_unchanged_preserve_editable_content() {
     .unwrap();
     for original in [shape, text] {
         for filter in [
+            Filter::LuminositySharpen(filters::luminosity_sharpen::Settings {
+                amount: 0.,
+                ..Default::default()
+            }),
             Filter::UnsharpMask {
                 amount: 0.,
                 radius: 2.,
@@ -79,6 +83,10 @@ fn no_op_filters_with_a_selection_preserve_hidden_rgb_and_editable_text() {
     ));
     let original = doc.clone();
     for filter in [
+        Filter::LuminositySharpen(filters::luminosity_sharpen::Settings {
+            amount: 0.,
+            ..Default::default()
+        }),
         Filter::UnsharpMask {
             amount: 0.,
             radius: 2.,

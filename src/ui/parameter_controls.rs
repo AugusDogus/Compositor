@@ -62,11 +62,14 @@ impl Parameter {
             (Action::Filter(Filter::Radial(_)), _, 1) => ("Amount", (0., 100.), "", Linear(1)),
             (Action::Filter(Filter::Radial(_)), _, 2) => ("Center X", (0., 100.), "%", Linear(1)),
             (Action::Filter(Filter::Radial(_)), _, 3) => ("Center Y", (0., 100.), "%", Linear(1)),
-            (Action::Filter(Filter::UnsharpMask { .. }), _, 0) => {
+            (Action::Filter(Filter::UnsharpMask { .. } | Filter::LuminositySharpen(_)), _, 0) => {
                 ("Amount", (0., 500.), "%", Linear(0))
             }
-            (Action::Filter(Filter::UnsharpMask { .. }), _, 1) => {
+            (Action::Filter(Filter::UnsharpMask { .. } | Filter::LuminositySharpen(_)), _, 1) => {
                 ("Radius", (0.1, 250.), "px", Logarithmic(1))
+            }
+            (Action::Filter(Filter::LuminositySharpen(_)), _, 2) => {
+                ("Reduce Noise", (0., 100.), "%", Linear(0))
             }
             (Action::Filter(Filter::UnsharpMask { .. }), _, 2) => {
                 ("Threshold", (0., 255.), "", Linear(0))
@@ -185,6 +188,7 @@ impl Editor {
         let label_width = match (action, kind, index) {
             _ if self.editing_brightness_contrast() => 72.,
             (Action::Filter(Filter::UnsharpMask { .. }), _, _) => 72.,
+            (Action::Filter(Filter::LuminositySharpen(_)), _, _) => 94.,
             (Action::Filter(Filter::Lens { .. }), _, _) => 116.,
             (_, Some(Kind::Grain), _) => 72.,
             (_, Some(Kind::ColorBalance), _) => 172.,

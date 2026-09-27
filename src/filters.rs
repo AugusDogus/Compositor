@@ -2,6 +2,7 @@ pub(crate) mod channel_mixer;
 pub mod dither;
 pub mod finishing;
 mod gaussian;
+pub mod luminosity_sharpen;
 pub use gaussian::gaussian_rgba;
 pub(crate) mod motion;
 pub(crate) mod photo_filter;
@@ -23,6 +24,7 @@ pub enum Filter {
     PhotoFilter(crate::adjustment::PhotoFilter),
     ChannelMixer(crate::adjustment::ChannelMixer),
     Radial(radial::Radial),
+    LuminositySharpen(luminosity_sharpen::Settings),
     HighPass {
         radius: f64,
     },
@@ -182,6 +184,7 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
             Filter::Radial(settings) => radial::apply(&source, settings)?,
             Filter::PhotoFilter(settings) => photo_filter::apply(&source, settings)?,
             Filter::ChannelMixer(settings) => channel_mixer::apply(&source, settings)?,
+            Filter::LuminositySharpen(settings) => luminosity_sharpen::apply(&source, settings)?,
             Filter::HighPass { radius } => sharpen::high_pass(&source, radius)?,
             Filter::UnsharpMask {
                 amount,

@@ -13,6 +13,7 @@ fn spatial_filter_previews_apply_once_and_support_undo_redo_and_cancel() {
             radius: 2.,
             threshold: 0.,
         },
+        Filter::LuminositySharpen(Default::default()),
         Filter::HighPass { radius: 2. },
         Filter::Radial(compositor::filters::radial::Radial {
             amount: 70.,
@@ -921,6 +922,56 @@ fn radial_blur_controls_switch_mode_edit_center_and_reject_invalid_parameters() 
             values[2] = bad.into();
             assert!(Editor::filter_values(filter, &values).is_err());
         }
+    })
+    .unwrap();
+    cx.click(window, "form-cancel").unwrap();
+    cx.read(view, |e| {
+        assert_eq!(e.session().document, original);
+        assert!(e.session().undo_label().is_none());
+    })
+    .unwrap();
+}
+
+#[test]
+fn luminosity_sharpen_controls_validate_noise_and_keep_cancel_clean() {
+    use quickgui::{Application, WindowOptions};
+    let filter = Filter::LuminositySharpen(Default::default());
+    let (_, fields) = Editor::filter_fields(filter);
+    let values: Vec<_> = fields.iter().map(|(_, v)| v.clone()).collect();
+    assert_eq!(Editor::filter_values(filter, &values).unwrap(), filter);
+    for (i, value) in [(0, "501"), (1, "0"), (2, "101"), (2, "NaN")] {
+        let mut invalid = values.clone();
+        invalid[i] = value.into();
+        assert!(Editor::filter_values(filter, &invalid).is_err());
+    }
+    let mut editor = Editor::with_test_document();
+    compositor::edits::fill(
+        &mut editor.session_mut().document,
+        [80, 100, 120, 255],
+        false,
+        false,
+    )
+    .unwrap();
+    let original = editor.session().document.clone();
+    editor.open_filter(filter).unwrap();
+    let (mut cx, view) = Application::new()
+        .font(crate::UI_FONT)
+        .into_test_context(
+            WindowOptions::new("Luminosity Sharpen").size(1280., 900.),
+            editor,
+        )
+        .unwrap();
+    let window = view.window_handle();
+    for i in 0..3 {
+        assert!(cx.element_bounds(window, format!("parameter-{i}")).is_ok());
+    }
+    cx.update(view, |e, cx| {
+        e.update_form_field(2, "100");
+        e.changed(cx);
+    })
+    .unwrap();
+    cx.read(view, |e| {
+        assert!(matches!(&e.modal,Some(Form::Edit{fields,..}) if fields[2].1=="100"))
     })
     .unwrap();
     cx.click(window, "form-cancel").unwrap();

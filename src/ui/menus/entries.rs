@@ -146,6 +146,11 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 }),
             ),
             command(
+                "Luminosity Sharpen…",
+                "",
+                Action::Filter(compositor::filters::Filter::LuminositySharpen(Default::default())),
+            ),
+            command(
                 "Add Noise…",
                 "",
                 Action::Filter(compositor::filters::Filter::Noise {
