@@ -4,6 +4,7 @@ use quickgui::Dialog;
 
 #[derive(Clone)]
 pub(super) enum Form {
+    BrushTips(super::brush_presets::Draft),
     Effects(Box<super::layer_effects::EffectsEditor>),
     Updates,
     History,
@@ -232,6 +233,7 @@ impl Editor {
             Form::Effects(_) => "Layer Effects",
             Form::Updates => "Updates",
             Form::History => "History",
+            Form::BrushTips(_) => "Brush Tips",
             Form::GradientStops(_) => "Gradient Stops",
             Form::Trim(_) => "Trim",
             Form::Text(_) => "Text",
@@ -348,6 +350,9 @@ impl Editor {
             }
             Form::GradientStops(draft) => {
                 contents = contents.child(self.gradient_stops_controls(cx, &draft));
+            }
+            Form::BrushTips(draft) => {
+                contents = contents.child(self.brush_tips_view(cx, &draft));
             }
             Form::History => {
                 contents = contents

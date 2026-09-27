@@ -4,6 +4,7 @@ use super::*;
 pub(super) struct ProjectTools {
     pub(super) tool: Tool,
     pub(super) brush: Brush,
+    pub(super) brush_shape: compositor::brush::sampled::Shape,
     pub(super) brush_smoothing: f64,
     pub(super) pen_pressure: bool,
     pub(super) pen_tilt: bool,
@@ -56,6 +57,7 @@ impl Default for ProjectTools {
         Self {
             tool: Tool::Move,
             brush: Brush::default(),
+            brush_shape: compositor::brush::sampled::Shape::Round,
             brush_smoothing: 0.,
             pen_pressure: true,
             pen_tilt: true,

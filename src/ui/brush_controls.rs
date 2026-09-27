@@ -17,6 +17,11 @@ pub(super) fn mask_picker() -> Dropdown<bool> {
 
 impl Editor {
     pub(super) fn brush_header(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        let sampled = matches!(self.tools.tool, Tool::Brush | Tool::Erase)
+            && matches!(
+                self.tools.brush_shape,
+                compositor::brush::sampled::Shape::Sampled(_)
+            );
         let opacity_label = match self.tools.tool {
             Tool::Dodge | Tool::Burn => "Exposure",
             Tool::Blur | Tool::Smudge | Tool::Liquify | Tool::Sponge => "Strength",
@@ -45,34 +50,38 @@ impl Editor {
                     Scalar::BrushSize,
                     (1., 2000.),
                 ),
-            )
-            .child(self.scrub_label(
-                cx,
-                "brush-hardness-label",
-                Scalar::BrushHardness,
-                (0., 100.),
-                1.,
-                text("Hardness").text_size(12.).line_height(15.),
-            ))
-            .child(self.scalar_slider(
-                cx,
-                "brush-hardness-slider",
-                "Hardness",
-                Scalar::BrushHardness,
-                (0., 100.),
-                100.,
-            ))
-            .child(
-                self.scrub_unit_suffix(
-                    self.brush_value(cx, "brush-hardness", Scalar::BrushHardness, (0., 100.))
-                        .w(42.),
-                    "%",
+            );
+        if !sampled {
+            row = row
+                .child(self.scrub_label(
                     cx,
-                    "scrub-unit-brushhardness",
+                    "brush-hardness-label",
                     Scalar::BrushHardness,
                     (0., 100.),
-                ),
-            )
+                    1.,
+                    text("Hardness").text_size(12.).line_height(15.),
+                ))
+                .child(self.scalar_slider(
+                    cx,
+                    "brush-hardness-slider",
+                    "Hardness",
+                    Scalar::BrushHardness,
+                    (0., 100.),
+                    100.,
+                ))
+                .child(
+                    self.scrub_unit_suffix(
+                        self.brush_value(cx, "brush-hardness", Scalar::BrushHardness, (0., 100.))
+                            .w(42.),
+                        "%",
+                        cx,
+                        "scrub-unit-brushhardness",
+                        Scalar::BrushHardness,
+                        (0., 100.),
+                    ),
+                );
+        }
+        row = row
             .child(self.scrub_label(
                 cx,
                 "brush-opacity-label",
@@ -105,6 +114,17 @@ impl Editor {
                 ),
             );
         if matches!(self.tools.tool, Tool::Brush | Tool::Erase) {
+            let label = match &self.tools.brush_shape {
+                compositor::brush::sampled::Shape::Round => "Round tip",
+                compositor::brush::sampled::Shape::Sampled(_) => "Sampled tip",
+            };
+            row = row.child(Self::control(label).on_click(cx.listener(
+                "brush-tip-picker",
+                |this, cx| {
+                    this.open_brush_tips();
+                    cx.invalidate();
+                },
+            )));
             row = row
                 .child(self.scrub_label(cx,"brush-smoothing-label",Scalar::BrushSmoothing,(0.,100.),1.,text("Smoothing").text_size(12.).line_height(15.)))
                 .child(self.scalar_slider(

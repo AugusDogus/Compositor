@@ -138,7 +138,13 @@ impl Stroke {
     }
 
     fn draw_tail(&mut self, doc: &mut Document, start: Point, end: Point) -> Result<()> {
-        let radius = self.brush.diameter / 2. + 2.;
+        let radius = self.brush.diameter
+            * if self.sampled.is_some() {
+                std::f64::consts::FRAC_1_SQRT_2
+            } else {
+                0.5
+            }
+            + 2.;
         let bounds = [
             (start[0].min(end[0]) - radius).max(0.),
             (start[1].min(end[1]) - radius).max(0.),
@@ -150,8 +156,12 @@ impl Stroke {
             self.tail = self.backup_tail(doc, bounds)?;
         }
         let saved = self.last;
+        let phase = self.sampled.as_ref().map(|state| state.next);
         let result = self.walk(doc, end);
         self.last = saved;
+        if let (Some(state), Some(phase)) = (&mut self.sampled, phase) {
+            state.next = phase;
+        }
         result
     }
 

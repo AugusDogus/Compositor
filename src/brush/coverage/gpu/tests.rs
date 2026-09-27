@@ -4,7 +4,7 @@ use super::*;
 #[test]
 #[ignore = "Requires a hardware Vulkan adapter"]
 fn gpu_pixel_application_preserves_stroke_opacity_and_original_color() {
-    let engine = Engine::new().unwrap();
+    let mut engine = Engine::new().unwrap();
     for hardness in [0., 1.] {
         use crate::brush::tonal::{Range, Tonal};
         for mode in [
@@ -102,7 +102,7 @@ fn gpu_pixel_application_preserves_stroke_opacity_and_original_color() {
 #[test]
 #[ignore = "Requires a hardware Vulkan adapter"]
 fn gpu_matches_reference_for_clicks_segments_transforms_and_chunk_boundaries() {
-    let engine = Engine::new().unwrap();
+    let mut engine = Engine::new().unwrap();
     for hardness in [0., 0.5, 1.] {
         let brush = Brush {
             diameter: 800.,
@@ -159,7 +159,7 @@ fn gpu_matches_reference_for_clicks_segments_transforms_and_chunk_boundaries() {
 #[test]
 #[ignore = "Requires a hardware Vulkan adapter"]
 fn gpu_tilted_tip_matches_reference_with_canvas_clipping() {
-    let engine = Engine::new().unwrap();
+    let mut engine = Engine::new().unwrap();
     for hardness in [0., 0.5, 1.] {
         let brush = Brush {
             diameter: 520.,
@@ -185,6 +185,94 @@ fn gpu_tilted_tip_matches_reference_with_canvas_clipping() {
             .unwrap();
         for (a, b) in result.as_raw().iter().zip(expected.as_raw()) {
             assert!(a.abs_diff(*b) <= 1, "hardness={hardness}: {a} vs {b}");
+        }
+    }
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn sampled_gpu_matches_cpu_for_real_bristles_tilt_and_pixel_operations() {
+    use crate::brush::sampled::{self, Sampled, State};
+    use std::{path::PathBuf, sync::Arc};
+    let mut engine = Engine::new().unwrap();
+    let tip = Arc::new(
+        sampled::read(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/gbr/bristles-01.gbr"),
+        )
+        .unwrap(),
+    );
+    for mode in [PaintMode::Paint, PaintMode::Erase] {
+        let brush = Brush {
+            diameter: 520.,
+            hardness: 1.,
+            opacity: 0.4,
+            color: [210, 30, 160, 180],
+        };
+        let mut state = State {
+            brush: Sampled::new(tip.clone()),
+            next: 0.,
+        };
+        let original = image::RgbaImage::from_fn(700, 600, |x, y| {
+            image::Rgba([x as u8, y as u8, 80, (x + y) as u8])
+        });
+        let mut actual = original.clone();
+        let mut expected = original.clone();
+        let mut plane = Plane::new(700, 600);
+        let mut cpu = plane.clone();
+        let region = Region {
+            bounds: [0, 0, 700, 600],
+            origin: [-10.5, -20.5],
+            dx: [1., 0.],
+            dy: [0., 1.],
+            canvas: [650., 550.],
+        };
+        for (start, end) in [
+            ([15., 25.], [280., 150.]),
+            ([280., 150.], [500., 350.]),
+            ([500., 350.], [500., 350.]),
+        ] {
+            let kernel = state.kernel(brush.diameter);
+            let segment = kernel
+                .segment(start, end, 1.)
+                .with_metric(crate::brush::Tip::new(Some(1.), Some([45., 35.])).metric());
+            state.advance((end[0] - start[0]).hypot(end[1] - start[1]), brush.diameter);
+            let changed = region.rasterize(&mut cpu, &segment, brush).unwrap();
+            for (x, y, coverage) in changed.enumerate_pixels() {
+                if coverage[0] == 0 {
+                    continue;
+                }
+                let before = original[(x, y)].0.map(|v| v as f64 / 255.);
+                let amount = coverage[0] as f64 / 255. * brush.opacity;
+                let mut top = brush.color.map(|v| v as f64 / 255.);
+                top[3] *= amount;
+                let result = if mode == PaintMode::Erase {
+                    [before[0], before[1], before[2], before[3] * (1. - amount)]
+                } else {
+                    crate::blend::Blend::Normal.composite(before, top)
+                };
+                expected[(x, y)] =
+                    image::Rgba(result.map(|v| (v.clamp(0., 1.) * 255.).round() as u8));
+            }
+            engine
+                .process(
+                    &region,
+                    &mut plane,
+                    &segment,
+                    brush,
+                    &mut Target::Image {
+                        pixels: &mut actual,
+                        original: &original,
+                        operation: if mode == PaintMode::Erase {
+                            Operation::Erase
+                        } else {
+                            Operation::Paint
+                        },
+                    },
+                )
+                .unwrap();
+            for (index, (a, b)) in actual.as_raw().iter().zip(expected.as_raw()).enumerate() {
+                assert!(a.abs_diff(*b) <= 1, "{mode:?} byte {index}: {a} vs {b}");
+            }
         }
     }
 }

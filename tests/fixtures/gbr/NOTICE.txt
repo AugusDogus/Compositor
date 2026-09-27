@@ -1,0 +1,8 @@
+GIMP brush fixtures from GNOME/gimp-data, commit fe4ecc0bf70fc8ff3bd929ce6abdd50fb5621072:
+  brushes/Basic/pixel.gbr
+  brushes/Media/Bristles-01.gbr
+https://github.com/GNOME/gimp-data/tree/fe4ecc0bf70fc8ff3bd929ce6abdd50fb5621072/brushes
+The repository LICENSE specifies CC0 (or equivalent No Rights Reserved) for brushes:
+https://github.com/GNOME/gimp-data/blob/fe4ecc0bf70fc8ff3bd929ce6abdd50fb5621072/LICENSE
+CC0: https://creativecommons.org/publicdomain/zero/1.0/
+These are test fixtures, not application brush presets.

@@ -11,20 +11,58 @@ struct Parameters {
     spacing: vec4<f32>,
     color: vec4<f32>,
     metric: vec4<f32>,
+    tip_size: vec4<u32>,
+    tip_spacing: vec4<f32>,
 }
 struct Output { density: f32, changed: u32, color: u32 }
 @group(0) @binding(0) var<uniform> u: Parameters;
 @group(0) @binding(1) var<storage, read> previous: array<f32>;
 @group(0) @binding(2) var<storage, read_write> result: array<Output>;
 @group(0) @binding(3) var<storage, read> original: array<u32>;
+@group(0) @binding(4) var<storage, read> sampled_tip: array<u32>;
 
 fn tip_density(distance_squared: f32) -> f32 {
     let t = clamp((sqrt(distance_squared) / u.geometry.z - u.geometry.w) / (1.0 - u.geometry.w), 0.0, 1.0);
     let coverage = max(0.0, (exp(-2.5 * t * t) - exp(-2.5)) / (1.0 - exp(-2.5)));
     return -log(max(1.0 - coverage, 0.001));
 }
+fn tip_pixel(p: vec2<i32>) -> f32 {
+    if any(p < vec2<i32>(0)) || any(p >= vec2<i32>(u.tip_size.xy)) { return 0.0; }
+    let index = u32(p.y) * u.tip_size.x + u32(p.x);
+    return f32((sampled_tip[index / 4u] >> ((index % 4u) * 8u)) & 255u) / 255.0;
+}
+fn sampled_alpha(point: vec2<f32>) -> f32 {
+    let dimensions = vec2<f32>(u.tip_size.xy);
+    let scale = f32(max(u.tip_size.x, u.tip_size.y)) / (u.geometry.z * 2.0);
+    let edge_axes = clamp((dimensions / (2.0 * scale) - abs(point)) / u.segment.w + 0.5, vec2<f32>(0.0), vec2<f32>(1.0));
+    let edge = edge_axes.x * edge_axes.y;
+    if edge == 0.0 { return 0.0; }
+    let p = clamp(point * scale + dimensions * 0.5 - 0.5, vec2<f32>(0.0), dimensions - 1.0);
+    let lo = vec2<i32>(floor(p));
+    let f = fract(p);
+    return mix(mix(tip_pixel(lo), tip_pixel(lo + vec2<i32>(1, 0)), f.x),
+        mix(tip_pixel(lo + vec2<i32>(0, 1)), tip_pixel(lo + vec2<i32>(1, 1)), f.x), f.y) * edge;
+}
+fn sampled_deposit(p: vec2<f32>) -> f32 {
+    let first = u.tip_spacing.x;
+    let spacing = u.tip_spacing.y;
+    if first > u.segment.z { return 0.0; }
+    let projection = dot(p, u.segment.xy);
+    let diameter = u.geometry.z * 2.0;
+    let reach = diameter * 0.7071067811865476 + u.segment.w;
+    let last = floor((u.segment.z - first) / spacing);
+    let lo = max(0.0, ceil((projection - reach - first) / spacing));
+    let hi = min(last, floor((projection + reach - first) / spacing));
+    if hi < lo { return 0.0; }
+    var coverage = 0.0;
+    for (var i = u32(lo); i <= u32(hi); i++) {
+        coverage = max(coverage, sampled_alpha(p - u.segment.xy * (first + f32(i) * spacing)));
+    }
+    return coverage;
+}
 fn deposit(point: vec2<f32>) -> f32 {
     let p = vec2<f32>(dot(u.metric.xy, point), dot(u.metric.zw, point));
+    if u.tip_size.x != 0u { return sampled_deposit(p); }
     let direction = u.segment.xy;
     let length = u.segment.z;
     let projection = dot(p, direction);

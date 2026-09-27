@@ -264,13 +264,19 @@ impl Editor {
                     brush.color = self.palette_colors(mask)[0];
                     let sample_all = self.tools.clone_sample_all;
                     let input = self.brush_input(from, event);
-                    match Stroke::start_input(
+                    let shape = if matches!(self.tools.tool, Tool::Brush | Tool::Erase) {
+                        self.tools.brush_shape.clone()
+                    } else {
+                        compositor::brush::sampled::Shape::Round
+                    };
+                    match Stroke::start_shaped_input(
                         &mut self.session_mut().document,
                         input,
                         brush,
                         mode,
                         mask,
                         sample_all,
+                        shape,
                     ) {
                         Ok(mut stroke) => {
                             if let Err(error) = stroke.to(&mut self.session_mut().document, point) {

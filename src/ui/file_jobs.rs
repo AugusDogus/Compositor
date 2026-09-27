@@ -4,6 +4,7 @@ use compositor::{document::Layer, invalid};
 use uuid::Uuid;
 
 pub(super) enum FileJob {
+    BrushTip(PathBuf),
     Open(Vec<PathBuf>),
     Import {
         session: Uuid,
@@ -27,6 +28,7 @@ pub(super) enum FileJob {
 }
 
 pub(super) enum Completed {
+    BrushTip(compositor::brush::sampled::Tip),
     Opened {
         projects: Vec<OpenedProject>,
         failures: Vec<(PathBuf, compositor::Error)>,
@@ -49,6 +51,7 @@ impl FileJob {
     fn operation(&self) -> alerts::Operation {
         match self {
             Self::Open(_) => alerts::Operation::Open,
+            Self::BrushTip(_) => alerts::Operation::Import,
             Self::Import { .. } => alerts::Operation::Import,
             Self::Export { path, .. } => match path
                 .extension()
@@ -69,6 +72,9 @@ impl FileJob {
 
     pub(super) fn run(self, open: &[(Uuid, PathBuf)]) -> Result<Completed> {
         match self {
+            Self::BrushTip(path) => {
+                compositor::brush::sampled::read(&path).map(Completed::BrushTip)
+            }
             Self::ExportPsd { document, path } => {
                 let bytes = compositor::psd::encode(&document)?;
                 image_io::export_encoded(&path, &bytes)?;
@@ -226,6 +232,7 @@ impl Editor {
         _cx: &mut EventContext,
     ) -> Result<()> {
         match completed {
+            Completed::BrushTip(tip) => self.install_brush_tip(tip)?,
             Completed::Opened { projects, failures } => {
                 let opened = projects.len();
                 self.show_opened_projects(projects)?;

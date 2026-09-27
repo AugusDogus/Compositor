@@ -16,6 +16,12 @@ const TABLE_STEPS: usize = 4096;
 static DENSITY: std::sync::OnceLock<[f32; TABLE_STEPS + 1]> = std::sync::OnceLock::new();
 
 pub(super) enum Kernel {
+    Sampled {
+        tip: std::sync::Arc<super::sampled::Tip>,
+        diameter: f64,
+        first: f64,
+        spacing: f64,
+    },
     Hard {
         radius: f64,
     },
@@ -64,6 +70,7 @@ impl Kernel {
             length,
             antialias,
             metric: [1., 0., 0., 1.],
+            spacing_scale: 1.,
         }
     }
 }
@@ -71,10 +78,11 @@ impl Kernel {
 pub(super) struct Segment<'a> {
     kernel: &'a Kernel,
     start: Point,
-    direction: Point,
-    length: f64,
-    antialias: f64,
+    pub(super) direction: Point,
+    pub(super) length: f64,
+    pub(super) antialias: f64,
     metric: [f64; 4],
+    spacing_scale: f64,
 }
 
 impl Segment<'_> {
@@ -84,7 +92,13 @@ impl Segment<'_> {
         }
         self.metric = metric;
         let delta = self.map(self.direction.map(|v| v * self.length));
-        self.length = delta[0].hypot(delta[1]);
+        let length = delta[0].hypot(delta[1]);
+        self.spacing_scale = if self.length > 0. {
+            length / self.length
+        } else {
+            1.
+        };
+        self.length = length;
         self.direction = if self.length > 0. {
             delta.map(|v| v / self.length)
         } else {
@@ -103,6 +117,21 @@ impl Segment<'_> {
         let offset = self.map([point[0] - self.start[0], point[1] - self.start[1]]);
         let projection = offset[0] * self.direction[0] + offset[1] * self.direction[1];
         let (radius, hardness, softness, spacing, table) = match self.kernel {
+            Kernel::Sampled {
+                tip,
+                diameter,
+                first,
+                spacing,
+            } => {
+                return super::sampled::segment::deposit(
+                    tip,
+                    *diameter,
+                    first * self.spacing_scale,
+                    spacing * self.spacing_scale,
+                    self,
+                    offset,
+                );
+            }
             Kernel::Hard { radius } => {
                 let t = projection.clamp(0., self.length);
                 let distance =

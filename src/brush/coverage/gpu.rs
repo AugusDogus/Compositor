@@ -113,6 +113,8 @@ struct Engine {
     output: wgpu::Buffer,
     original: wgpu::Buffer,
     readback: wgpu::Buffer,
+    sampled_tip: wgpu::Buffer,
+    sampled_source: Option<std::sync::Arc<crate::brush::sampled::Tip>>,
     name: String,
 }
 
@@ -181,6 +183,7 @@ impl Engine {
                 "Could not initialize the GPU brush pipeline: {error}"
             )));
         }
+        let sampled_tip = buffer("Empty sampled tip", 4, wgpu::BufferUsages::STORAGE);
         Ok(Self {
             device,
             queue,
@@ -189,12 +192,14 @@ impl Engine {
             output,
             original,
             readback,
+            sampled_tip,
+            sampled_source: None,
             name: adapter.get_info().name,
         })
     }
 
     fn rasterize(
-        &self,
+        &mut self,
         region: &Region,
         plane: &mut Plane,
         segment: &Segment<'_>,
@@ -204,13 +209,48 @@ impl Engine {
     }
 
     fn process(
-        &self,
+        &mut self,
         region: &Region,
         plane: &mut Plane,
         segment: &Segment<'_>,
         brush: Brush,
         target: &mut Target<'_>,
     ) -> Result<image::GrayImage> {
+        let (tip_size, tip_spacing) = if let super::Kernel::Sampled {
+            tip,
+            first,
+            spacing,
+            ..
+        } = segment.kernel
+        {
+            if self
+                .sampled_source
+                .as_ref()
+                .is_none_or(|cached| !std::sync::Arc::ptr_eq(cached, tip))
+            {
+                let mut bytes = tip.pixels().as_raw().clone();
+                bytes.resize(bytes.len().div_ceil(4) * 4, 0);
+                self.sampled_tip =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Sampled brush tip"),
+                            contents: &bytes,
+                            usage: wgpu::BufferUsages::STORAGE,
+                        });
+                self.sampled_source = Some(tip.clone());
+            }
+            (
+                [tip.pixels().width(), tip.pixels().height(), 0, 0],
+                [
+                    (first * segment.spacing_scale) as f32,
+                    (spacing * segment.spacing_scale) as f32,
+                    0.,
+                    0.,
+                ],
+            )
+        } else {
+            ([0u32; 4], [0f32; 4])
+        };
         let [left, top, right, bottom] = region.bounds;
         let width = right.saturating_sub(left);
         let height = bottom.saturating_sub(top);
@@ -276,6 +316,8 @@ impl Engine {
             parameters
                 .extend_from_slice(bytemuck::cast_slice(&brush.color.map(|v| v as f32 / 255.)));
             parameters.extend_from_slice(bytemuck::cast_slice(&segment.metric.map(|v| v as f32)));
+            parameters.extend_from_slice(bytemuck::cast_slice(&tip_size));
+            parameters.extend_from_slice(bytemuck::cast_slice(&tip_spacing));
             let original = match target {
                 Target::Coverage => None,
                 Target::Image { original, .. } => {
@@ -375,6 +417,10 @@ impl Engine {
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: self.original.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: self.sampled_tip.as_entire_binding(),
                 },
             ],
         });

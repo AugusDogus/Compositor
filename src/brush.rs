@@ -1,6 +1,7 @@
 mod blur;
 mod coverage;
 mod path;
+pub mod sampled;
 mod source;
 mod tablet;
 pub mod tonal;
@@ -69,6 +70,7 @@ pub struct Stroke {
     mode: PaintMode,
     mask: bool,
     source: Option<Source>,
+    sampled: Option<sampled::State>,
 }
 
 /// Warm the shared Vulkan compute pipeline before the first large brush stroke.
@@ -102,6 +104,26 @@ impl Stroke {
         mode: PaintMode,
         mask: bool,
         sample_all: bool,
+    ) -> Result<Self> {
+        Self::start_shaped_input(
+            doc,
+            input,
+            brush,
+            mode,
+            mask,
+            sample_all,
+            sampled::Shape::Round,
+        )
+    }
+
+    pub fn start_shaped_input(
+        doc: &mut Document,
+        input: Input,
+        mut brush: Brush,
+        mode: PaintMode,
+        mask: bool,
+        sample_all: bool,
+        shape: sampled::Shape,
     ) -> Result<Self> {
         let point = input.point;
         validate_point(point)?;
@@ -199,6 +221,15 @@ impl Stroke {
                 .ok_or_else(|| invalid("Layer pixels could not be allocated."))?;
             (image.width(), image.height())
         };
+        let sampled = match shape {
+            sampled::Shape::Round => None,
+            sampled::Shape::Sampled(brush) => Some(sampled::State { brush, next: 0. }),
+        };
+        // Sampled alpha always uses strongest-dab coverage, independent of the
+        // round tip's hardness. Keep the caller's numerical brush settings intact.
+        if sampled.is_some() {
+            brush.hardness = 1.;
+        }
         let base_brush = brush;
         let brush = input.tip.map_or(brush, |tip| tip.brush(brush));
         let mut stroke = Self {
@@ -214,6 +245,7 @@ impl Stroke {
             mode,
             mask,
             source,
+            sampled,
         };
         if !input.tip.is_some_and(|tip| tip.pressure == Some(0.)) {
             stroke.deposit(doc, point, point)?;
@@ -322,7 +354,19 @@ impl Stroke {
     fn deposit(&mut self, doc: &mut Document, start: Point, end: Point) -> Result<()> {
         let selection = doc.selection.clone();
         let canvas = [doc.width as f64, doc.height as f64];
-        let radius = self.brush.diameter / 2.;
+        let radius = self.brush.diameter
+            * if self.sampled.is_some() {
+                std::f64::consts::FRAC_1_SQRT_2
+            } else {
+                0.5
+            };
+        if let Some(sampled) = &mut self.sampled {
+            self.kernel = sampled.kernel(self.brush.diameter);
+            sampled.advance(
+                (end[0] - start[0]).hypot(end[1] - start[1]),
+                self.brush.diameter,
+            );
+        }
         self.grow_bounds(
             doc,
             [

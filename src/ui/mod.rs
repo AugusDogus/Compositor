@@ -16,6 +16,7 @@ mod background_controls;
 mod brightness_contrast;
 mod brush_controls;
 mod brush_cursor;
+mod brush_presets;
 mod brush_smoothing;
 mod brush_tip;
 mod byte_count;
@@ -350,6 +351,7 @@ pub enum Action {
 }
 
 pub struct Editor {
+    brush_presets: brush_presets::Library,
     wayland_clipboard: Option<compositor::native_clipboard::wayland::WaylandClipboard>,
     tabs: Vec<ProjectTab>,
     current: usize,
@@ -551,6 +553,7 @@ impl Editor {
             text_renderer: None,
             text_preview: None,
             pending: false,
+            brush_presets: brush_presets::Library::default(),
             updates: updates::Updates::default(),
             job: None,
             file_job: None,
