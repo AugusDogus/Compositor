@@ -225,7 +225,7 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
                 transform.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
             );
             let before = source[(x, y)];
-            if amount == 0. {
+            if amount == 0. || *p == before {
                 *p = before;
                 continue;
             }
