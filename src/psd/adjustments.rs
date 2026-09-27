@@ -311,6 +311,14 @@ pub(super) fn export(source: &Adjustment) -> Option<ps::AdjustmentLayer> {
 // mode. Validate supported records explicitly before editable data can be lost.
 pub(super) fn validate_record(key: &[u8], payload: &[u8]) -> Result<()> {
     let key = match key {
+        b"selc" => {
+            if payload.len() < 84 || !matches!(payload.get(2..4), Some([0, 0] | [0, 1])) {
+                return Err(invalid(
+                    "PSD selc adjustment data is truncated or has an invalid mode. The current document is unchanged.",
+                ));
+            }
+            "selc"
+        }
         b"mixr" => {
             if payload.len() < 44 || !matches!(payload.get(2..4), Some([0, 0] | [0, 1])) {
                 return Err(invalid(
