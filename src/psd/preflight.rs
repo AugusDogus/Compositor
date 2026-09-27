@@ -8,6 +8,7 @@ pub(super) struct Prepared<'a> {
     pub metadata: Vec<super::vector_metadata::Metadata>,
     pub bytes: Cow<'a, [u8]>,
     pub crop_to_canvas: bool,
+    pub color_profile: Option<&'a [u8]>,
 }
 
 struct Cursor<'a> {
@@ -115,6 +116,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
     let mut resources = c.section()?;
     let mut retained_resources = Vec::new();
     let mut report = ConversionReport::default();
+    let mut color_profile = None;
     if channels > if color_mode == 1 { 2 } else { 4 } {
         report.note("Extra Photoshop alpha or spot channels are omitted.");
     }
@@ -136,7 +138,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             resources.take(1)?;
         }
         let len = resources.u32()? as usize;
-        resources.take(len)?;
+        let payload = resources.take(len)?;
         if !len.is_multiple_of(2) {
             resources.take(1)?;
         }
@@ -144,7 +146,13 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             retained_resources.push(start..resources.offset);
         }
         if id == 1039 {
-            report.note("Embedded PSD color profiles are not converted by this importer; pixels are interpreted as sRGB.");
+            if color_profile.is_some() {
+                return Err(invalid(
+                    "PSD contains multiple color profiles. Re-export with one embedded profile.",
+                ));
+            }
+            super::color_profile::validate(payload, color_mode == 1)?;
+            color_profile = Some(payload);
         }
     }
     let decoder_bytes = super::resources::decoder_bytes(
@@ -160,6 +168,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             metadata: Vec::new(),
             bytes: decoder_bytes,
             crop_to_canvas: false,
+            color_profile,
         });
     }
     let mut layers = section.sized_section(large)?;
@@ -169,6 +178,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             metadata: Vec::new(),
             bytes: decoder_bytes,
             crop_to_canvas: false,
+            color_profile,
         });
     }
     let count = (layers.u16()? as i16).unsigned_abs();
@@ -317,5 +327,6 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
         metadata,
         bytes: decoder_bytes,
         crop_to_canvas,
+        color_profile,
     })
 }

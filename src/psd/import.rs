@@ -17,6 +17,7 @@ pub fn decode(bytes: &[u8]) -> Result<Imported> {
         metadata,
         bytes,
         crop_to_canvas,
+        color_profile,
     } = preflight::validate(bytes)?;
     let mut psd = ag_psd::read_psd(
         &bytes,
@@ -55,6 +56,10 @@ pub fn decode(bytes: &[u8]) -> Result<Imported> {
         let mut layer = Layer::blank("Background", pixels.width, pixels.height);
         layer.content = LayerContent::Raster(Some(Arc::new(rgba(pixels)?)));
         document.add(layer)?;
+    }
+    if let Some(profile) = color_profile {
+        super::color_profile::convert(&mut document, profile)?;
+        report.note("Embedded Photoshop profile converted to sRGB for layer pixels and editable colors. Blending and adjustments may render differently in the sRGB working space.");
     }
     document.validate()?;
     Ok(Imported { document, report })

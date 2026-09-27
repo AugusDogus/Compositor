@@ -1,6 +1,10 @@
 # Linux features and compatibility
 
-Linux **v0.6.1** targets feature parity with **Compositor for macOS 1.3.3**. See the [feature comparison](../README.md#features-and-parity) for supported editing tools, or [release notes](https://github.com/AugusDogus/Compositor/releases) for a specific download.
+The Linux development version targets feature parity with **Compositor for macOS 1.3.3**. See the [feature comparison](../README.md#features-and-parity) for supported editing tools, or [release notes](https://github.com/AugusDogus/Compositor/releases) for a specific download.
+
+## Unreleased
+
+- PSD/PSB imports convert embedded ICC profiles to sRGB for pixels and editable text/shape colors. v0.6.1 ignores these profiles.
 
 ## New in v0.6.1
 
@@ -28,7 +32,7 @@ Recovery preserves committed document contents, not undo history or unfinished d
 - **PSD/PSB import:** accepts 8-bit RGB and grayscale files. Supported primitives and simple point/paragraph text remain editable. Unsupported text, smart objects and some vector content use cached pixels. Missing fonts and unsupported styles or transforms are reported. CMYK and non-8-bit files are unsupported.
 - **PSD export:** rasterizes text and shapes, preserves supported adjustment layers, masks and clipping, and reports conversions. Imports have been tested with Photoshop-created files; reopening exports in Photoshop remains unverified.
 - **PSD adjustments:** import and export preserve Levels, Curves, Hue/Saturation, Black & White, Color Balance and Invert as editable adjustment layers.
-- **Color and precision:** ordinary image imports convert embedded ICC profiles to sRGB. PSD/PSB imports do not convert embedded profiles and interpret pixels as sRGB, which can change their appearance. The compositor and ordinary exports use 8-bit color. RAW Develop can export the developed image directly as 16-bit sRGB TIFF.
+- **Color and precision:** image imports, including supported PSD/PSB files, convert embedded ICC profiles to sRGB. PSD layer pixels and editable text/shape colors are converted; blending and adjustments may render differently in the sRGB working space. The compositor and ordinary exports use 8-bit color. RAW Develop can export the developed image directly as 16-bit sRGB TIFF.
 
 ## Editing and platform limits
 

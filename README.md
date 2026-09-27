@@ -29,11 +29,11 @@ chmod +x Compositor-0.6.1-x86_64.AppImage
 
 ## Features and parity
 
-Compositor for Linux **v0.6.1** targets feature parity with **Compositor for macOS 1.3.3**. The table compares it with Xuan 0.2.2. [What's new](docs/releases/v0.6.1.md).
+The development version targets feature parity with **Compositor for macOS 1.3.3**. The table compares it with Xuan 0.2.2. [Latest release: v0.6.1](docs/releases/v0.6.1.md) · [Unreleased changes](docs/linux-features.md#unreleased).
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
-| Feature | [Compositor<br>(macOS&nbsp;1.3.3)](https://github.com/robbietilton/Compositor) | This fork (v0.6.1) | [Xuan](https://github.com/silverling/xuan) |
+| Feature | [Compositor<br>(macOS&nbsp;1.3.3)](https://github.com/robbietilton/Compositor) | This fork (development) | [Xuan](https://github.com/silverling/xuan) |
 | --- | :---: | :---: | :---: |
 | Layers, groups and masks | ✅ | ✅ | ✅ |
 | Blend modes and adjustment layers | ✅ 24 modes | ✅ 24 modes | ✅ 13 modes |
@@ -54,7 +54,7 @@ Compositor for Linux **v0.6.1** targets feature parity with **Compositor for mac
 | Vignette, Bloom and Tonal Contrast | ✅ | ✅ | ⚠️ Vignette[^filters] |
 | Background removal | ✅ Apple Vision[^background] | ✅ BiRefNet[^background] | ⚠️ Border-color matte[^background] |
 | Original `.comp` projects | ✅ Read/write | ⚠️ Read/write[^projects] | ⚠️ Import only[^projects] |
-| ICC color conversion | ✅ | ⚠️ Except PSD profiles[^psd] | ❌ |
+| ICC color conversion | ✅ | ✅ | ❌ |
 | HEIC import | ✅ | ✅ Bundled | ✅ Bundled |
 | SVG import | ✅ Rasterized | ✅ Rasterized | ❌ |
 | PNG/JPEG export | ✅ | ✅ | ✅ |
@@ -83,7 +83,7 @@ Compositor for Linux **v0.6.1** targets feature parity with **Compositor for mac
 [^background]: The AppImage includes offline models; no Python setup. NVIDIA and CPU inference are tested; AMD hardware is not. BiRefNet results differ from Apple Vision. Xuan's matte is intended for simple backgrounds.
 [^projects]: Reads v1–10; writes v10. [Mac file-format tests passed](docs/macos-compatibility.md); full-app compatibility is unverified. Mac saves discard embedded RAW sources and settings. Xuan imports `.comp` but saves `.xuan`.
 [^upstream-psd]: 8-bit RGB only. Unsupported text and smart objects become pixels; Photoshop effects are discarded. Conversions are reported.
-[^psd]: 8-bit RGB or grayscale only; embedded profiles are not converted. Unsupported text and smart objects use saved pixels; text and shapes become pixels on export. Photoshop export round trips are unverified. [Format support](docs/linux-features.md#file-compatibility).
+[^psd]: 8-bit RGB or grayscale only. Unsupported text and smart objects use saved pixels; text and shapes become pixels on export. Photoshop export round trips are unverified. [Format support](docs/linux-features.md#file-compatibility).
 [^objects]: SAM 3.1 selects objects; BiRefNet selects subjects. Boundaries may need manual correction. [Model details](docs/object-selection-models.md).
 [^raw]: RAW Develop exports 16-bit TIFF; ordinary editing and export use 8-bit color. Foveon X3F is unsupported. [Camera support and limits](docs/linux-raw.md).
 [^filters]: Xuan uses attached filter stacks and offers vignette through Lens Correction.

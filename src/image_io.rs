@@ -117,7 +117,7 @@ fn tiff_metadata(reader: impl Read + Seek) -> Result<(Option<Vec<u8>>, u16)> {
     Ok((profile, photometric))
 }
 
-fn convert_to_srgb(pixels: &mut RgbaImage, icc: &[u8]) -> Result<()> {
+pub(crate) fn convert_to_srgb(pixels: &mut RgbaImage, icc: &[u8]) -> Result<()> {
     let source = lcms2::Profile::new_icc(icc).map_err(|e| {
         invalid(format!(
             "Image color profile is damaged: {e}. Convert the image to sRGB before importing it."
