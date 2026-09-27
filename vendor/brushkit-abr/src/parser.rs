@@ -445,6 +445,14 @@ fn pair_brushes(valid_bitmaps: Vec<SampEntry>, desc_infos: &[BrushDescInfo]) -> 
             }
         }
 
+        // Duplicate unused sample UUIDs share one diagnostic list. Cloning
+        // all owner strings per bitmap would multiply descriptor memory by
+        // the number of samples, even when every bitmap remains deferred.
+        let owners: std::collections::HashMap<&str, std::sync::Arc<[String]>> = owners
+            .into_iter()
+            .map(|(uuid, names)| (uuid, names.into()))
+            .collect();
+
         let dropped_tips: Vec<Option<DeferredTip>> = valid_bitmaps
             .iter()
             .enumerate()
@@ -1449,6 +1457,22 @@ fn entry_err(offset: u64, reason: &str) -> AbrError {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn repeated_dropped_uuids_share_owner_diagnostics() {
+        let name = "N".repeat(256 * 1024);
+        let mut samples = vec![samp(Some("main"))];
+        samples.extend((0..127).map(|_| samp(Some("dual"))));
+        let infos = [info_dual(&name, Some("main"), "dual")];
+        let paired = pair_brushes(samples, &infos);
+        assert_eq!(paired.brushes[0].name, name);
+        assert_eq!(paired.dropped_tip_details.len(), 127);
+        let shared = &paired.dropped_tip_details[0].owner_preset_names;
+        assert_eq!(shared[0], name);
+        for tip in &paired.dropped_tip_details[1..] {
+            assert_eq!(tip.owner_preset_names.as_ptr(), shared.as_ptr());
+        }
+    }
+
+    #[test]
     fn record_limits_fail_before_collecting_or_reading_record_payloads() {
         let mut framed = Vec::new();
         for _ in 0..=MAX_RECORDS {
@@ -1763,7 +1787,7 @@ mod tests {
         assert_eq!(skipped_preset_count, 0);
         assert_eq!(dropped_tip_details.len(), 1);
         assert_eq!(dropped_tip_details[0].uuid.as_deref(), Some("uuid-b"));
-        assert_eq!(dropped_tip_details[0].owner_preset_names, vec!["P1"]);
+        assert_eq!(dropped_tip_details[0].owner_preset_names.as_ref(), ["P1"]);
     }
 
     #[test]

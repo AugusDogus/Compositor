@@ -238,3 +238,68 @@ fn descriptor_presets_are_bounded_before_collecting_and_across_blocks() {
         );
     }
 }
+
+#[test]
+fn duplicate_auxiliary_samples_share_long_owner_names_without_changing_imported_tips() {
+    fn key(bytes: &mut Vec<u8>, value: &[u8]) {
+        bytes.extend((value.len() as u32).to_be_bytes());
+        bytes.extend(value);
+    }
+    fn text_value(bytes: &mut Vec<u8>, name: &[u8], value: &str) {
+        key(bytes, name);
+        bytes.extend(b"TEXT");
+        bytes.extend((value.encode_utf16().count() as u32).to_be_bytes());
+        for value in value.encode_utf16() {
+            bytes.extend(value.to_be_bytes());
+        }
+    }
+    fn object(bytes: &mut Vec<u8>, name: &[u8], class: &[u8], count: u32) {
+        key(bytes, name);
+        bytes.extend(b"Objc");
+        bytes.extend(0_u32.to_be_bytes());
+        key(bytes, class);
+        bytes.extend(count.to_be_bytes());
+    }
+    let main_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    let dual_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567891";
+    let mut cell = include_bytes!("../../../../tests/fixtures/abr/sampled-v6.abr")[20..].to_vec();
+    cell[1..37].copy_from_slice(main_id.as_bytes());
+    let mut samples = framed_tip(&cell);
+    cell[1..37].copy_from_slice(dual_id.as_bytes());
+    for _ in 0..127 {
+        samples.extend(framed_tip(&cell));
+    }
+    let name = "N".repeat(256 * 1024);
+    let mut descriptor = descriptor_block(1);
+    let count = descriptor.len() - 4;
+    descriptor[count..].copy_from_slice(&4_u32.to_be_bytes());
+    text_value(&mut descriptor, b"Nm  ", &name);
+    text_value(&mut descriptor, b"sampledData", main_id);
+    object(&mut descriptor, b"Brsh", b"sampledBrush", 1);
+    key(&mut descriptor, b"Spcn");
+    descriptor.extend(b"UntF#Prc");
+    descriptor.extend(75_f64.to_be_bytes());
+    object(&mut descriptor, b"dualBrush", b"dualBrush", 2);
+    key(&mut descriptor, b"useDualBrush");
+    descriptor.extend(b"bool\x01");
+    object(&mut descriptor, b"Brsh", b"sampledBrush", 1);
+    text_value(&mut descriptor, b"sampledData", dual_id);
+    let bytes = modern_blocks(&[(b"samp", samples), (b"desc", descriptor)]);
+    let deferred = parse(&bytes).unwrap();
+    let details = &deferred.pack.dropped_tip_details;
+    assert_eq!(details.len(), 127);
+    assert_eq!(details[0].owner_preset_names[0], name);
+    assert!(
+        details
+            .iter()
+            .all(|tip| Arc::ptr_eq(&details[0].owner_preset_names, &tip.owner_preset_names))
+    );
+    assert_eq!(deferred.pack.brushes[0].name, name);
+    drop(deferred);
+    let pack = Pack::from_bytes(bytes).unwrap();
+    assert_eq!(pack.tips().len(), 1);
+    let tips = pack.decode(&[0]).unwrap();
+    assert_eq!(tips[0].name(), "N".repeat(256));
+    assert_eq!(tips[0].spacing(), 0.75);
+    assert_eq!(tips[0].pixels().as_raw(), &[0, 128, 255, 64, 192, 0]);
+}

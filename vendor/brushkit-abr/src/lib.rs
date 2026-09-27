@@ -134,7 +134,8 @@ pub struct DroppedTipDetail {
     pub uuid: Option<String>,
     pub width: u32,
     pub height: u32,
-    pub owner_preset_names: Vec<String>,
+    /// Shared across duplicate dropped records with the same UUID.
+    pub owner_preset_names: std::sync::Arc<[String]>,
     pub bitmap: TipBitmap,
 }
 
