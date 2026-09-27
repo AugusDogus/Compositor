@@ -49,6 +49,15 @@ impl Parameter {
     fn for_field(action: Action, kind: Option<Kind>, index: usize) -> Option<Self> {
         use Scale::{Linear, Logarithmic};
         let (label, range, unit, scale) = match (action, kind, index) {
+            (Action::Filter(Filter::UnsharpMask { .. }), _, 0) => {
+                ("Amount", (0., 500.), "%", Linear(0))
+            }
+            (Action::Filter(Filter::UnsharpMask { .. }), _, 1) => {
+                ("Radius", (0.1, 250.), "px", Logarithmic(1))
+            }
+            (Action::Filter(Filter::UnsharpMask { .. }), _, 2) => {
+                ("Threshold", (0., 255.), "", Linear(0))
+            }
             (Action::Filter(Filter::Gaussian { .. }), _, 0) => {
                 ("Radius", (0.1, 250.), "px", Logarithmic(1))
             }
@@ -147,6 +156,7 @@ impl Editor {
         let kind = self.adjustment_edit.as_ref().map(|edit| edit.settings.kind);
         let parameter = Parameter::for_field(action, kind, index)?;
         let label_width = match (action, kind, index) {
+            (Action::Filter(Filter::UnsharpMask { .. }), _, _) => 72.,
             (Action::Filter(Filter::Lens { .. }), _, _) => 116.,
             (_, Some(Kind::Grain), _) => 72.,
             (_, Some(Kind::ColorBalance), _) => 172.,

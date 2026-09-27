@@ -4,6 +4,18 @@ use compositor::{filters::Filter, invalid};
 impl Editor {
     pub(super) fn filter_fields(filter: Filter) -> (&'static str, Vec<(&'static str, String)>) {
         match filter {
+            Filter::UnsharpMask {
+                amount,
+                radius,
+                threshold,
+            } => (
+                "Unsharp Mask",
+                vec![
+                    ("Amount (%)", amount.to_string()),
+                    ("Radius", radius.to_string()),
+                    ("Threshold", threshold.to_string()),
+                ],
+            ),
             Filter::Gaussian { radius } => ("Gaussian Blur", vec![("Radius", radius.to_string())]),
             Filter::Motion { distance, angle } => (
                 "Motion Blur",
@@ -86,6 +98,11 @@ impl Editor {
             }
         };
         Ok(match filter {
+            Filter::UnsharpMask { .. } => Filter::UnsharpMask {
+                amount: n(0)?,
+                radius: n(1)?,
+                threshold: n(2)?,
+            },
             Filter::Gaussian { .. } => Filter::Gaussian { radius: n(0)? },
             Filter::Motion { .. } => Filter::Motion {
                 distance: n(0)?,

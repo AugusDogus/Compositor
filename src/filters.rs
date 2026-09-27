@@ -3,6 +3,7 @@ pub mod finishing;
 mod gaussian;
 pub use gaussian::gaussian_rgba;
 pub(crate) mod motion;
+mod sharpen;
 pub use finishing::Vignette;
 
 use crate::{
@@ -16,6 +17,11 @@ use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Filter {
+    UnsharpMask {
+        amount: f64,
+        radius: f64,
+        threshold: f64,
+    },
     Gaussian {
         radius: f64,
     },
@@ -164,6 +170,11 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
     let mut result = match operation {
         Operation::Dither(settings) => dither::apply(&source, *settings)?,
         Operation::Pixels(filter) => match filter {
+            Filter::UnsharpMask {
+                amount,
+                radius,
+                threshold,
+            } => sharpen::unsharp(&source, amount, radius, threshold)?,
             Filter::Gaussian { radius } => native_pixels::unpremultiply(image::imageops::blur(
                 &native_pixels::premultiply(&source),
                 radius as f32,

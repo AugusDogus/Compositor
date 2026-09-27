@@ -4,6 +4,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Unsharp Mask sharpens raster layers with amount, radius and threshold controls, selection-aware preview and undo.
 - PSD/PSB imports convert embedded ICC profiles to sRGB for pixels and editable text/shape colors. v0.6.1 ignores these profiles.
 - Compressed SVG (`.svgz`) import, with a 16 MiB limit on expanded SVG data.
 - Image-menu commands rotate the whole canvas 90° in either direction, retaining editable layers and rotating masks, selections and guides. Visible Grain and Add Noise adjustments must be merged with their underlying layers first to preserve their patterns.

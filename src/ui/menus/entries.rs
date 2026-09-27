@@ -98,6 +98,15 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
         ],
         5 => vec![
             command(
+                "Unsharp Mask…",
+                "",
+                Action::Filter(compositor::filters::Filter::UnsharpMask {
+                    amount: 100.,
+                    radius: 2.,
+                    threshold: 0.,
+                }),
+            ),
+            command(
                 "Gaussian Blur…",
                 "",
                 Action::Filter(compositor::filters::Filter::Gaussian { radius: 1. }),
