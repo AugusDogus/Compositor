@@ -7,7 +7,7 @@ const THUMB_HEIGHT: f32 = 16.;
 const THUMB_TOP: f32 = (24. - THUMB_HEIGHT) / 2.;
 
 pub(super) struct SliderDrag {
-    control: &'static str,
+    control: quickgui::ElementId,
     start_offset: f32,
     travel: f32,
 }
@@ -194,12 +194,13 @@ impl Editor {
     pub(super) fn scalar_slider(
         &self,
         cx: &mut ViewContext<'_, Self>,
-        id: &'static str,
+        id: impl Into<quickgui::ElementId>,
         label: &'static str,
         scalar: Scalar,
         range: (f64, f64),
         width: f32,
     ) -> Element {
+        let id = id.into();
         let step = if matches!(scalar, Scalar::Parameter(..)) {
             0.
         } else {

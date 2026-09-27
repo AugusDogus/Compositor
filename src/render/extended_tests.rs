@@ -6,6 +6,89 @@ use crate::{
 use image::{GrayImage, Luma, Rgba};
 use std::sync::Arc;
 
+#[test]
+fn selective_color_layer_preserves_mask_opacity_and_alpha() {
+    use crate::selective_color::{Mode, Range, SelectiveColor};
+    let mut doc = scene();
+    doc.layers[0].content =
+        LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(4, 2, |x, _| {
+            Rgba([128, 128, 128, if x == 3 { 0 } else { 128 }])
+        }))));
+    let mut settings = SelectiveColor {
+        mode: Mode::Absolute,
+        ..Default::default()
+    };
+    settings.adjustments[Range::Neutrals.index()] = [50., 0., 0., 0.];
+    doc.layers[1].content =
+        LayerContent::ExtendedAdjustment(Box::new(ExtendedAdjustment::SelectiveColor(settings)));
+    let image = render(&doc, 4, 2).unwrap();
+    assert_eq!(image[(0, 0)], Rgba([128, 128, 128, 128]));
+    assert_eq!(image[(1, 0)], Rgba([65, 128, 128, 128]));
+    assert_eq!(image[(3, 0)][3], 0);
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn selective_color_gpu_layers_match_modes_masks_clipping_groups_and_chains() {
+    use crate::selective_color::{Mode, SelectiveColor};
+    let mut engine = gpu::Engine::new().unwrap();
+    for mode in [Mode::Relative, Mode::Absolute] {
+        for clipping in [false, true] {
+            for grouped in [false, true] {
+                let mut doc = scene();
+                doc.layers[0].content =
+                    LayerContent::Raster(Some(Arc::new(RgbaImage::from_fn(4, 2, |x, y| {
+                        Rgba([
+                            [0, 255, 128, 200][x as usize],
+                            (y * 180) as u8,
+                            (x * 70) as u8,
+                            if x == 3 { 0 } else { 128 },
+                        ])
+                    }))));
+                let settings = SelectiveColor {
+                    mode,
+                    adjustments: std::array::from_fn(|i| {
+                        [i as f32 * 20. - 80., 32.5, -42.75, 17.25]
+                    }),
+                };
+                doc.layers[1].content = LayerContent::ExtendedAdjustment(Box::new(
+                    ExtendedAdjustment::SelectiveColor(settings),
+                ));
+                doc.layers[1].clip_source = clipping.then_some(doc.layers[0].id);
+                if grouped {
+                    let mut folder = Layer::blank("Folder", 4, 2);
+                    folder.content = LayerContent::Group;
+                    folder.opacity = 0.7;
+                    for layer in &mut doc.layers {
+                        layer.parent = Some(folder.id);
+                    }
+                    doc.layers.insert(0, folder);
+                }
+                let mut next = Layer::blank("Second adjustment", 4, 2);
+                next.content = LayerContent::ExtendedAdjustment(Box::new(
+                    ExtendedAdjustment::SelectiveColor(SelectiveColor {
+                        mode,
+                        adjustments: [[-20., 50., -30., 20.]; 9],
+                    }),
+                ));
+                doc.add(next).unwrap();
+                let scene = gpu::scene::Scene::compile(&doc, [0.; 2], [1.; 2]).unwrap();
+                let actual = engine.render(&scene, [4, 2], [0.; 2], [1.; 2]).unwrap();
+                let expected = render(&doc, 4, 2).unwrap();
+                for (a, b) in actual.pixels().zip(expected.pixels()) {
+                    assert_eq!(a[3], b[3]);
+                    for channel in 0..3 {
+                        assert!(
+                            a[channel].abs_diff(b[channel]) <= 1,
+                            "{mode:?} clipped={clipping} grouped={grouped}: GPU={actual:?} CPU={expected:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub(super) fn scene() -> Document {
     let mut doc = Document::new(4, 2).unwrap();
     doc.layers[0].content =

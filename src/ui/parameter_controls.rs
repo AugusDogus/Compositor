@@ -49,6 +49,12 @@ impl Parameter {
     fn for_field(action: Action, kind: Option<Kind>, index: usize) -> Option<Self> {
         use Scale::{Linear, Logarithmic};
         let (label, range, unit, scale) = match (action, kind, index) {
+            (Action::Filter(Filter::SelectiveColor(_)), _, i @ 0..=35) => (
+                ["Cyan", "Magenta", "Yellow", "Black"][i % 4],
+                (-100., 100.),
+                "%",
+                Linear(1),
+            ),
             (Action::Filter(Filter::ChannelMixer(_)), _, i @ 0..=11) => (
                 ["Red", "Green", "Blue", "Constant"][i % 4],
                 (-200., 200.),
@@ -196,22 +202,7 @@ impl Editor {
             _ => 60.,
         };
         let unit_width = if parameter.unit.is_empty() { 0. } else { 18. };
-        let id = [
-            "parameter-0",
-            "parameter-1",
-            "parameter-2",
-            "parameter-3",
-            "parameter-4",
-            "parameter-5",
-            "parameter-6",
-            "parameter-7",
-            "parameter-8",
-            "parameter-9",
-            "parameter-10",
-            "parameter-11",
-        ]
-        .get(index)
-        .copied()?;
+        let id = format!("parameter-{index}");
         let range = (
             parameter.scale.position(parameter.range.0),
             parameter.scale.position(parameter.range.1),

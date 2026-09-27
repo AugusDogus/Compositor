@@ -45,6 +45,7 @@ impl Editor {
         let fields = match settings {
             ExtendedAdjustment::PhotoFilter(s) => super::photo_filter_controls::fields(s),
             ExtendedAdjustment::ChannelMixer(s) => super::channel_mixer_controls::fields(s),
+            ExtendedAdjustment::SelectiveColor(s) => super::selective_color_controls::fields(s),
         };
         self.modal = Some(Form::Edit {
             title: settings.label(),
@@ -64,6 +65,9 @@ impl Editor {
             }
             Some(ExtendedAdjustment::ChannelMixer(settings)) => {
                 Action::Filter(compositor::filters::Filter::ChannelMixer(settings))
+            }
+            Some(ExtendedAdjustment::SelectiveColor(settings)) => {
+                Action::Filter(compositor::filters::Filter::SelectiveColor(settings))
             }
             None => action,
         }
@@ -85,6 +89,10 @@ impl Editor {
         };
         let values: Vec<_> = fields.iter().map(|(_, value)| value.clone()).collect();
         match draft.original {
+            ExtendedAdjustment::SelectiveColor(_) => {
+                super::selective_color_controls::parse(&values)
+                    .map(ExtendedAdjustment::SelectiveColor)
+            }
             ExtendedAdjustment::ChannelMixer(_) => {
                 super::channel_mixer_controls::parse(&values).map(ExtendedAdjustment::ChannelMixer)
             }

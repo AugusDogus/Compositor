@@ -151,6 +151,7 @@ mod selection_paths;
 mod selection_tools;
 #[cfg(test)]
 mod selection_tools_tests;
+mod selective_color_controls;
 mod shape_controls;
 mod shape_draft;
 mod shortcut_editor;

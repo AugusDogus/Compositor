@@ -22,6 +22,13 @@ const RANGES: [ColorRange; 7] = [
 pub(super) fn import(
     source: &ps::AdjustmentLayer,
 ) -> Result<Option<crate::document::LayerContent>> {
+    if let ps::AdjustmentLayer::SelectiveColor(settings) = source {
+        return super::selective_color::import(settings).map(|a| {
+            Some(crate::document::LayerContent::ExtendedAdjustment(Box::new(
+                a,
+            )))
+        });
+    }
     if let ps::AdjustmentLayer::ChannelMixer(settings) = source {
         return super::channel_mixer::import(settings).map(|a| {
             Some(crate::document::LayerContent::ExtendedAdjustment(Box::new(

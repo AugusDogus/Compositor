@@ -4,6 +4,7 @@ use crate::{
     Result,
     adjustment::{ChannelMixer, PhotoFilter},
     invalid,
+    selective_color::{Mode, SelectiveColor},
 };
 use image::RgbaImage;
 use wgpu::util::DeviceExt;
@@ -12,12 +13,14 @@ use wgpu::util::DeviceExt;
 pub(crate) enum Settings {
     PhotoFilter(PhotoFilter),
     ChannelMixer(ChannelMixer),
+    SelectiveColor(SelectiveColor),
 }
 impl Settings {
     fn operation(self) -> super::readback::Operation {
         match self {
             Self::PhotoFilter(_) => super::readback::Operation::PhotoFilter,
             Self::ChannelMixer(_) => super::readback::Operation::ChannelMixer,
+            Self::SelectiveColor(_) => super::readback::Operation::SelectiveColor,
         }
     }
     fn parameters(self, count: u32) -> Vec<u32> {
@@ -39,16 +42,24 @@ impl Settings {
                 .map(f32::to_bits)
                 .chain([count, 0, 0, 0])
                 .collect(),
+            Self::SelectiveColor(settings) => settings
+                .coefficients()
+                .into_iter()
+                .flatten()
+                .map(f32::to_bits)
+                .chain([count, u32::from(settings.mode == Mode::Relative), 0, 0])
+                .collect(),
         }
     }
 }
 pub(super) struct Pipelines {
     photo_filter: wgpu::ComputePipeline,
     channel_mixer: wgpu::ComputePipeline,
+    selective_color: wgpu::ComputePipeline,
 }
 impl Pipelines {
     pub(super) fn new(device: &wgpu::Device) -> Self {
-        let pipeline = |source: &'static str| {
+        let pipeline = |source: &str| {
             let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("Color filter"),
                 source: wgpu::ShaderSource::Wgsl(source.into()),
@@ -65,12 +76,20 @@ impl Pipelines {
         Self {
             photo_filter: pipeline(include_str!("photo_filter.wgsl")),
             channel_mixer: pipeline(include_str!("channel_mixer.wgsl")),
+            selective_color: pipeline(
+                &[
+                    include_str!("selective_color.wgsl"),
+                    include_str!("selective_color_math.wgsl"),
+                ]
+                .join("\n"),
+            ),
         }
     }
     fn get(&self, settings: Settings) -> &wgpu::ComputePipeline {
         match settings {
             Settings::PhotoFilter(_) => &self.photo_filter,
             Settings::ChannelMixer(_) => &self.channel_mixer,
+            Settings::SelectiveColor(_) => &self.selective_color,
         }
     }
 }

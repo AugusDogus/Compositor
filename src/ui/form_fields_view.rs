@@ -186,6 +186,12 @@ impl Editor {
         if matches!(action, Action::ExportSizes) {
             return self.export_sizes_fields(cx, fields);
         }
+        if matches!(
+            action,
+            Action::Filter(compositor::filters::Filter::SelectiveColor(_))
+        ) {
+            return self.selective_color_fields(cx, action, fields);
+        }
         if matches!(action, Action::Dither) {
             return self.dither_fields(cx, fields);
         }

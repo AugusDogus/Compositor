@@ -78,7 +78,7 @@ impl Editor {
                 .child(
                     self.scalar_slider(
                         cx,
-                        ids.get(index)?,
+                        ids.get(index).copied()?,
                         label,
                         Scalar::Parameter(index, Scale::Linear(decimals)),
                         (min, max),

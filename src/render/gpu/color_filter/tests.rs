@@ -2,6 +2,46 @@ use super::*;
 
 #[test]
 #[ignore = "Requires a hardware Vulkan adapter"]
+fn selective_color_gpu_matches_all_ranges_modes_alpha_and_extremes() {
+    let engine = Engine::new().unwrap();
+    let source = RgbaImage::from_fn(257, 129, |x, y| {
+        image::Rgba([
+            (x % 256) as u8,
+            (y * 2) as u8,
+            ((x * y) % 256) as u8,
+            (y % 4 * 85) as u8,
+        ])
+    });
+    for mode in [Mode::Relative, Mode::Absolute] {
+        for adjustments in [
+            [[0.; 4]; 9],
+            [[100.; 4]; 9],
+            [[-100.; 4]; 9],
+            std::array::from_fn(|i| [i as f32 * 20. - 80., 32.5, -42.75, 17.25]),
+        ] {
+            let settings = SelectiveColor { mode, adjustments };
+            let gpu = engine
+                .color_filter(&source, Settings::SelectiveColor(settings))
+                .unwrap();
+            let cpu = crate::selective_color::reference(&source, settings);
+            for (a, b) in cpu.pixels().zip(gpu.pixels()) {
+                assert_eq!(a[3], b[3]);
+                if a[3] == 0 {
+                    assert_eq!(a, b);
+                }
+                for channel in 0..3 {
+                    assert!(
+                        a[channel].abs_diff(b[channel]) <= 1,
+                        "{settings:?}: {a:?}/{b:?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
 fn photo_filter_gpu_matches_cpu_for_colors_density_luminosity_and_alpha() {
     let engine = Engine::new().unwrap();
     let source = RgbaImage::from_fn(257, 129, |x, y| {

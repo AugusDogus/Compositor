@@ -15,7 +15,7 @@ pub fn export_report(doc: &Document) -> ConversionReport {
         report.note("Saved working paths are omitted from PSD output. Save a .comp project to retain editable paths.");
     }
     if requires_rendered_copy(doc) {
-        report.note("Artboards, Photo Filter or fractional Channel Mixer adjustment layers require a rendered PSD copy. All layers are flattened in this export; save a .comp project to retain editable layers and filter settings.");
+        report.note("Artboards, Photo Filter or fractional Channel Mixer/Selective Color adjustment layers require a rendered PSD copy. All layers are flattened in this export; save a .comp project to retain editable layers and filter settings.");
         return report;
     }
     if doc.selection.is_some() {
@@ -144,7 +144,7 @@ fn export_layers(
             Some(adjustment)
         } else if let LayerContent::ExtendedAdjustment(adjustment) = &layer.content {
             Some(
-                super::channel_mixer::export(adjustment)
+                super::extended::export(adjustment)
                     .ok_or_else(|| invalid("This Linux adjustment needs a rendered PSD copy."))?,
             )
         } else {
@@ -292,7 +292,7 @@ fn to_blend(mode: Blend) -> BlendMode {
 fn requires_rendered_copy(doc: &Document) -> bool {
     doc.layers.iter().any(|layer| {
         matches!(layer.content, LayerContent::Artboard(_))
-            || matches!(&layer.content, LayerContent::ExtendedAdjustment(adjustment) if super::channel_mixer::export(adjustment).is_none())
+            || matches!(&layer.content, LayerContent::ExtendedAdjustment(adjustment) if super::extended::export(adjustment).is_none())
     })
 }
 

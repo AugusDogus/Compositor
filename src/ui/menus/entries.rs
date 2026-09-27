@@ -95,6 +95,13 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 "",
                 Action::Filter(compositor::filters::Filter::ChannelMixer(Default::default())),
             ),
+            command(
+                "Selective Color…",
+                "",
+                Action::Filter(compositor::filters::Filter::SelectiveColor(
+                    Default::default(),
+                )),
+            ),
             command("Invert", "Ctrl+I", Action::InvertPixels),
             Sep,
             command("Canvas Size…", "Ctrl+Alt+C", Action::CanvasSize),
@@ -297,6 +304,13 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 "",
                 Action::ExtendedAdjustment(
                     compositor::adjustment::ExtendedAdjustment::ChannelMixer(Default::default()),
+                ),
+            ),
+            command(
+                "Selective Color…",
+                "",
+                Action::ExtendedAdjustment(
+                    compositor::adjustment::ExtendedAdjustment::SelectiveColor(Default::default()),
                 ),
             ),
             command("Invert", "", Action::Adjustment(Kind::Invert)),

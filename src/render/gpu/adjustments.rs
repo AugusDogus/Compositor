@@ -129,6 +129,13 @@ pub(super) fn encode_extended(
     values: &mut Vec<f32>,
 ) -> u32 {
     match a {
+        crate::adjustment::ExtendedAdjustment::SelectiveColor(settings) => {
+            values.extend(settings.coefficients().into_iter().flatten());
+            values.push(f32::from(
+                settings.mode == crate::selective_color::Mode::Relative,
+            ));
+            15
+        }
         crate::adjustment::ExtendedAdjustment::ChannelMixer(settings) => {
             values.extend(settings.coefficients().into_iter().flatten());
             14

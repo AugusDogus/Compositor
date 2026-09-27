@@ -47,6 +47,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Layer transforms, perspective and snapping | ✅ | ✅ | ✅ |
 | Marquee, lasso and magic-wand selections | ✅ | ✅ | ✅ |
 | Color adjustments and filters | ✅ | ✅ | ✅ |
+| Photo Filter, Channel Mixer and Selective Color | ❌ | ✅ | ❌ |
 | Dither, halftone and ASCII filters | ✅ | ✅ | ❌ |
 | Numeric label dragging and colored adjustment tracks | ✅ | ✅ | ❌ |
 | Crop, canvas and image resizing | ✅ | ✅ | ✅ |

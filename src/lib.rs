@@ -45,6 +45,7 @@ mod resample;
 pub mod selection;
 pub mod selection_coverage;
 mod selection_geometry;
+pub mod selective_color;
 pub mod session;
 pub mod text;
 pub mod thumbnail;

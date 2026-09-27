@@ -1,6 +1,7 @@
 //! Linux authoring adjustments, persisted separately from the native v10 manifest.
 use super::{ChannelMixer, PhotoFilter};
 use crate::Result;
+use crate::selective_color::SelectiveColor;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -8,18 +9,21 @@ use serde::{Deserialize, Serialize};
 pub enum ExtendedAdjustment {
     PhotoFilter(PhotoFilter),
     ChannelMixer(ChannelMixer),
+    SelectiveColor(SelectiveColor),
 }
 impl ExtendedAdjustment {
     pub fn label(self) -> &'static str {
         match self {
             Self::PhotoFilter(_) => "Photo Filter",
             Self::ChannelMixer(_) => "Channel Mixer",
+            Self::SelectiveColor(_) => "Selective Color",
         }
     }
     pub fn validate(self) -> Result<()> {
         match self {
             Self::PhotoFilter(settings) => settings.validate(),
             Self::ChannelMixer(settings) => settings.validate(),
+            Self::SelectiveColor(settings) => settings.validate(),
         }
     }
     /// Evaluate continuous backdrop RGB. Quantization belongs to the final output.
@@ -31,6 +35,7 @@ impl ExtendedAdjustment {
         let rgb = match self {
             Self::PhotoFilter(settings) => settings.apply_rgb(input),
             Self::ChannelMixer(settings) => settings.apply_rgb(input),
+            Self::SelectiveColor(settings) => settings.apply_rgb(input),
         };
         [
             f64::from(rgb[0]),

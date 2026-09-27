@@ -2,6 +2,38 @@ use super::*;
 use crate::adjustment::PhotoFilter;
 use image::{Rgba, RgbaImage};
 
+#[test]
+fn selective_color_settings_survive_project_and_recovery_with_native_projection() {
+    use crate::selective_color::{Mode, SelectiveColor};
+    let directory = tempfile::tempdir().unwrap();
+    for mode in [Mode::Relative, Mode::Absolute] {
+        let mut doc = document();
+        let settings = SelectiveColor {
+            mode,
+            adjustments: std::array::from_fn(|i| [i as f32 * 10.25, -15.75, 80.5, -3.25]),
+        };
+        doc.layers[1].content = LayerContent::ExtendedAdjustment(Box::new(
+            ExtendedAdjustment::SelectiveColor(settings),
+        ));
+        for recovery in [false, true] {
+            let path = directory.path().join(format!("{mode:?}-{recovery}.comp"));
+            if recovery {
+                super::super::save_recovery(&doc, &path).unwrap();
+            } else {
+                super::super::save(&doc, &path).unwrap();
+            }
+            assert_eq!(super::super::load(&path).unwrap(), doc);
+            if !recovery {
+                let projection = load_native(&path).unwrap();
+                assert_eq!(
+                    crate::render::render(&projection, 3, 2).unwrap(),
+                    crate::render::render(&doc, 3, 2).unwrap()
+                );
+            }
+        }
+    }
+}
+
 fn document() -> Document {
     let mut document = Document::new(3, 2).unwrap();
     document.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(

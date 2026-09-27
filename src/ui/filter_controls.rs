@@ -4,6 +4,10 @@ use compositor::{filters::Filter, invalid};
 impl Editor {
     pub(super) fn filter_fields(filter: Filter) -> (&'static str, Vec<(&'static str, String)>) {
         match filter {
+            Filter::SelectiveColor(settings) => (
+                "Selective Color",
+                super::selective_color_controls::fields(settings),
+            ),
             Filter::ChannelMixer(settings) => (
                 "Channel Mixer",
                 super::channel_mixer_controls::fields(settings),
@@ -133,6 +137,9 @@ impl Editor {
             }
         };
         Ok(match filter {
+            Filter::SelectiveColor(_) => {
+                Filter::SelectiveColor(super::selective_color_controls::parse(values)?)
+            }
             Filter::ChannelMixer(_) => {
                 Filter::ChannelMixer(super::channel_mixer_controls::parse(values)?)
             }

@@ -130,6 +130,14 @@ fn adjust_rgb(rgb:vec3<f32>, kind:u32, offset:u32, point:vec2<f32>) -> vec3<f32>
                 result[i]=rgb.r*settings[row]+rgb.g*settings[row+1u]+rgb.b*settings[row+2u]+settings[row+3u];
             }
         }
+        case 15u: {
+            var rows: array<vec4<f32>,9>;
+            for (var i=0u; i<9u; i++) {
+                let row=offset+i*4u;
+                rows[i]=vec4(settings[row],settings[row+1u],settings[row+2u],settings[row+3u]);
+            }
+            result=selective_color_rgb(rgb,rows,settings[offset+36u]!=0.0);
+        }
         default: {}
     }
     return clamp(result,vec3(0.0),vec3(1.0));
