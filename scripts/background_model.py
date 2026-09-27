@@ -147,7 +147,9 @@ if __name__ == "__main__":
     # Fold constant shape calculations once during packaging instead of each load.
     import onnxsim
 
-    model, checked = onnxsim.simplify(model)
+    # FP16 BatchNorm fusion rounds folded weights differently on ARM64 and x86_64.
+    # Preserve those weights so both hosts generate the same checksum-pinned graph.
+    model, checked = onnxsim.simplify(model, skip_fuse_bn=True)
     if not checked:
         raise ValueError("BiRefNet graph simplification failed validation")
     onnx.checker.check_model(model)

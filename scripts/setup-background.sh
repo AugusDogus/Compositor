@@ -55,7 +55,7 @@ download https://raw.githubusercontent.com/ZhengPeng7/BiRefNet/ebcc0bc8ec7fe919c
     92a7089e0915fc32bc40067560b398f1e6a7a5958abd7d04eda393629a5acefb "$inference_dir/licenses/birefnet.txt"
 # Pin the transformed output as well as the source. Rebuild only when its checksum
 # changes, and test the lowering against native DeformConv before accepting it.
-gpu_hash=30b670d9a05f0c8da5faa689ba9ea061696883c2a30559cbc75fbba30e2ba592
+gpu_hash=bf2b9a6df601e80296e682360495dd80d3babc2ad6f496cb40ce11ce6636590c
 gpu_model="$cache_dir/birefnet-gpu-$gpu_hash.onnx"
 if ! { [[ -f "$gpu_model" ]] && printf '%s  %s\n' "$gpu_hash" "$gpu_model" | sha256sum --check --status; }; then
     build_env="$cache_dir/model-build-env-$linux_arch"
