@@ -543,6 +543,9 @@ impl Editor {
             },
         );
         let mut footer = div().flex_row().items_center().gap(8.).flex_shrink_0();
+        if matches!(action, Action::EditExtendedAdjustment) {
+            footer = footer.child(self.extended_preview_control(cx));
+        }
         if jpeg_sheet {
             footer = footer.child(self.jpeg_status(error).flex_1().min_w(0.));
         }
@@ -650,6 +653,7 @@ impl Editor {
             Ok(n as u32)
         };
         match action {
+            Action::EditExtendedAdjustment => self.finish_extended_adjustment()?,
             Action::FeatherSelection => {
                 let amount = number(0)?;
                 if amount.fract() != 0. || !(1. ..=250.).contains(&amount) {

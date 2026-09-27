@@ -75,7 +75,75 @@ pub fn fingerprint(path: &Path) -> Result<Option<Fingerprint>> {
             metadata.ino().hash(&mut hash);
         }
     }
+    hash_authoring(path, &mut hash)?;
     Ok(Some(Fingerprint(hash.finish())))
+}
+
+// Malformed optional editing sources still get a stable fingerprint, allowing
+// an explicit rendered copy without following symlinks or reading huge files.
+fn hash_authoring(path: &Path, hash: &mut impl Hasher) -> Result<()> {
+    hash_optional_entry(&path.join(super::authoring::NAME), hash, true)?;
+    let source = path.join("authoring");
+    if !hash_optional_entry(&source, hash, false)?.is_some_and(|m| m.is_dir()) {
+        return Ok(());
+    }
+    for name in [
+        "manifest.json",
+        "adjustments.json",
+        "linux-raw.json",
+        "linux-editors.json",
+    ] {
+        name.hash(hash);
+        hash_optional_entry(&source.join(name), hash, true)?;
+    }
+    for name in ["images", "raw"] {
+        name.hash(hash);
+        let directory = source.join(name);
+        if !hash_optional_entry(&directory, hash, false)?.is_some_and(|m| m.is_dir()) {
+            continue;
+        }
+        let mut entries = fs::read_dir(directory)?
+            .take(32769)
+            .collect::<std::io::Result<Vec<_>>>()?;
+        entries.sort_by_key(|entry| entry.file_name());
+        entries.len().hash(hash);
+        for entry in entries {
+            entry.file_name().hash(hash);
+            hash_optional_entry(&entry.path(), hash, false)?;
+        }
+    }
+    Ok(())
+}
+fn hash_optional_entry(
+    path: &Path,
+    hash: &mut impl Hasher,
+    content: bool,
+) -> Result<Option<fs::Metadata>> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            false.hash(hash);
+            return Ok(None);
+        }
+        Err(error) => return Err(error.into()),
+    };
+    true.hash(hash);
+    metadata.is_file().hash(hash);
+    metadata.is_dir().hash(hash);
+    metadata.len().hash(hash);
+    metadata.mtime().hash(hash);
+    metadata.mtime_nsec().hash(hash);
+    metadata.ctime().hash(hash);
+    metadata.ctime_nsec().hash(hash);
+    metadata.ino().hash(hash);
+    if content && metadata.is_file() && metadata.len() <= MANIFEST_LIMIT {
+        let mut bytes = Vec::new();
+        File::open(path)?
+            .take(MANIFEST_LIMIT + 1)
+            .read_to_end(&mut bytes)?;
+        bytes.hash(hash);
+    }
+    Ok(Some(metadata))
 }
 
 pub fn load_verified(path: &Path) -> Result<(Document, Fingerprint)> {

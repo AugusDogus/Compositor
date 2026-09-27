@@ -69,3 +69,46 @@ impl Editor {
 
 #[cfg(test)]
 mod tests;
+
+pub(super) fn fields(settings: compositor::adjustment::PhotoFilter) -> Vec<(&'static str, String)> {
+    let [r, g, b] = settings.color.map(|v| (v * 255.).round() as u8);
+    vec![
+        ("Density", settings.density.to_string()),
+        (
+            "Preserve luminosity (0 or 1)",
+            u8::from(settings.preserve_luminosity).to_string(),
+        ),
+        ("Color", format!("#{r:02X}{g:02X}{b:02X}")),
+    ]
+}
+pub(super) fn parse(
+    values: &[String],
+    original: compositor::adjustment::PhotoFilter,
+) -> Result<compositor::adjustment::PhotoFilter> {
+    use compositor::invalid;
+    let density = values
+        .first()
+        .and_then(|s| s.trim().parse::<f64>().ok())
+        .ok_or_else(|| invalid("Enter a Photo Filter density from 0 to 100."))?;
+    let preserve_luminosity = match values.get(1).map(|s| s.trim()) {
+        Some("0") => false,
+        Some("1") => true,
+        _ => return Err(invalid("Preserve Luminosity must be 0 or 1.")),
+    };
+    let color = values
+        .get(2)
+        .ok_or_else(|| invalid("Choose a Photo Filter color."))?;
+    let [r, g, b, _] = compositor::palette::parse_hex(color)?;
+    let color = if color.trim().eq_ignore_ascii_case(&fields(original)[2].1) {
+        original.color
+    } else {
+        [r, g, b].map(|v| f64::from(v) / 255.)
+    };
+    let settings = compositor::adjustment::PhotoFilter {
+        color,
+        density,
+        preserve_luminosity,
+    };
+    settings.validate()?;
+    Ok(settings)
+}

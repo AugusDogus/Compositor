@@ -11,6 +11,10 @@ use uuid::Uuid;
 
 pub fn export_report(doc: &Document) -> ConversionReport {
     let mut report = ConversionReport::default();
+    if requires_rendered_copy(doc) {
+        report.note("Photo Filter adjustment layers require a rendered PSD copy. All layers are flattened in this export; save a .comp project to retain editable layers and filter settings.");
+        return report;
+    }
     if doc.selection.is_some() {
         report.note("The active selection is not stored in PSD output.");
     }
@@ -62,6 +66,16 @@ pub fn encode(doc: &Document) -> Result<Vec<u8>> {
     crate::document::validate_size(doc.width, doc.height)?;
     if doc.layers.len() > 10_000 {
         return Err(invalid("PSD export supports at most 10,000 layers."));
+    }
+    if requires_rendered_copy(doc) {
+        let mut flattened = Document::new(doc.width, doc.height)?;
+        flattened.guides = doc.guides.clone();
+        flattened.resolution = doc.resolution;
+        flattened.layers[0].name = "Rendered composite".into();
+        flattened.layers[0].content = LayerContent::Raster(Some(std::sync::Arc::new(
+            render::render(doc, doc.width, doc.height)?,
+        )));
+        return encode(&flattened);
     }
     let mut budget = u64::from(doc.width) * u64::from(doc.height);
     let mut source = doc.clone();
@@ -260,5 +274,64 @@ fn to_blend(mode: Blend) -> BlendMode {
         Blend::Saturation => BlendMode::Saturation,
         Blend::Color => BlendMode::Color,
         Blend::Luminosity => BlendMode::Luminosity,
+    }
+}
+
+fn requires_rendered_copy(doc: &Document) -> bool {
+    doc.layers
+        .iter()
+        .any(|layer| matches!(layer.content, LayerContent::ExtendedAdjustment(_)))
+}
+
+#[cfg(test)]
+mod extended_tests {
+    use super::*;
+    use crate::adjustment::{ExtendedAdjustment, PhotoFilter};
+    #[test]
+    fn extended_adjustment_psd_preserves_visible_composite_with_explicit_notice() {
+        let mut doc = Document::new(2, 2).unwrap();
+        doc.layers[0].content = LayerContent::Raster(Some(std::sync::Arc::new(
+            image::RgbaImage::from_pixel(2, 2, image::Rgba([180, 120, 80, 128])),
+        )));
+        let mut layer = Layer::blank("Warm", 2, 2);
+        layer.content = LayerContent::ExtendedAdjustment(Box::new(
+            ExtendedAdjustment::PhotoFilter(PhotoFilter::default()),
+        ));
+        doc.add(layer).unwrap();
+        doc.resolution = 300.;
+        let original = doc.clone();
+        assert!(format!("{:?}", export_report(&doc)).contains("All layers are flattened"));
+        let bytes = encode(&doc).unwrap();
+        let psd = ag_psd::read_psd(
+            &bytes,
+            &photoshop::ReadOptions {
+                use_image_data: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let composite = render::render(&doc, 2, 2).unwrap();
+        assert_eq!(
+            psd.image_resources
+                .unwrap()
+                .resolution_info
+                .unwrap()
+                .horizontal_resolution,
+            300.
+        );
+        let layers = psd.children.unwrap();
+        assert_eq!(layers.len(), 1);
+        assert_eq!(
+            layers[0].image_data.as_ref().unwrap().data,
+            *composite.as_raw()
+        );
+        let reopened = super::super::decode(&bytes).unwrap().document;
+        assert_eq!(render::render(&reopened, 2, 2).unwrap(), composite);
+        // PSD's 8-bit merged preview stores white-matted RGB; alpha removal
+        // quantizes semi-transparent colors. The exported layer remains exact.
+        for (a, b) in psd.image_data.unwrap().data.iter().zip(composite.as_raw()) {
+            assert!(a.abs_diff(*b) <= 2);
+        }
+        assert_eq!(doc, original);
     }
 }

@@ -158,6 +158,7 @@ impl Editor {
             form,
             Form::Edit {
                 action: Action::EditAdjustment
+                    | Action::EditExtendedAdjustment
                     | Action::CameraRaw
                     | Action::Filter(_)
                     | Action::Fade
@@ -167,6 +168,9 @@ impl Editor {
             }
         ) {
             return None;
+        }
+        if self.extended_edit.is_some() {
+            return Some(PanelKind::Filter);
         }
         if let Some(edit) = &self.adjustment_edit {
             if edit.settings.brightness_contrast().is_some() {

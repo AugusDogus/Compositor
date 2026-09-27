@@ -1,6 +1,6 @@
 use super::canvas_content::CanvasContent;
 use super::*;
-use compositor::{document::LayerContent, geometry::Point, invalid, render};
+use compositor::{geometry::Point, invalid, render};
 use image::RgbaImage;
 use uuid::Uuid;
 
@@ -71,7 +71,7 @@ fn expensive(document: &Document, key: PreviewKey) -> bool {
                 .effects
                 .as_ref()
                 .is_some_and(|e| !e.visible().is_empty())
-                || (samples >= 65_536 && matches!(layer.content, LayerContent::Adjustment(_)))
+                || (samples >= 65_536 && layer.is_adjustment())
                 || layer
                     .raster()
                     .is_some_and(|p| u64::from(p.width()) * u64::from(p.height()) >= 4_000_000)

@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 pub(super) enum OpenedProject {
     Existing(Uuid),
+    RenderedCopy(super::project_authoring::Request),
     Raw(PathBuf),
     Psd(compositor::psd::Imported),
     Loaded {
@@ -24,11 +25,23 @@ impl OpenedProject {
             return Ok(Self::Existing(*id));
         }
         if path.is_dir() {
-            let (document, fingerprint) = project::load_verified(&path)?;
-            return Ok(Self::Loaded {
-                document: Box::new(document),
-                fingerprint: Some(fingerprint),
-                path: Some(path),
+            return Ok(match project::inspect_open(&path)? {
+                project::OpenResult::Editable {
+                    document,
+                    fingerprint,
+                } => Self::Loaded {
+                    document: Box::new(document),
+                    fingerprint: Some(fingerprint),
+                    path: Some(path),
+                },
+                project::OpenResult::RenderedCopyAvailable {
+                    reason,
+                    fingerprint,
+                } => Self::RenderedCopy(super::project_authoring::Request {
+                    path,
+                    reason,
+                    fingerprint,
+                }),
             });
         }
         if compositor::raw::is_raw(&path) {
@@ -52,6 +65,50 @@ impl OpenedProject {
     }
 }
 
+pub(super) fn initial_tabs(
+    paths: Vec<PathBuf>,
+    launch_queue: &crate::launch::LaunchQueue,
+) -> Result<Vec<ProjectTab>> {
+    let mut tabs: Vec<ProjectTab> = Vec::new();
+    for path in paths {
+        if compositor::raw::is_raw(&path) || compositor::psd::is_psd(&path)? {
+            launch_queue.push(vec![path])?;
+            continue;
+        }
+        if path.is_dir() {
+            let path = path.canonicalize()?;
+            if !tabs.iter().any(|tab: &ProjectTab| {
+                tab.session()
+                    .is_some_and(|s| s.path.as_ref() == Some(&path))
+            }) {
+                match project::inspect_open(&path)? {
+                    project::OpenResult::Editable {
+                        document,
+                        fingerprint,
+                    } => {
+                        let mut session = Session::new(document, Some(path));
+                        session.disk_fingerprint = Some(fingerprint);
+                        tabs.push(session.into());
+                    }
+                    project::OpenResult::RenderedCopyAvailable { .. } => {
+                        launch_queue.push(vec![path])?
+                    }
+                }
+            }
+        } else {
+            let layer = image_io::import(&path)?;
+            let mut doc = Document::new(
+                layer.transform.size[0] as u32,
+                layer.transform.size[1] as u32,
+            )?;
+            doc.layers.clear();
+            doc.add(layer)?;
+            tabs.push(Session::new(doc, None).into());
+        }
+    }
+    Ok(tabs)
+}
+
 impl Editor {
     pub(super) fn show_opened_projects(&mut self, projects: Vec<OpenedProject>) -> Result<()> {
         for project in projects {
@@ -64,6 +121,10 @@ impl Editor {
                 project => project,
             };
             let index = match project {
+                OpenedProject::RenderedCopy(request) => {
+                    self.authoring_copies.push_back(request);
+                    continue;
+                }
                 OpenedProject::Raw(path) => {
                     self.queue_raw(path, raw_develop::Target::New);
                     continue;

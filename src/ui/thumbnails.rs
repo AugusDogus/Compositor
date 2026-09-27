@@ -217,6 +217,9 @@ impl Editor {
             } else {
                 match &layer.content {
                     compositor::document::LayerContent::Group => Some(Icon::Folder),
+                    compositor::document::LayerContent::ExtendedAdjustment(_) => {
+                        Some(Icon::Palette)
+                    }
                     compositor::document::LayerContent::Adjustment(adjustment) => {
                         Some(match adjustment.kind {
                             Kind::HueSaturation => Icon::Adjustment,

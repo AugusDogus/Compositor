@@ -36,12 +36,10 @@ impl PhotoFilter {
         self.density == 0. || self.color == [1.; 3]
     }
 
-    /// Match the GPU's f32 arithmetic. Alpha and invisible RGB are untouched.
-    pub(crate) fn pixel(self, source: [u8; 4]) -> [u8; 4] {
-        if source[3] == 0 || self.identity() {
-            return source;
+    pub(crate) fn apply_rgb(self, input: [f32; 3]) -> [f32; 3] {
+        if self.identity() {
+            return input;
         }
-        let input = source.map(|value| f32::from(value) / 255.);
         let density = (self.density / 100.) as f32;
         let mut rgb = std::array::from_fn::<_, 3, _>(|i| {
             input[i] * (1. - density) + input[i] * self.color[i] as f32 * density
@@ -53,6 +51,16 @@ impl PhotoFilter {
                 rgb = rgb.map(|value| value * (before / after));
             }
         }
+        rgb.map(|value| value.clamp(0., 1.))
+    }
+
+    /// Match the GPU's f32 arithmetic. Alpha and invisible RGB are untouched.
+    pub(crate) fn pixel(self, source: [u8; 4]) -> [u8; 4] {
+        if source[3] == 0 || self.identity() {
+            return source;
+        }
+        let input = source.map(|value| f32::from(value) / 255.);
+        let rgb = self.apply_rgb([input[0], input[1], input[2]]);
         let mut output = source;
         for i in 0..3 {
             output[i] = (rgb[i].clamp(0., 1.) * 255.).round() as u8;

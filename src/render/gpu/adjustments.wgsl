@@ -117,6 +117,13 @@ fn adjust_rgb(rgb:vec3<f32>, kind:u32, offset:u32, point:vec2<f32>) -> vec3<f32>
                 result[c]+=n;
             }
         }
+        case 13u: {
+            let color=vec3(settings[offset],settings[offset+1u],settings[offset+2u]);
+            let density=settings[offset+3u];
+            result=rgb*(1.0-density)+rgb*color*density;
+            let after=dot(result,vec3(0.299,0.587,0.114));
+            if settings[offset+4u]!=0.0 && after>0.000001 { result*=dot(rgb,vec3(0.299,0.587,0.114))/after; }
+        }
         default: {}
     }
     return clamp(result,vec3(0.0),vec3(1.0));

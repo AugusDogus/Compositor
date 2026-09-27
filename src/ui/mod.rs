@@ -49,6 +49,7 @@ mod dropdown;
 #[cfg(test)]
 mod duplicate_tests;
 mod export_sizes;
+mod extended_adjustments;
 mod external_open;
 mod external_projects;
 mod fade;
@@ -117,6 +118,7 @@ mod pixel_editing;
 mod pixel_grid;
 #[cfg(test)]
 mod pixel_operations_tests;
+mod project_authoring;
 mod project_open;
 mod project_recovery;
 mod project_saving;
@@ -342,6 +344,8 @@ pub enum Action {
     ZoomOut,
     Blend,
     Adjustment(Kind),
+    ExtendedAdjustment(compositor::adjustment::ExtendedAdjustment),
+    EditExtendedAdjustment,
     AdjustPixels(Kind),
     BrightnessContrast,
     BrightnessContrastLayer,
@@ -418,6 +422,7 @@ pub struct Editor {
     slider_drag: Option<scalar_controls::SliderDrag>,
     numeric_scrub: Option<numeric_scrub::Drag>,
     adjustment_edit: Option<adjustments::AdjustmentEdit>,
+    extended_edit: Option<extended_adjustments::Draft>,
     filter_edit: Option<filter_preview::FilterEdit>,
     camera_raw: camera_raw::Edit,
     camera_raw_last: compositor::camera_raw::Settings,
@@ -437,6 +442,7 @@ pub struct Editor {
     recovery: project_recovery::Recovery,
     external_projects: external_projects::ExternalProjects,
     psd_conversion: Option<psd_conversion::Conversion>,
+    authoring_copies: std::collections::VecDeque<project_authoring::Request>,
     layout_drag: Option<layout_guides::Drag>,
     clipboard_job: Option<clipboard_jobs::Job>,
     close_intent: Option<CloseProgress>,
@@ -456,32 +462,8 @@ impl Editor {
     }
 
     pub fn new(paths: Vec<PathBuf>) -> Result<Self> {
-        let mut tabs: Vec<ProjectTab> = Vec::new();
         let launch_queue = crate::launch::LaunchQueue::default();
-        for path in paths {
-            if compositor::raw::is_raw(&path) || compositor::psd::is_psd(&path)? {
-                launch_queue.push(vec![path])?;
-                continue;
-            }
-            if path.is_dir() {
-                let path = path.canonicalize()?;
-                if !tabs.iter().any(|tab: &ProjectTab| {
-                    tab.session()
-                        .is_some_and(|s| s.path.as_ref() == Some(&path))
-                }) {
-                    tabs.push(Session::open(path)?.into());
-                }
-            } else {
-                let layer = image_io::import(&path)?;
-                let mut doc = Document::new(
-                    layer.transform.size[0] as u32,
-                    layer.transform.size[1] as u32,
-                )?;
-                doc.layers.clear();
-                doc.add(layer)?;
-                tabs.push(Session::new(doc, None).into());
-            }
-        }
+        let mut tabs = project_open::initial_tabs(paths, &launch_queue)?;
         let (recovery, recovery_status) = project_recovery::Recovery::initialize(&mut tabs);
         if tabs.is_empty() {
             tabs.push(ProjectTab::empty("Untitled".into()));
@@ -553,6 +535,7 @@ impl Editor {
             slider_drag: None,
             numeric_scrub: None,
             adjustment_edit: None,
+            extended_edit: None,
             filter_edit: None,
             camera_raw: Default::default(),
             camera_raw_last: Default::default(),
@@ -573,6 +556,7 @@ impl Editor {
             recovery,
             external_projects: external_projects::ExternalProjects::default(),
             psd_conversion: None,
+            authoring_copies: std::collections::VecDeque::new(),
             layout_drag: None,
             clipboard_job: None,
             close_intent: None,
@@ -800,6 +784,7 @@ impl View for Editor {
         let root = root
             .children(self.external_project_view(cx))
             .children(self.psd_conversion_view(cx))
+            .children(self.authoring_copy_view(cx))
             .children(self.error_view(cx))
             .relative()
             .children(self.window_resize_edges(cx))

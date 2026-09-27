@@ -127,7 +127,7 @@ impl Store {
     }
     pub fn write(&self, id: Uuid, name: &str, document: &Document) -> Result<()> {
         let path = self.path(id);
-        project::save(document, &path)?;
+        project::save_recovery(document, &path)?;
         let mut file = tempfile::NamedTempFile::new_in(&path)?;
         file.write_all(&serde_json::to_vec(&Label { name: name.into() })?)?;
         file.as_file().sync_all()?;

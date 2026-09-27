@@ -14,10 +14,7 @@ impl Editor {
                     .layer(source)
                     .map_or("Missing source", |l| l.name.as_str())
             )
-        } else if matches!(
-            layer.content,
-            compositor::document::LayerContent::Adjustment(_)
-        ) {
+        } else if layer.is_adjustment() {
             "Adjustment · Double-click to edit".into()
         } else if layer.raw.is_some() {
             "RAW · Double-click to develop".into()
@@ -164,9 +161,12 @@ impl Editor {
                 let result = this.edit_active_text();
                 this.result(result, cx);
             } else if event.click_count == 2 {
-                let action = if this.session().document.active_layer().is_some_and(|l| {
-                    matches!(l.content, compositor::document::LayerContent::Adjustment(_))
-                }) {
+                let action = if this
+                    .session()
+                    .document
+                    .active_layer()
+                    .is_some_and(|l| l.is_adjustment())
+                {
                     Action::EditAdjustment
                 } else {
                     Action::Rename

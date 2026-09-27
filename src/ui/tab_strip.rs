@@ -69,7 +69,7 @@ impl Editor {
     pub(super) fn project_transition_ready(&self) -> bool {
         self.develop.is_none()
             && self.layout_drag.is_none()
-            && self.psd_conversion.is_none()
+            && !self.has_conversion_prompt()
             && self.errors.is_empty()
             && !self.pending
             && self.gesture.is_none()

@@ -73,9 +73,11 @@ impl AdjustmentEdit {
 
 impl Editor {
     pub(super) fn editing_adjustment_layer(&self) -> bool {
-        self.adjustment_edit
-            .as_ref()
-            .is_some_and(|edit| !matches!(edit.target, Target::Pixels { .. }))
+        self.extended_edit.is_some()
+            || self
+                .adjustment_edit
+                .as_ref()
+                .is_some_and(|edit| !matches!(edit.target, Target::Pixels { .. }))
     }
 
     pub(super) fn open_pixel_adjustment(&mut self, kind: Kind) -> Result<()> {
@@ -133,6 +135,15 @@ impl Editor {
     }
 
     pub(super) fn open_adjustment(&mut self, kind: Option<Kind>) -> Result<()> {
+        if kind.is_none()
+            && self
+                .session()
+                .document
+                .active_layer()
+                .is_some_and(|layer| matches!(layer.content, LayerContent::ExtendedAdjustment(_)))
+        {
+            return self.open_extended_adjustment(None);
+        }
         if let Some(kind) = kind {
             self.add_adjustment_layer(kind)?;
         }
@@ -381,6 +392,7 @@ impl Editor {
     }
 
     pub(super) fn cancel_adjustment(&mut self) {
+        self.cancel_extended_adjustment();
         if self.adjustment_edit.take().is_some() {
             if let Some(session) = self.tabs[self.current].history_session_mut() {
                 session.cancel();

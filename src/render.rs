@@ -182,9 +182,13 @@ impl RenderState {
 }
 
 fn adjust(layer: &Layer, point: Point, opacity: f64, out: &mut [f64; 4], state: &RenderState) {
-    if let LayerContent::Adjustment(adjustment) = &layer.content {
+    if layer.is_adjustment() {
         let adjusted = state.surfaces.get(&layer.id).map_or_else(
-            || adjustment.apply(*out, point),
+            || match &layer.content {
+                LayerContent::Adjustment(adjustment) => adjustment.apply(*out, point),
+                LayerContent::ExtendedAdjustment(adjustment) => adjustment.apply_rgba(*out),
+                _ => *out,
+            },
             |surface| {
                 pixel(
                     &surface.image,
@@ -267,7 +271,7 @@ fn paint_children(
                     out[3] = alpha;
                     return true;
                 }
-                if matches!(child.content, LayerContent::Adjustment(_)) {
+                if child.is_adjustment() {
                     adjust(
                         child,
                         point,
@@ -287,7 +291,7 @@ fn paint_children(
             // would thicken translucent edges and let adjustments affect unrelated lower layers.
             group[3] = alpha * inherited.mask * inherited.opacity;
             *out = layer.blend.composite(*out, group);
-        } else if matches!(layer.content, LayerContent::Adjustment(_)) {
+        } else if layer.is_adjustment() {
             if layer.clip_source.is_none() {
                 adjust(
                     layer,
@@ -717,3 +721,6 @@ mod tests {
         assert_eq!(render(&doc, 1, 1).unwrap()[(0, 0)], Rgba([255, 0, 0, 128]));
     }
 }
+
+#[cfg(test)]
+mod extended_tests;

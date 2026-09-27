@@ -123,3 +123,19 @@ pub(super) fn encode(a: &Adjustment, values: &mut Vec<f32>) -> u32 {
         }
     }
 }
+
+pub(super) fn encode_extended(
+    a: &crate::adjustment::ExtendedAdjustment,
+    values: &mut Vec<f32>,
+) -> u32 {
+    match a {
+        crate::adjustment::ExtendedAdjustment::PhotoFilter(settings) => {
+            values.extend(settings.color.map(|value| value as f32));
+            values.extend([
+                (settings.density / 100.) as f32,
+                f32::from(settings.preserve_luminosity),
+            ]);
+            13
+        }
+    }
+}

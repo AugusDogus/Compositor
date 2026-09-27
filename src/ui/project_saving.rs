@@ -16,6 +16,7 @@ pub(super) struct SavedSnapshot {
     session: Uuid,
     revision: Uuid,
     fingerprint: project::Fingerprint,
+    compatibility_notice: Option<String>,
     path: PathBuf,
 }
 
@@ -27,6 +28,7 @@ impl SaveRequest {
             session: self.session,
             revision: self.revision,
             fingerprint,
+            compatibility_notice: project::compatibility_notice(&self.document),
             path: self.path.canonicalize()?,
         })
     }
@@ -101,6 +103,7 @@ impl Editor {
             session: id,
             revision,
             fingerprint,
+            compatibility_notice,
             path,
         } = saved;
         let session = self
@@ -124,6 +127,10 @@ impl Editor {
             "Project saved."
         }
         .into();
+        if let Some(notice) = compatibility_notice {
+            self.status.push(' ');
+            self.status.push_str(&notice);
+        }
         if !self.saves.busy() {
             if self.close_intent.is_some() {
                 self.saves.resume_close = Some(id);

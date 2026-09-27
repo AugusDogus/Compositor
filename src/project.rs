@@ -17,7 +17,9 @@ use std::{
 use uuid::Uuid;
 
 const MANIFEST_LIMIT: u64 = 4 * 1024 * 1024;
+mod authoring;
 mod editors;
+pub use authoring::{OpenResult, compatibility_notice, inspect_open, load_rendered_copy};
 mod raw;
 mod watch;
 pub use watch::{Fingerprint, fingerprint, load_verified, save_if_unchanged};
@@ -95,6 +97,13 @@ fn checked_file(root: &Path, path: &Path, limit: u64) -> Result<File> {
 }
 
 pub fn load(path: &Path) -> Result<Document> {
+    if authoring::present(path)? {
+        return authoring::load(path);
+    }
+    load_native(path)
+}
+
+fn load_native(path: &Path) -> Result<Document> {
     let root = path.canonicalize()?;
     let mut bytes = Vec::new();
     checked_file(&root, &path.join("manifest.json"), MANIFEST_LIMIT)?
@@ -278,6 +287,19 @@ fn save_checked(
     path: &Path,
     verify: impl Fn(&Path) -> Result<()>,
 ) -> Result<Fingerprint> {
+    save_checked_for(document, path, verify, authoring::Purpose::Project)
+}
+
+pub fn save_recovery(document: &Document, path: &Path) -> Result<()> {
+    save_checked_for(document, path, |_| Ok(()), authoring::Purpose::Recovery).map(|_| ())
+}
+
+fn save_checked_for(
+    document: &Document,
+    path: &Path,
+    verify: impl Fn(&Path) -> Result<()>,
+    purpose: authoring::Purpose,
+) -> Result<Fingerprint> {
     document.validate()?;
     if path
         .extension()
@@ -302,72 +324,11 @@ fn save_checked(
     let staged = tempfile::Builder::new()
         .prefix(".compositor-save-")
         .tempdir_in(parent)?;
-    fs::create_dir(staged.path().join("images"))?;
-    let mut records = Vec::new();
-    for layer in &document.layers {
-        let image_file = layer.raster().map(|_| asset_name(layer.id, false));
-        let mask_file = layer.mask.as_ref().map(|_| asset_name(layer.id, true));
-        if let (Some(image), Some(filename)) = (layer.raster(), &image_file) {
-            let mut file = File::create(staged.path().join("images").join(filename))?;
-            DynamicImage::ImageRgba8(image.as_ref().clone())
-                .write_to(&mut file, ImageFormat::Png)?;
-            file.sync_all()?;
-        }
-        if let (Some(mask), Some(filename)) = (&layer.mask, &mask_file) {
-            let mut file = File::create(staged.path().join("images").join(filename))?;
-            DynamicImage::ImageLuma8(mask.pixels.as_ref().clone())
-                .write_to(&mut file, ImageFormat::Png)?;
-            file.sync_all()?;
-        }
-        records.push(Record {
-            id: layer.id,
-            name: layer.name.clone(),
-            is_visible: layer.visible,
-            transform: layer.transform,
-            image_file,
-            parent_id: layer.parent,
-            is_group: Some(layer.is_group()),
-            opacity: Some(layer.opacity),
-            blend_mode: Some(layer.blend),
-            mask_file,
-            mask_enabled: layer.mask.as_ref().map(|m| m.enabled),
-            mask_source_id: layer.clip_source,
-            mask_placement: layer.mask.as_ref().and_then(|m| m.placement),
-            mask_linked: layer.mask.as_ref().map(|m| m.linked),
-            shape: layer.shape,
-            text: layer.text.clone(),
-            effects: layer.effects.clone(),
-            adjustment: match &layer.content {
-                LayerContent::Adjustment(a) => Some(a.as_ref().clone()),
-                _ => None,
-            },
-        });
+    if authoring::needed(document) {
+        authoring::write(document, staged.path(), purpose)?;
+    } else {
+        write_native(document, staged.path())?;
     }
-    raw::save(document, staged.path())?;
-    editors::save(document, staged.path())?;
-    let manifest = Manifest {
-        format: "com.compositor.project".into(),
-        version: 10,
-        color_space: "sRGB".into(),
-        document_id: document.id,
-        width: document.width,
-        height: document.height,
-        resolution: Some(document.resolution),
-        active_layer_id: document.active,
-        layers: records,
-        guides: (!document.guides.is_empty()).then(|| document.guides.clone()),
-    };
-    let data = serde_json::to_vec_pretty(&manifest)?;
-    if data.len() as u64 > MANIFEST_LIMIT {
-        return Err(invalid(
-            "Project manifest exceeds 4 MiB. The previous save is preserved.",
-        ));
-    }
-    let mut metadata = File::create(staged.path().join("manifest.json"))?;
-    metadata.write_all(&data)?;
-    metadata.sync_all()?;
-    File::open(staged.path().join("images"))?.sync_all()?;
-    File::open(staged.path())?.sync_all()?;
     let saved_fingerprint = fingerprint(staged.path())?
         .ok_or_else(|| invalid("The staged project disappeared before saving."))?;
     verify(path)?;
@@ -403,6 +364,86 @@ fn save_checked(
     }
     File::open(parent)?.sync_all()?;
     Ok(saved_fingerprint)
+}
+
+fn write_native(document: &Document, path: &Path) -> Result<()> {
+    if authoring::needed(document) {
+        return Err(invalid(
+            "Linux authoring layers cannot be written as native layers without a rendered compatibility view.",
+        ));
+    }
+    fs::create_dir(path.join("images"))?;
+    let mut records = Vec::new();
+    for layer in &document.layers {
+        let image_file = layer.raster().map(|_| asset_name(layer.id, false));
+        let mask_file = layer.mask.as_ref().map(|_| asset_name(layer.id, true));
+        if let (Some(image), Some(filename)) = (layer.raster(), &image_file) {
+            let mut file = File::create(path.join("images").join(filename))?;
+            DynamicImage::ImageRgba8(image.as_ref().clone())
+                .write_to(&mut file, ImageFormat::Png)?;
+            file.sync_all()?;
+        }
+        if let (Some(mask), Some(filename)) = (&layer.mask, &mask_file) {
+            let mut file = File::create(path.join("images").join(filename))?;
+            DynamicImage::ImageLuma8(mask.pixels.as_ref().clone())
+                .write_to(&mut file, ImageFormat::Png)?;
+            file.sync_all()?;
+        }
+        records.push(Record {
+            id: layer.id,
+            name: layer.name.clone(),
+            is_visible: layer.visible,
+            transform: layer.transform,
+            image_file,
+            parent_id: layer.parent,
+            is_group: Some(layer.is_group()),
+            opacity: Some(layer.opacity),
+            blend_mode: Some(layer.blend),
+            mask_file,
+            mask_enabled: layer.mask.as_ref().map(|m| m.enabled),
+            mask_source_id: layer.clip_source,
+            mask_placement: layer.mask.as_ref().and_then(|m| m.placement),
+            mask_linked: layer.mask.as_ref().map(|m| m.linked),
+            shape: layer.shape,
+            text: layer.text.clone(),
+            effects: layer.effects.clone(),
+            adjustment: match &layer.content {
+                LayerContent::Adjustment(a) => Some(a.as_ref().clone()),
+                LayerContent::Raster(_) | LayerContent::Group => None,
+                LayerContent::ExtendedAdjustment(_) => {
+                    return Err(invalid(
+                        "An extended adjustment requires a Linux authoring snapshot.",
+                    ));
+                }
+            },
+        });
+    }
+    raw::save(document, path)?;
+    editors::save(document, path)?;
+    let manifest = Manifest {
+        format: "com.compositor.project".into(),
+        version: 10,
+        color_space: "sRGB".into(),
+        document_id: document.id,
+        width: document.width,
+        height: document.height,
+        resolution: Some(document.resolution),
+        active_layer_id: document.active,
+        layers: records,
+        guides: (!document.guides.is_empty()).then(|| document.guides.clone()),
+    };
+    let data = serde_json::to_vec_pretty(&manifest)?;
+    if data.len() as u64 > MANIFEST_LIMIT {
+        return Err(invalid(
+            "Project manifest exceeds 4 MiB. The previous save is preserved.",
+        ));
+    }
+    let mut metadata = File::create(path.join("manifest.json"))?;
+    metadata.write_all(&data)?;
+    metadata.sync_all()?;
+    File::open(path.join("images"))?.sync_all()?;
+    File::open(path)?.sync_all()?;
+    Ok(())
 }
 
 pub fn with_extension(mut path: PathBuf) -> PathBuf {

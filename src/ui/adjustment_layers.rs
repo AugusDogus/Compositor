@@ -47,6 +47,14 @@ impl Editor {
 
     pub(super) fn add_adjustment_settings(&mut self, settings: Adjustment) -> Result<()> {
         let title = super::brightness_contrast::title(&settings);
+        self.add_adjustment_content(title, LayerContent::Adjustment(Box::new(settings)))
+    }
+
+    pub(super) fn add_adjustment_content(
+        &mut self,
+        title: &'static str,
+        content: LayerContent,
+    ) -> Result<()> {
         self.session_mut()
             .edit(&format!("New {title} Adjustment"), |doc| {
                 let mut layer = Layer::blank(title, doc.width, doc.height);
@@ -57,7 +65,7 @@ impl Editor {
                         active.parent
                     }
                 });
-                layer.content = LayerContent::Adjustment(Box::new(settings));
+                layer.content = content;
                 let index = doc
                     .layers
                     .iter()

@@ -124,6 +124,8 @@ impl Editor {
                 Ok(())
             }
             Action::Adjustment(kind) => self.open_adjustment(Some(kind)),
+            Action::ExtendedAdjustment(settings) => self.open_extended_adjustment(Some(settings)),
+            Action::EditExtendedAdjustment => self.open_extended_adjustment(None),
             Action::BrightnessContrast => self.open_brightness_contrast(false),
             Action::BrightnessContrastLayer => self.open_brightness_contrast(true),
             Action::Rename => {
@@ -473,6 +475,8 @@ impl Editor {
                 | Action::BrightnessContrast
                 | Action::BrightnessContrastLayer
                 | Action::Adjustment(_)
+                | Action::ExtendedAdjustment(_)
+                | Action::EditExtendedAdjustment
                 | Action::EditAdjustment
                 | Action::Filter(_)
                 | Action::Fade
@@ -567,7 +571,7 @@ impl Editor {
     }
 
     fn default_key(&mut self, key: &Key, modifiers: Modifiers, cx: &mut EventContext) {
-        if self.psd_conversion.is_some() || !self.errors.is_empty() {
+        if self.has_conversion_prompt() || !self.errors.is_empty() {
             return;
         }
         let menu = if *key == Key::Function(10) && modifiers.is_empty() {

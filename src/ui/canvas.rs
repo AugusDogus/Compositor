@@ -258,7 +258,7 @@ impl Editor {
         let pointer = cx.pointer_listener("canvas", move |this, event, cx| {
             if this.develop.is_some()
                 || this.pending
-                || this.psd_conversion.is_some()
+                || this.has_conversion_prompt()
                 || this.layout_drag.is_some()
             {
                 return;

@@ -79,7 +79,7 @@ impl Editor {
         if self.develop.is_none()
             && !self.pending
             && self.modal.is_none()
-            && self.psd_conversion.is_none()
+            && !self.has_conversion_prompt()
             && self.errors.is_empty()
             && let Some((source, target)) = self.raw_queue.pop_front()
         {

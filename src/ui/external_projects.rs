@@ -10,6 +10,7 @@ pub(super) struct ExternalProjects {
     next_check: Instant,
     running: bool,
     changes: VecDeque<Change>,
+    rendered: VecDeque<super::project_authoring::Request>,
     ignored: HashMap<Uuid, project::Fingerprint>,
 }
 impl Default for ExternalProjects {
@@ -18,9 +19,18 @@ impl Default for ExternalProjects {
             next_check: Instant::now() + Duration::from_secs(2),
             running: false,
             changes: VecDeque::new(),
+            rendered: VecDeque::new(),
             ignored: HashMap::new(),
         }
     }
+}
+enum ExternalChange {
+    Editable(Change),
+    Rendered {
+        id: Uuid,
+        baseline: Option<project::Fingerprint>,
+        request: super::project_authoring::Request,
+    },
 }
 struct Change {
     id: Uuid,
@@ -73,7 +83,10 @@ impl Editor {
                         Err(error) => return Some(Err(error)),
                     };
                     if Some(&fingerprint) == baseline.as_ref() || Some(&fingerprint) == ignored.as_ref() { return None; }
-                    Some(project::load_verified(&path).map(|(document, fingerprint)| Change { id, baseline, path, fingerprint, document }))
+                    Some(project::inspect_open(&path).map(|opened| match opened {
+                        project::OpenResult::Editable { document, fingerprint } => ExternalChange::Editable(Change { id, baseline, path, fingerprint, document }),
+                        project::OpenResult::RenderedCopyAvailable { reason, fingerprint } => ExternalChange::Rendered { id, baseline, request: super::project_authoring::Request { path, reason, fingerprint } },
+                    }))
                 }).collect::<Vec<_>>()
             }, |this, result, cx| {
                 this.external_projects.running = false;
@@ -82,7 +95,8 @@ impl Editor {
                     Ok(results) => {
                     for result in results {
                         match result {
-                            Ok(change) => this.receive_external_change(change),
+                            Ok(ExternalChange::Editable(change)) => this.receive_external_change(change),
+                            Ok(ExternalChange::Rendered { id, baseline, request }) => this.receive_external_rendered(id, baseline, request),
                             Err(error) => this.status = format!("External project could not be reloaded: {error} Your open edits are preserved."),
                         }
                     }
@@ -96,6 +110,37 @@ impl Editor {
                 self.status = format!("Could not check external project changes: {error}");
             }
         }
+    }
+    fn receive_external_rendered(
+        &mut self,
+        id: Uuid,
+        baseline: Option<project::Fingerprint>,
+        request: super::project_authoring::Request,
+    ) {
+        let Some(session) = self
+            .tabs
+            .iter()
+            .find(|tab| tab.id == id)
+            .and_then(ProjectTab::session)
+        else {
+            return;
+        };
+        if session.path.as_ref() != Some(&request.path)
+            || session.disk_fingerprint != baseline
+            || project::fingerprint(&request.path).ok().flatten().as_ref()
+                != Some(&request.fingerprint)
+        {
+            return;
+        }
+        // Keep the original save guard: rejecting the external version must
+        // not authorize overwriting it. Suppress repeat warnings separately.
+        self.external_projects
+            .ignored
+            .insert(id, request.fingerprint.clone());
+        self.external_projects
+            .rendered
+            .retain(|queued| queued.path != request.path);
+        self.external_projects.rendered.push_back(request);
     }
     fn receive_external_change(&mut self, change: Change) {
         let Some(index) = self.tabs.iter().position(|tab| tab.id == change.id) else {
@@ -157,6 +202,10 @@ impl Editor {
         cx: &mut ViewContext<'_, Self>,
     ) -> Option<Element> {
         if self.pending || self.saves.busy() || !self.can_switch_projects() {
+            return None;
+        }
+        if let Some(request) = self.external_projects.rendered.pop_front() {
+            self.authoring_copies.push_back(request);
             return None;
         }
         let change = self.external_projects.changes.front()?;
@@ -234,6 +283,43 @@ mod tests {
             path,
             document,
         }
+    }
+    #[test]
+    fn invalid_external_authoring_never_reloads_or_acknowledges_the_original_session() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("External.comp");
+        project::save(&Document::new(3, 2).unwrap(), &path).unwrap();
+        let mut editor = Editor::new(vec![path.clone()]).unwrap();
+        let before = editor.session().document.clone();
+        let baseline = editor.session().disk_fingerprint.clone();
+        std::fs::write(path.join("linux-editing.json"), b"{}").unwrap();
+        let project::OpenResult::RenderedCopyAvailable {
+            reason,
+            fingerprint,
+        } = project::inspect_open(&path).unwrap()
+        else {
+            panic!("Expected fallback");
+        };
+        let id = editor.tabs[0].id;
+        editor.receive_external_rendered(
+            id,
+            baseline.clone(),
+            super::super::project_authoring::Request {
+                path: path.clone(),
+                reason,
+                fingerprint: fingerprint.clone(),
+            },
+        );
+        assert_eq!(editor.session().document, before);
+        assert_eq!(editor.session().disk_fingerprint, baseline);
+        assert_eq!(editor.session().path.as_ref(), Some(&path));
+        assert_eq!(
+            editor.external_projects.ignored.get(&id),
+            Some(&fingerprint)
+        );
+        assert!(editor.authoring_copies.is_empty());
+        assert_eq!(editor.external_projects.rendered.len(), 1);
+        assert!(project::save_if_unchanged(&before, &path, baseline.as_ref()).is_err());
     }
     #[test]
     fn external_reload_updates_clean_document_and_preserves_dirty_document() {

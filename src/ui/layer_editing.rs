@@ -29,6 +29,8 @@ impl Action {
                 | Self::RotateCanvas(_)
                 | Self::Blend
                 | Self::Adjustment(_)
+                | Self::ExtendedAdjustment(_)
+                | Self::EditExtendedAdjustment
                 | Self::BrightnessContrastLayer
                 | Self::EditAdjustment
         )
@@ -90,7 +92,7 @@ impl Editor {
     pub(super) fn can_edit_layers(&self) -> bool {
         self.develop.is_none()
             && self.layout_drag.is_none()
-            && self.psd_conversion.is_none()
+            && !self.has_conversion_prompt()
             && self.has_document()
             && !self.pending
             && self.gesture.is_none()

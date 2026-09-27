@@ -76,6 +76,7 @@ pub enum LayerContent {
     Raster(Option<Arc<RgbaImage>>),
     Group,
     Adjustment(Box<crate::adjustment::Adjustment>),
+    ExtendedAdjustment(Box<crate::adjustment::ExtendedAdjustment>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -195,6 +196,12 @@ impl Layer {
             LayerContent::Raster(pixels) => pixels.as_ref(),
             _ => None,
         }
+    }
+    pub fn is_adjustment(&self) -> bool {
+        matches!(
+            self.content,
+            LayerContent::Adjustment(_) | LayerContent::ExtendedAdjustment(_)
+        )
     }
     pub fn is_group(&self) -> bool {
         matches!(self.content, LayerContent::Group)
@@ -366,6 +373,9 @@ impl Document {
                         ));
                     }
                 }
+            }
+            if let LayerContent::ExtendedAdjustment(settings) = &layer.content {
+                settings.validate()?;
             }
             if let LayerContent::Adjustment(adjustment) = &layer.content {
                 adjustment.validate()?;

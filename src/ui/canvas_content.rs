@@ -33,6 +33,7 @@ enum Pixels {
     Raster(Option<Weak<RgbaImage>>),
     Group,
     Adjustment(Box<Adjustment>),
+    ExtendedAdjustment(Box<compositor::adjustment::ExtendedAdjustment>),
 }
 
 struct MaskKey {
@@ -75,6 +76,9 @@ impl LayerKey {
                 LayerContent::Raster(pixels) => Pixels::Raster(pixels.as_ref().map(Arc::downgrade)),
                 LayerContent::Group => Pixels::Group,
                 LayerContent::Adjustment(value) => Pixels::Adjustment(value.clone()),
+                LayerContent::ExtendedAdjustment(value) => {
+                    Pixels::ExtendedAdjustment(value.clone())
+                }
             },
             mask: layer.mask.as_ref().map(|mask| MaskKey {
                 enabled: mask.enabled,
@@ -100,6 +104,7 @@ impl LayerKey {
                 (Pixels::Raster(None), LayerContent::Raster(None))
                 | (Pixels::Group, LayerContent::Group) => true,
                 (Pixels::Adjustment(a), LayerContent::Adjustment(b)) => a == b,
+                (Pixels::ExtendedAdjustment(a), LayerContent::ExtendedAdjustment(b)) => a == b,
                 _ => false,
             }
             && match (&self.mask, &layer.mask) {
@@ -121,6 +126,24 @@ impl MaskKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn editable_filter_settings_invalidate_canvas_cache() {
+        use compositor::adjustment::{ExtendedAdjustment, PhotoFilter};
+        let mut doc = Document::new(2, 2).unwrap();
+        doc.layers[0].content = LayerContent::ExtendedAdjustment(Box::new(
+            ExtendedAdjustment::PhotoFilter(PhotoFilter::default()),
+        ));
+        let key = CanvasContent::new(&doc);
+        assert!(key.matches(&doc));
+        doc.layers[0].content = LayerContent::ExtendedAdjustment(Box::new(
+            ExtendedAdjustment::PhotoFilter(PhotoFilter {
+                density: 75.,
+                ..Default::default()
+            }),
+        ));
+        assert!(!key.matches(&doc));
+    }
 
     #[test]
     fn identity_does_not_force_pixel_copies_and_detects_in_place_edits() {

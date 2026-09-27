@@ -1,5 +1,4 @@
 use super::*;
-use compositor::document::LayerContent;
 
 impl Editor {
     pub(in crate::ui) fn build_menu(&self, index: usize) -> PopoverMenu {
@@ -215,9 +214,7 @@ impl Editor {
             Command::Edit(Action::Clip) => {
                 layer.is_some_and(|active| compositor::clipping::change(doc, active.id).is_some())
             }
-            Command::Edit(Action::EditAdjustment) => {
-                layer.is_some_and(|l| matches!(l.content, LayerContent::Adjustment(_)))
-            }
+            Command::Edit(Action::EditAdjustment) => layer.is_some_and(|l| l.is_adjustment()),
             Command::Edit(Action::MoveOutOfGroup) => layer.is_some_and(|l| l.parent.is_some()),
             Command::Edit(Action::LoadMask | Action::DeleteMask | Action::ToggleMask) => {
                 layer.is_some_and(|l| l.mask.is_some())

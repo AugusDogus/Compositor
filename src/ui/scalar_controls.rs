@@ -139,13 +139,7 @@ impl Scalar {
             }
             Self::Parameter(index, scale) => Self::Field(index).set(editor, scale.value(value))?,
             Self::JpegQuality => editor.update_form_field(0, &value.round().to_string()),
-            Self::Field(index) => {
-                editor.update_dimension(index, &value.to_string());
-                editor.update_transform_scale(index);
-                editor.refresh_adjustment();
-                editor.refresh_filter();
-                editor.refresh_jpeg();
-            }
+            Self::Field(index) => editor.update_form_field(index, &value.to_string()),
         }
         Ok(())
     }

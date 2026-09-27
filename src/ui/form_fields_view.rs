@@ -103,6 +103,7 @@ impl Editor {
         self.update_transform_scale(index);
         self.refresh_adjustment();
         self.refresh_filter();
+        self.refresh_extended_adjustment();
         self.refresh_jpeg();
     }
     fn field_column(
@@ -187,6 +188,7 @@ impl Editor {
         if matches!(
             action,
             Action::Filter(compositor::filters::Filter::PhotoFilter(_))
+                | Action::EditExtendedAdjustment
         ) {
             return self.photo_filter_fields(cx, action, fields);
         }

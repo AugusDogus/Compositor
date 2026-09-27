@@ -1,3 +1,5 @@
+mod extended;
+pub use extended::ExtendedAdjustment;
 mod channel_mixer;
 mod color;
 pub use channel_mixer::ChannelMixer;

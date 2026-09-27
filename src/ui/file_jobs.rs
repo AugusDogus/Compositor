@@ -10,6 +10,7 @@ pub(super) enum FileJob {
         selected: Vec<usize>,
     },
     Open(Vec<PathBuf>),
+    OpenRenderedCopy(super::project_authoring::Request),
     Import {
         session: Uuid,
         paths: Vec<PathBuf>,
@@ -63,7 +64,7 @@ pub(super) enum Completed {
 impl FileJob {
     fn operation(&self) -> alerts::Operation {
         match self {
-            Self::Open(_) => alerts::Operation::Open,
+            Self::Open(_) | Self::OpenRenderedCopy(_) => alerts::Operation::Open,
             Self::BrushTip(_) | Self::BrushTips { .. } => alerts::Operation::Import,
             Self::Import { .. } => alerts::Operation::Import,
             Self::Export { path, .. } => match path
@@ -86,6 +87,18 @@ impl FileJob {
 
     pub(super) fn run(self, open: &[(Uuid, PathBuf)]) -> Result<Completed> {
         match self {
+            Self::OpenRenderedCopy(request) => {
+                let document = project::load_rendered_copy(&request.path, &request.fingerprint)
+                    .map_err(|error| invalid(format!("{error} The original project is preserved. Open it again to retry the rendered copy.")))?;
+                Ok(Completed::Opened {
+                    projects: vec![OpenedProject::Loaded {
+                        document: Box::new(document),
+                        path: None,
+                        fingerprint: None,
+                    }],
+                    failures: Vec::new(),
+                })
+            }
             Self::BrushTip(path) => {
                 if path
                     .extension()

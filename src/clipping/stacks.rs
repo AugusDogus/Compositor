@@ -69,7 +69,7 @@ pub(crate) fn stacks(doc: &Document) -> Vec<Stack> {
     let mut adjustments: HashMap<Uuid, Vec<(usize, usize)>> = HashMap::new();
     for (position, index) in ordered.iter().copied().enumerate() {
         let layer = &doc.layers[index];
-        if matches!(layer.content, LayerContent::Adjustment(_))
+        if layer.is_adjustment()
             && let Some(base) = layer.clip_source
         {
             adjustments.entry(base).or_default().push((position, index));
@@ -78,7 +78,7 @@ pub(crate) fn stacks(doc: &Document) -> Vec<Stack> {
     let mut stacks = Vec::new();
     for (position, index) in ordered.iter().copied().enumerate() {
         let base = &doc.layers[index];
-        if base.clip_source.is_some() || matches!(base.content, LayerContent::Adjustment(_)) {
+        if base.clip_source.is_some() || base.is_adjustment() {
             continue;
         }
         let contiguous: Vec<_> = ordered[position + 1..]

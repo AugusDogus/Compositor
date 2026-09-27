@@ -146,6 +146,11 @@ impl Scene {
             let (kind, adjustment, settings) = match &layer.content {
                 LayerContent::Raster(_) => (0, 0, 0),
                 LayerContent::Group => (1, 0, 0),
+                LayerContent::ExtendedAdjustment(a) => {
+                    let offset = scene.adjustments.len() as u32;
+                    let kind = super::adjustments::encode_extended(a, &mut scene.adjustments);
+                    (2, kind, offset)
+                }
                 LayerContent::Adjustment(a) => {
                     let offset = scene.adjustments.len() as u32;
                     let kind = super::adjustments::encode(a, &mut scene.adjustments);
@@ -194,16 +199,15 @@ impl Scene {
                 } else if let Some(children) = state.stacks.get(&layer.id) {
                     scene.operations.push([3, index]); // Start stack with base coverage.
                     for child in children {
-                        let op =
-                            if matches!(doc.layers[*child].content, LayerContent::Adjustment(_)) {
-                                5
-                            } else {
-                                4
-                            };
+                        let op = if doc.layers[*child].is_adjustment() {
+                            5
+                        } else {
+                            4
+                        };
                         scene.operations.push([op, *child as u32]);
                     }
                     scene.operations.push([6, index]);
-                } else if matches!(layer.content, LayerContent::Adjustment(_)) {
+                } else if layer.is_adjustment() {
                     if layer.clip_source.is_none() {
                         scene.operations.push([7, index]);
                     }

@@ -112,7 +112,9 @@ impl Editor {
     pub(super) fn open_photo_filter_picker(&mut self) {
         let Some(
             form @ Form::Edit {
-                action: Action::Filter(compositor::filters::Filter::PhotoFilter(_)),
+                action:
+                    Action::Filter(compositor::filters::Filter::PhotoFilter(_))
+                    | Action::EditExtendedAdjustment,
                 ..
             },
         ) = self.modal.clone()
@@ -416,6 +418,7 @@ impl Editor {
                     self.update_form_field(index, &format!("#{r:02X}{g:02X}{b:02X}"));
                 } else {
                     self.refresh_filter();
+                    self.refresh_extended_adjustment();
                 }
             }
             Purpose::JpegBackground { form } => {

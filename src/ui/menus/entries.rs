@@ -280,6 +280,13 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command("Grain…", "", Action::Adjustment(Kind::Grain)),
             command("Black & White…", "", Action::Adjustment(Kind::BlackWhite)),
             command("Color Balance…", "", Action::Adjustment(Kind::ColorBalance)),
+            command(
+                "Photo Filter…",
+                "",
+                Action::ExtendedAdjustment(
+                    compositor::adjustment::ExtendedAdjustment::PhotoFilter(Default::default()),
+                ),
+            ),
             command("Invert", "", Action::Adjustment(Kind::Invert)),
             command("Gaussian Blur…", "", Action::Adjustment(Kind::GaussianBlur)),
             command("Motion Blur…", "", Action::Adjustment(Kind::MotionBlur)),

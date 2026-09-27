@@ -25,10 +25,14 @@ impl Action {
 }
 
 impl Editor {
+    pub(super) fn has_conversion_prompt(&self) -> bool {
+        self.psd_conversion.is_some() || !self.authoring_copies.is_empty()
+    }
+
     pub(super) fn can_start_project_operation(&self) -> bool {
         self.develop.is_none()
             && self.layout_drag.is_none()
-            && self.psd_conversion.is_none()
+            && !self.has_conversion_prompt()
             && self.errors.is_empty()
             && !self.pending
             && self.retained_panel.is_none()
@@ -44,7 +48,7 @@ impl Editor {
     pub(super) fn action_available(&self, action: Action) -> bool {
         if self.develop.is_some()
             || self.layout_drag.is_some()
-            || self.psd_conversion.is_some()
+            || self.has_conversion_prompt()
             || !self.errors.is_empty()
             || self.pending
             || self.gesture.is_some()

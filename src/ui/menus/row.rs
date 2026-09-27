@@ -110,12 +110,7 @@ impl Editor {
                 compositor::clipping::change(&self.session().document, row.layer).is_some()
             }
             Command::Edit(Action::LinkMask) => {
-                layer.mask.is_some()
-                    && !layer.is_group()
-                    && !matches!(
-                        layer.content,
-                        compositor::document::LayerContent::Adjustment(_)
-                    )
+                layer.mask.is_some() && !layer.is_group() && !layer.is_adjustment()
             }
             Command::Edit(Action::Duplicate) => true,
             Command::Edit(Action::Group) => self.session().document.layers.len() < 10_000,

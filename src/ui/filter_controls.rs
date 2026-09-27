@@ -25,20 +25,10 @@ impl Editor {
                 ("Channel Mixer", fields)
             }
 
-            Filter::PhotoFilter(settings) => {
-                let [r, g, b] = settings.color.map(|v| (v * 255.).round() as u8);
-                (
-                    "Photo Filter",
-                    vec![
-                        ("Density", settings.density.to_string()),
-                        (
-                            "Preserve luminosity (0 or 1)",
-                            u8::from(settings.preserve_luminosity).to_string(),
-                        ),
-                        ("Color", format!("#{r:02X}{g:02X}{b:02X}")),
-                    ],
-                )
-            }
+            Filter::PhotoFilter(settings) => (
+                "Photo Filter",
+                super::photo_filter_controls::fields(settings),
+            ),
 
             Filter::Radial(settings) => (
                 "Radial Blur",
@@ -178,18 +168,8 @@ impl Editor {
                 Filter::ChannelMixer(settings)
             }
 
-            Filter::PhotoFilter(_) => {
-                let color = values
-                    .get(2)
-                    .ok_or_else(|| invalid("Choose a Photo Filter color."))?;
-                let [r, g, b, _] = compositor::palette::parse_hex(color)?;
-                let settings = compositor::adjustment::PhotoFilter {
-                    color: [r, g, b].map(|v| f64::from(v) / 255.),
-                    density: n(0)?,
-                    preserve_luminosity: flag(1)?,
-                };
-                settings.validate()?;
-                Filter::PhotoFilter(settings)
+            Filter::PhotoFilter(original) => {
+                Filter::PhotoFilter(super::photo_filter_controls::parse(values, original)?)
             }
 
             Filter::Radial(_) => {
