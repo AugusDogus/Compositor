@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+export APPDIR=/opt/compositor
+exec "$APPDIR/AppRun" "$@"

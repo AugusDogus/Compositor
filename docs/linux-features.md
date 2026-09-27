@@ -7,6 +7,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 - PSD/PSB imports convert embedded ICC profiles to sRGB for pixels and editable text/shape colors. v0.6.1 ignores these profiles.
 - Compressed SVG (`.svgz`) import, with a 16 MiB limit on expanded SVG data.
 - Image-menu commands rotate the whole canvas 90° in either direction, retaining editable layers and rotating masks, selections and guides.
+- DEB and RPM packaging includes the same codecs and offline models as the AppImage. These packages are not part of v0.6.1.
 
 ## New in v0.6.1
 
@@ -50,7 +51,7 @@ Individual image surfaces are limited to 200 megapixels. Total raster storage is
 
 Bloom and background removal use different implementations from macOS. Pixel-identical rendering, font appearance and performance across operating systems are not guaranteed.
 
-Linux supports Wayland and X11, Ctrl/Alt shortcuts, portal file dialogs and native clipboard integration. Distribution is an unsigned x86_64 AppImage requiring glibc 2.39+, host graphics drivers and desktop portals. ARM64, Flatpak, DEB and RPM builds are not provided. Update checks open GitHub Releases; install by downloading and replacing the AppImage after closing the editor.
+Linux supports Wayland and X11, Ctrl/Alt shortcuts, portal file dialogs and native clipboard integration. Packages require x86_64, glibc 2.39+, host graphics drivers and desktop portals. Development builds produce AppImage, DEB and RPM files; v0.6.1 provides the AppImage. ARM64 and Flatpak builds are not provided. Releases are unsigned. Update checks open GitHub Releases; replace the AppImage or install the updated DEB/RPM with your package manager after closing the editor.
 
 ## Comparison sources
 

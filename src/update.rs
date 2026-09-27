@@ -16,7 +16,26 @@ pub fn is_appimage() -> bool {
     std::env::var_os("APPIMAGE").is_some()
 }
 
+pub fn is_system_package() -> bool {
+    std::env::current_exe()
+        .is_ok_and(|path| package_marker(&path).is_some_and(|marker| marker.is_file()))
+}
+
+fn package_marker(executable: &std::path::Path) -> Option<PathBuf> {
+    Some(
+        executable
+            .parent()?
+            .parent()?
+            .join("share/compositor/system-package"),
+    )
+}
+
 fn require_executable_installation() -> Result<()> {
+    if is_system_package() {
+        return Err(invalid(
+            "Install the new DEB or RPM through your package manager. The current application and projects are unchanged.",
+        ));
+    }
     if is_appimage() {
         return Err(invalid(
             "Download the new AppImage from GitHub Releases, close Compositor, and replace the old AppImage. The current application and projects are unchanged.",
@@ -124,6 +143,22 @@ fn validate_executable(path: &std::path::Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn system_package_marker_is_resolved_beside_the_running_bundle() {
+        let root = tempfile::tempdir().unwrap();
+        let executable = root.path().join("opt/compositor/usr/bin/compositor");
+        let marker = package_marker(&executable).unwrap();
+        assert_eq!(
+            marker,
+            root.path()
+                .join("opt/compositor/usr/share/compositor/system-package")
+        );
+        assert!(!marker.is_file());
+        std::fs::create_dir_all(marker.parent().unwrap()).unwrap();
+        std::fs::write(&marker, []).unwrap();
+        assert!(marker.is_file());
+    }
+
     #[test]
     fn executable_validation_rejects_invalid_downloads() {
         let directory = tempfile::tempdir().unwrap();

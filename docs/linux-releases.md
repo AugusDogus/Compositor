@@ -39,9 +39,24 @@ scripts/check-appimage.sh dist/*.AppImage
 
 Packaging prepares the models and native inference libraries automatically. Python is used only for model preparation. `COMPOSITOR_LINUX_BINARY` selects an already compiled executable; `COMPOSITOR_APPIMAGE_TOOLS` selects the packaging-tool cache. A prebuilt executable must also target the supported baseline.
 
+## DEB and RPM packages
+
+Development builds also produce DEB and RPM packages. They are not available in v0.6.1. Both install the complete bundle, including offline models, under `/opt/compositor`, with a desktop launcher and `/usr/bin/compositor`. Host requirements match the AppImage; the package manager checks the declared system dependencies.
+
+Install a downloaded package with `sudo apt install ./compositor_<version>_amd64.deb` or `sudo dnf install ./compositor-<version>-1.x86_64.rpm`. Updates use the same package-manager command. Compositor's Updates dialog links to releases and does not replace package-managed files.
+
+To build both packages from an existing, validated AppImage on Ubuntu 24.04:
+
+```sh
+sudo apt-get install dpkg-dev rpm zstd
+scripts/package-linux-native.sh dist/Compositor-0.6.1-x86_64.AppImage
+```
+
+Substitute the current version. Package filenames use `~` instead of `-` before prerelease identifiers so package managers sort prereleases before stable releases.
+
 ## Publish a release
 
-The [Linux workflow](../.github/workflows/linux-release.yml) runs on pull requests, pushes to `main`, version tags and manual dispatch. It checks formatting, Clippy and tests, builds the AppImage, and checks the payload with CPU inference and a real X-Trans RAW fixture. Ordinary runs upload a `compositor-linux-x86_64` Actions artifact; version tags publish a GitHub release in this repository.
+The [Linux workflow](../.github/workflows/linux-release.yml) runs on pull requests, pushes to `main`, version tags and manual dispatch. It checks formatting, Clippy and tests, builds the AppImage, and checks the payload with CPU inference and a real X-Trans RAW fixture. It then packages that payload as DEB and RPM files. Ordinary runs upload a `compositor-linux-x86_64` Actions artifact; version tags publish a GitHub release in this repository.
 
 New pushes do not cancel running `main` or release-tag builds. Pull-request builds can be superseded by newer commits.
 

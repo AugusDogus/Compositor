@@ -6,6 +6,7 @@ use quickgui::UpdateCancellation;
 enum Installation {
     Executable,
     AppImage,
+    SystemPackage,
 }
 
 pub(super) struct Updates {
@@ -66,7 +67,9 @@ impl Default for Updates {
     fn default() -> Self {
         let service = Service::configured().map_err(|e| e.to_string());
         Self {
-            installation: if compositor::update::is_appimage() {
+            installation: if compositor::update::is_system_package() {
+                Installation::SystemPackage
+            } else if compositor::update::is_appimage() {
                 Installation::AppImage
             } else {
                 Installation::Executable
@@ -97,7 +100,7 @@ impl Updates {
         if self.service.is_err() || matches!(self.phase, Phase::Running { .. } | Phase::Queued(_)) {
             return;
         }
-        if self.installation == Installation::AppImage {
+        if self.installation != Installation::Executable {
             self.phase = Phase::Queued(Work::Check);
             return;
         }
@@ -209,9 +212,14 @@ impl Editor {
             .flex_col()
             .gap(12.)
             .child(text(format!("Compositor {}", env!("CARGO_PKG_VERSION"))));
-        if self.updates.installation == Installation::AppImage {
+        if self.updates.installation != Installation::Executable {
+            let instructions = if self.updates.installation == Installation::SystemPackage {
+                "Download the latest DEB or RPM from GitHub Releases and install it through your package manager. Save your projects and close Compositor before updating."
+            } else {
+                "Download the latest AppImage from GitHub Releases. Save your projects and close Compositor before replacing the old AppImage."
+            };
             panel = panel
-                .child(text("Download the latest AppImage from GitHub Releases. Save your projects and close Compositor before replacing the old AppImage.").wrap())
+                .child(text(instructions).wrap())
                 .child(Self::control("Open GitHub Releases").on_click(cx.listener("update-appimage", |this, cx| {
                     let result = cx.open_url(compositor::update::RELEASES_URL)
                         .map_err(|error| compositor::invalid(format!("Could not open GitHub Releases: {error}. Visit {} in your browser.", compositor::update::RELEASES_URL)));
@@ -262,7 +270,7 @@ impl Editor {
                 }
                 (
                     format!("Version {} is available.", update.version),
-                    Some(if self.updates.installation == Installation::AppImage {
+                    Some(if self.updates.installation != Installation::Executable {
                         "Check again"
                     } else {
                         "Download update"
@@ -325,6 +333,27 @@ mod tests {
         );
         assert!(
             cx.element_bounds(view.window_handle(), "update-next")
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn system_packages_offer_release_downloads_instead_of_executable_installation() {
+        let mut editor = Editor::new(Vec::new()).unwrap();
+        editor.updates.installation = Installation::SystemPackage;
+        editor.updates.advance();
+        assert!(matches!(editor.updates.phase, Phase::Queued(Work::Check)));
+        editor.updates.cancel();
+        let (mut cx, view) = quickgui::Application::new()
+            .into_test_context(
+                quickgui::WindowOptions::new("Package updates").size(1280., 900.),
+                editor,
+            )
+            .unwrap();
+        cx.update(view, |editor, cx| editor.open_updates(cx))
+            .unwrap();
+        assert!(
+            cx.element_bounds(view.window_handle(), "update-appimage")
                 .is_ok()
         );
     }
