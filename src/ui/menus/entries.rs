@@ -98,6 +98,11 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
         ],
         5 => vec![
             command(
+                "High Pass…",
+                "",
+                Action::Filter(compositor::filters::Filter::HighPass { radius: 2. }),
+            ),
+            command(
                 "Unsharp Mask…",
                 "",
                 Action::Filter(compositor::filters::Filter::UnsharpMask {

@@ -58,7 +58,7 @@ impl Parameter {
             (Action::Filter(Filter::UnsharpMask { .. }), _, 2) => {
                 ("Threshold", (0., 255.), "", Linear(0))
             }
-            (Action::Filter(Filter::Gaussian { .. }), _, 0) => {
+            (Action::Filter(Filter::Gaussian { .. } | Filter::HighPass { .. }), _, 0) => {
                 ("Radius", (0.1, 250.), "px", Logarithmic(1))
             }
             (Action::Filter(Filter::Motion { .. }), _, 0) => {

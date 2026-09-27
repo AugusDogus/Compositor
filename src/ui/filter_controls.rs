@@ -4,6 +4,7 @@ use compositor::{filters::Filter, invalid};
 impl Editor {
     pub(super) fn filter_fields(filter: Filter) -> (&'static str, Vec<(&'static str, String)>) {
         match filter {
+            Filter::HighPass { radius } => ("High Pass", vec![("Radius", radius.to_string())]),
             Filter::UnsharpMask {
                 amount,
                 radius,
@@ -98,6 +99,7 @@ impl Editor {
             }
         };
         Ok(match filter {
+            Filter::HighPass { .. } => Filter::HighPass { radius: n(0)? },
             Filter::UnsharpMask { .. } => Filter::UnsharpMask {
                 amount: n(0)?,
                 radius: n(1)?,

@@ -1,57 +1,62 @@
 use super::*;
 
 #[test]
-fn unsharp_preview_applies_once_and_supports_undo_redo_and_cancel() {
-    let mut e = Editor::with_test_document();
-    let mut doc = Document::new(9, 9).unwrap();
-    doc.layers[0].content = compositor::document::LayerContent::Raster(Some(Arc::new(
-        image::RgbaImage::from_fn(9, 9, |x, _| {
-            image::Rgba([if x < 4 { 80 } else { 160 }, 100, 120, 255])
-        }),
-    )));
-    e.tabs = vec![Session::new(doc.clone(), None).into()];
-    let filter = Filter::UnsharpMask {
-        amount: 100.,
-        radius: 2.,
-        threshold: 0.,
-    };
-    e.open_filter(filter).unwrap();
-    let edit = e.filter_edit.as_mut().unwrap();
-    edit.work = Work::Running;
-    let (id, revision) = (edit.id, edit.revision);
-    let mut preview = doc.clone();
-    compositor::filters::apply(&mut preview, filter, false).unwrap();
-    assert_ne!(preview, doc);
-    e.receive_filter_preview(
-        id,
-        revision,
-        Ok(PreviewOutput {
-            document: preview.clone(),
-            subject: None,
-            camera_scope: None,
-        }),
-    );
-    assert_eq!(e.session().document, preview);
-    e.apply_form(
-        Action::Filter(filter),
-        vec!["100".into(), "2".into(), "0".into()],
-    )
-    .unwrap();
-    let job = e.job.take().unwrap();
-    let completion = job.completion();
-    let initial = e.session().committed_document().clone();
-    let result = job.run(initial.clone());
-    e.complete_job(e.session().id, initial, result, completion)
+fn sharpening_previews_apply_once_and_support_undo_redo_and_cancel() {
+    for filter in [
+        Filter::UnsharpMask {
+            amount: 100.,
+            radius: 2.,
+            threshold: 0.,
+        },
+        Filter::HighPass { radius: 2. },
+    ] {
+        let mut e = Editor::with_test_document();
+        let mut doc = Document::new(9, 9).unwrap();
+        doc.layers[0].content = compositor::document::LayerContent::Raster(Some(Arc::new(
+            image::RgbaImage::from_fn(9, 9, |x, _| {
+                image::Rgba([if x < 4 { 80 } else { 160 }, 100, 120, 255])
+            }),
+        )));
+        e.tabs = vec![Session::new(doc.clone(), None).into()];
+        e.open_filter(filter).unwrap();
+        let edit = e.filter_edit.as_mut().unwrap();
+        edit.work = Work::Running;
+        let (id, revision) = (edit.id, edit.revision);
+        let mut preview = doc.clone();
+        compositor::filters::apply(&mut preview, filter, false).unwrap();
+        assert_ne!(preview, doc);
+        e.receive_filter_preview(
+            id,
+            revision,
+            Ok(PreviewOutput {
+                document: preview.clone(),
+                subject: None,
+                camera_scope: None,
+            }),
+        );
+        assert_eq!(e.session().document, preview);
+        let (label, fields) = Editor::filter_fields(filter);
+        e.apply_form(
+            Action::Filter(filter),
+            fields.into_iter().map(|(_, value)| value).collect(),
+        )
         .unwrap();
-    assert_eq!(e.session().document, preview);
-    assert_eq!(e.session().undo_label(), Some("Unsharp Mask"));
-    e.session_mut().undo();
-    assert_eq!(e.session().document, doc);
-    e.session_mut().redo();
-    assert_eq!(e.session().document, preview);
-    e.open_filter(filter).unwrap();
-    e.cancel_filter();
-    assert_eq!(e.session().document, preview);
+        let job = e.job.take().unwrap();
+        let completion = job.completion();
+        let initial = e.session().committed_document().clone();
+        let result = job.run(initial.clone());
+        e.complete_job(e.session().id, initial, result, completion)
+            .unwrap();
+        assert_eq!(e.session().document, preview);
+        assert_eq!(e.session().undo_label(), Some(label));
+        e.session_mut().undo();
+        assert_eq!(e.session().document, doc);
+        e.session_mut().redo();
+        assert_eq!(e.session().document, preview);
+        e.open_filter(filter).unwrap();
+        e.cancel_filter();
+        assert_eq!(e.session().document, preview);
+    }
 }
 
 #[test]

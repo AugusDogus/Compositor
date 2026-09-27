@@ -2,6 +2,24 @@ use crate::Result;
 use image::RgbaImage;
 use rayon::prelude::*;
 
+pub(super) fn high_pass(image: &RgbaImage, radius: f64) -> Result<RgbaImage> {
+    super::finishing::range(radius, 0.1, 250.)?;
+    let blurred = super::gaussian_rgba(image, radius as f32)?;
+    let mut result = image.clone();
+    result
+        .par_chunks_exact_mut(4)
+        .zip(blurred.par_chunks_exact(4))
+        .for_each(|(pixel, base)| {
+            if pixel[3] == 0 {
+                return;
+            }
+            for c in 0..3 {
+                pixel[c] = (128 + i16::from(pixel[c]) - i16::from(base[c])).clamp(0, 255) as u8;
+            }
+        });
+    Ok(result)
+}
+
 pub(super) fn unsharp(
     image: &RgbaImage,
     amount: f64,
@@ -39,6 +57,65 @@ pub(super) fn unsharp(
 mod tests {
     use super::*;
     use image::Rgba;
+
+    #[test]
+    fn high_pass_is_neutral_on_flat_colors_and_retains_edges_and_alpha() {
+        let flat = RgbaImage::from_pixel(9, 9, Rgba([71, 83, 111, 37]));
+        assert_eq!(
+            high_pass(&flat, 2.).unwrap(),
+            RgbaImage::from_pixel(9, 9, Rgba([128, 128, 128, 37]))
+        );
+        let edge = RgbaImage::from_fn(9, 9, |x, _| {
+            if x < 4 {
+                Rgba([80, 80, 80, 255])
+            } else {
+                Rgba([160, 160, 160, 128])
+            }
+        });
+        let result = high_pass(&edge, 2.).unwrap();
+        assert!(result[(3, 4)][0] < 128);
+        assert!(result[(4, 4)][0] > 128);
+        assert!(
+            result
+                .pixels()
+                .zip(edge.pixels())
+                .all(|(a, b)| a[3] == b[3])
+        );
+        let transparent = RgbaImage::from_fn(9, 9, |x, _| {
+            if x < 4 {
+                Rgba([255, 0, 0, 0])
+            } else {
+                Rgba([71, 83, 111, 37])
+            }
+        });
+        let result = high_pass(&transparent, 2.).unwrap();
+        assert_eq!(result[(3, 4)], transparent[(3, 4)]);
+        assert_eq!(result[(4, 4)], Rgba([128, 128, 128, 37]));
+    }
+
+    #[test]
+    fn high_pass_limits_edits_to_selection_and_preserves_document_on_failure() {
+        use crate::{
+            document::{Document, LayerContent},
+            filters::{Filter, apply},
+            selection::Selection,
+        };
+        use std::sync::Arc;
+        let mut doc = Document::new(9, 9).unwrap();
+        let pixels = RgbaImage::from_pixel(9, 9, Rgba([71, 83, 111, 37]));
+        doc.layers[0].content = LayerContent::Raster(Some(Arc::new(pixels.clone())));
+        doc.selection = Some(Selection::rectangle(9, 9, [0., 0.], [4., 9.], false));
+        let original = doc.clone();
+        for radius in [0., 251., f64::NAN, f64::INFINITY] {
+            assert!(apply(&mut doc, Filter::HighPass { radius }, false).is_err());
+            assert_eq!(doc, original);
+        }
+        apply(&mut doc, Filter::HighPass { radius: 2. }, false).unwrap();
+        let result = doc.layers[0].raster().unwrap();
+        assert_eq!(result[(3, 4)], Rgba([128, 128, 128, 37]));
+        assert_eq!(result[(4, 4)], pixels[(4, 4)]);
+        assert_eq!(doc.layers[0].transform, original.layers[0].transform);
+    }
 
     #[test]
     fn unsharp_respects_selection_and_rejects_invalid_values_transactionally() {

@@ -17,6 +17,9 @@ use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Filter {
+    HighPass {
+        radius: f64,
+    },
     UnsharpMask {
         amount: f64,
         radius: f64,
@@ -170,6 +173,7 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
     let mut result = match operation {
         Operation::Dither(settings) => dither::apply(&source, *settings)?,
         Operation::Pixels(filter) => match filter {
+            Filter::HighPass { radius } => sharpen::high_pass(&source, radius)?,
             Filter::UnsharpMask {
                 amount,
                 radius,
