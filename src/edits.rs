@@ -152,6 +152,21 @@ pub fn fill(doc: &mut Document, color: [u8; 4], erase: bool, mask: bool) -> Resu
     if !mask && !erase && selection.is_none() && layer.text.is_some() {
         return crate::text::recolor_layer(layer, color);
     }
+    if mask && layer.mask.is_none() {
+        return Err(invalid("The selected layer has no mask."));
+    }
+    if !mask && !matches!(layer.content, LayerContent::Raster(_)) {
+        return Err(invalid("Select a pixel layer or a mask to fill."));
+    }
+    if (!mask && !erase && color[3] == 0)
+        || selection
+            .as_ref()
+            .is_some_and(|selection| selection.bounds().is_none())
+    {
+        return Ok(());
+    }
+    let original_layer = layer.clone();
+    let mut changed = false;
     if !mask && !erase {
         crate::raster_extent::expand(layer, [0., 0., canvas[0], canvas[1]])?;
     }
@@ -176,7 +191,9 @@ pub fn fill(doc: &mut Document, color: [u8; 4], erase: bool, mask: bool) -> Resu
                 (u[1] * original.height() as f64) as u32,
             )][0] as f64;
             let target = if erase { 0. } else { color[0] as f64 };
-            Luma([(old + (target - old) * coverage).round() as u8])
+            let result = (old + (target - old) * coverage).round() as u8;
+            changed |= result != old as u8;
+            Luma([result])
         }));
     } else if let LayerContent::Raster(pixels) = &mut layer.content {
         if pixels.is_none() {
@@ -200,6 +217,10 @@ pub fn fill(doc: &mut Document, color: [u8; 4], erase: bool, mask: bool) -> Resu
                 } else {
                     0.
                 };
+                if coverage == 0. || (!erase && color[3] == 0) {
+                    continue;
+                }
+                let before = *p;
                 if erase {
                     p[3] = (p[3] as f64 * (1. - coverage)).round() as u8;
                 } else {
@@ -211,12 +232,18 @@ pub fn fill(doc: &mut Document, color: [u8; 4], erase: bool, mask: bool) -> Resu
                             .map(|v| (v * 255.).round() as u8),
                     );
                 }
+                changed |= *p != before;
             }
         }
-        layer.shape = None;
-        layer.text = None;
+        if changed {
+            layer.shape = None;
+            layer.text = None;
+        }
     } else {
         return Err(invalid("Select a pixel layer or a mask to fill."));
+    }
+    if !changed {
+        *layer = original_layer;
     }
     Ok(())
 }

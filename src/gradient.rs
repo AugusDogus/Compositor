@@ -93,6 +93,24 @@ impl Gradient {
             .ok_or_else(|| invalid("Select a layer or mask for the gradient."))?;
         if !mask_target {
             layer.require_rasterized()?;
+            if !matches!(layer.content, LayerContent::Raster(_)) {
+                return Err(invalid(
+                    "Select a pixel layer or target the layer's mask for the gradient.",
+                ));
+            }
+        } else if layer.mask.is_none() {
+            return Err(invalid("Add a mask before drawing a mask gradient."));
+        }
+        if self.opacity == 0.
+            || selection
+                .as_ref()
+                .is_some_and(|selection| selection.bounds().is_none())
+        {
+            return Ok(());
+        }
+        let original_layer = layer.clone();
+        let mut changed = false;
+        if !mask_target {
             crate::raster_extent::expand(layer, [0., 0., canvas[0], canvas[1]])?;
         }
         let transform = if mask_target {
@@ -145,7 +163,9 @@ impl Gradient {
                 );
                 let before = pixel[0] as f64 / 255.;
                 let gray = mask_color(top)[0];
-                *pixel = Luma([((before + (gray - before) * top[3]) * 255.).round() as u8]);
+                let result = Luma([((before + (gray - before) * top[3]) * 255.).round() as u8]);
+                changed |= *pixel != result;
+                *pixel = result;
             }
         } else {
             let LayerContent::Raster(pixels) = &mut layer.content else {
@@ -165,15 +185,25 @@ impl Gradient {
                     let top = color(
                         transform.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
                     );
-                    *pixel = Rgba(
+                    if top[3] == 0. {
+                        continue;
+                    }
+                    let result = Rgba(
                         Blend::Normal
                             .composite(pixel.0.map(|v| v as f64 / 255.), top)
                             .map(|v| (v * 255.).round() as u8),
                     );
+                    changed |= *pixel != result;
+                    *pixel = result;
                 }
             }
-            layer.shape = None;
-            layer.text = None;
+            if changed {
+                layer.shape = None;
+                layer.text = None;
+            }
+        }
+        if !changed {
+            *layer = original_layer;
         }
         Ok(())
     }
