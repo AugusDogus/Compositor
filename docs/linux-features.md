@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Pattern Overlay tiles imported Photoshop PAT patterns over a layer, with scale, opacity, preview and undo. Import supports 8-bit RGB and grayscale packs. Linux projects embed selected patterns; macOS and PSD receive rendered layers. Unused patterns remain available while the effects dialog is open.
+
 - Posterize reduces each color channel to 2–256 levels; 256 leaves colors unchanged. Direct pixel edits and editable adjustment layers support preview, masks and undo. Linux projects and PSD exports retain the settings.
 
 - Threshold converts colors to black or white at a chosen luminance level (0–255). Use it as a pixel edit or an editable adjustment layer, with preview, masks and undo. Linux projects and PSD exports preserve the adjustment; macOS receives a rendered compatibility copy.

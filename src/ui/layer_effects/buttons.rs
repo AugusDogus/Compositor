@@ -7,6 +7,9 @@ impl Editor {
     ) -> Element {
         let kind = edit.kind;
         let enabled = kind.enabled(&edit.effects);
+        if kind == EffectKind::Pattern && enabled.is_none() {
+            return div();
+        }
         let mut actions = div().flex_row().gap(8.).child(
             self.control(if enabled.is_none() {
                 "Add effect"
@@ -16,11 +19,17 @@ impl Editor {
                 "Show effect"
             })
             .id("effect-toggle")
+            .disabled(self.pending)
             .on_click(cx.listener("effect-toggle", move |this, cx| {
                 let color = this.tools.background.map(|c| c as f64 / 255.);
                 this.change_effect(|e| {
                     let visible = Some(!kind.enabled(&e.effects).unwrap_or(false));
                     match kind {
+                        EffectKind::Pattern => {
+                            if let Some(s) = &mut e.effects.pattern_overlay {
+                                s.settings.enabled = visible == Some(true);
+                            }
+                        }
                         EffectKind::Stroke => {
                             e.effects
                                 .stroke
@@ -68,6 +77,7 @@ impl Editor {
             actions = actions.child(self.control("Remove").id("effect-remove").on_click(
                 cx.listener("effect-remove", move |this, cx| {
                     this.change_effect(|e| match kind {
+                        EffectKind::Pattern => e.effects.pattern_overlay = None,
                         EffectKind::Stroke => e.effects.stroke = None,
                         EffectKind::Shadow => e.effects.shadow = None,
                         EffectKind::Overlay => e.effects.color_overlay = None,
@@ -136,6 +146,7 @@ impl Editor {
             .child(
                 self.control("Cancel")
                     .id("effects-cancel")
+                    .disabled(self.pending)
                     .on_click(cx.listener("effects-cancel", |this, cx| {
                         let r = this.finish_effects(false);
                         this.result(r, cx);
@@ -144,7 +155,7 @@ impl Editor {
             .child(
                 self.control("OK")
                     .id("effects-apply")
-                    .disabled(!edit.error.is_empty())
+                    .disabled(self.pending || !edit.error.is_empty())
                     .on_click(cx.listener("effects-apply", |this, cx| {
                         let r = this.finish_effects(true);
                         this.result(r, cx);

@@ -1,4 +1,4 @@
-struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32>, insideGlow: vec4<f32> }
+struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32>, insideGlow: vec4<f32>, pattern: vec4<u32>, tile: vec4<f32> }
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var<storage,read> pixels: array<u32>;
 @group(0) @binding(2) var<storage,read> input: array<f32>;
@@ -10,6 +10,20 @@ struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow:
 @group(0) @binding(8) var<storage,read> glow: array<f32>;
 fn alpha(i:u32)->f32 { return f32(pixels[i]>>24u)/255.; }
 fn over(base:vec4<f32>,color:vec3<f32>,a:f32)->vec4<f32> { return vec4<f32>(color*a,a)+base*(1.-a); }
+fn pattern_sample(point:vec2<f32>) -> vec4<f32> {
+ let position=point/p.tile.x-vec2(0.5); let base=floor(position); let f=fract(position);
+ let size=vec2<f32>(p.pattern.yz); var total=vec4<f32>(0.);
+ for(var y=0u;y<2u;y++){for(var x=0u;x<2u;x++){
+  let at=base+vec2<f32>(f32(x),f32(y));
+  let wrapped=vec2<u32>(at-floor(at/size)*size);
+  let packed=pixels[p.pattern.x+wrapped.y*p.pattern.y+wrapped.x];
+  let sample=vec4<f32>(f32(packed&255u),f32((packed>>8u)&255u),f32((packed>>16u)&255u),f32(packed>>24u))/255.;
+  let weight=select(1.-f.x,f.x,x==1u)*select(1.-f.y,f.y,y==1u);
+  total+=vec4(sample.rgb*sample.a,sample.a)*weight;
+ }}
+ if total.a>0. {return vec4(total.rgb/total.a,total.a);}
+ return total;
+}
 @compute @workgroup_size(16,16)
 fn effects(@builtin(global_invocation_id) gid:vec3<u32>) {
  let w=p.size.x; let h=p.size.y; if gid.x>=w || gid.y>=h {return;} let i=gid.y*w+gid.x; let phase=p.size.z;
@@ -45,6 +59,10 @@ fn effects(@builtin(global_invocation_id) gid:vec3<u32>) {
  if p.flags.z==1u {color=over(color,p.shadow.xyz,shadow[i]*p.shadow.w);}
  if p.more.x==1u {color=over(color,p.glow.xyz,glow[i]*(1.-source.a)*p.glow.w);}
  if p.flags.x==1u && p.flags.y==0u {color=over(color,p.stroke.xyz,ring[i]*p.stroke.w);}
+ if p.pattern.w==1u {
+  let tile=pattern_sample(vec2<f32>(gid.xy)+vec2(0.5-p.tile.z));
+  source=vec4(mix(source.rgb,tile.rgb,tile.a*p.tile.y),source.a);
+ }
  source=vec4<f32>(mix(source.xyz,p.overlay.xyz,p.overlay.w),source.a);
  if p.more.y==1u {
   let a=clamp(source.a*(1.-input[i])*p.insideGlow.w,0.,1.);

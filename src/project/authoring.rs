@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
 mod path_shapes;
+mod patterns;
 
 pub(super) const NAME: &str = "linux-editing.json";
 const SOURCE: &str = "authoring";
@@ -44,6 +45,8 @@ struct Settings {
     artboards: Vec<SavedArtboard>,
     #[serde(default)]
     path_shapes: Vec<path_shapes::Saved>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    patterns: Vec<patterns::Saved>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -76,10 +79,14 @@ pub(super) fn needed(document: &Document) -> bool {
 }
 fn rendered_projection_needed(document: &Document) -> bool {
     document.layers.iter().any(|layer| {
-        matches!(
-            layer.content,
-            LayerContent::ExtendedAdjustment(_) | LayerContent::Artboard(_)
-        )
+        layer
+            .effects
+            .as_ref()
+            .is_some_and(|e| e.pattern_overlay.is_some())
+            || matches!(
+                layer.content,
+                LayerContent::ExtendedAdjustment(_) | LayerContent::Artboard(_)
+            )
     })
 }
 pub(super) fn present(path: &Path) -> Result<bool> {
@@ -129,6 +136,7 @@ fn sources(document: &Document) -> (Document, Settings) {
     let mut source = document.clone();
     let paths = std::mem::take(&mut source.paths);
     let path_shapes = path_shapes::extract(&mut source);
+    let patterns = patterns::extract(&mut source);
     let mut layers = Vec::new();
     let mut artboards = Vec::new();
     for layer in &mut source.layers {
@@ -150,11 +158,12 @@ fn sources(document: &Document) -> (Document, Settings) {
     (
         source,
         Settings {
-            version: 4,
+            version: if patterns.is_empty() { 4 } else { 5 },
             layers,
             paths,
             artboards,
             path_shapes,
+            patterns,
         },
     )
 }
@@ -164,7 +173,7 @@ pub(super) fn validate_metadata(document: &Document) -> Result<()> {
     native_metadata(&source)?;
     if serde_json::to_vec(&settings)?.len() as u64 > MANIFEST_LIMIT {
         return Err(invalid(
-            "Linux editing metadata exceeds 4 MiB. Choose fewer size variants; the document is unchanged.",
+            "Linux editing metadata exceeds 4 MiB. Reduce the number of editable layers, paths or effects before applying this edit.",
         ));
     }
     // Fixed namespace entries are bounded without encoding images or hashing
@@ -175,6 +184,7 @@ pub(super) fn validate_metadata(document: &Document) -> Result<()> {
         format!("{SOURCE}/{SETTINGS}"),
         format!("images/{}", asset_name(document.id, false)),
     ];
+    names.extend(patterns::asset_names(&settings.patterns));
     let mut raw_sources = HashSet::new();
     for layer in &source.layers {
         if layer.raster().is_some() {
@@ -219,6 +229,7 @@ pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Resul
     fs::create_dir(&source_path)?;
     let (source, settings) = sources(document);
     write_native(&source, &source_path)?;
+    patterns::write(document, &source_path)?;
     write_json(&source_path.join(SETTINGS), &settings)?;
     if purpose == Purpose::Recovery {
         // Deliberately not a native manifest. A damaged recovery snapshot must
@@ -294,17 +305,20 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     }
     let source_path = path.join(SOURCE);
     let settings: Settings = read_json(&root, &source_path.join(SETTINGS))?;
-    if !matches!(settings.version, 1..=4)
+    if !matches!(settings.version, 1..=5)
         || (settings.version == 1 && !settings.paths.is_empty())
         || (settings.version < 3 && !settings.artboards.is_empty())
         || (settings.version < 4 && !settings.path_shapes.is_empty())
+        || (settings.version < 5 && !settings.patterns.is_empty())
         || (settings.layers.is_empty()
             && settings.paths.is_empty()
             && settings.artboards.is_empty()
-            && settings.path_shapes.is_empty())
+            && settings.path_shapes.is_empty()
+            && settings.patterns.is_empty())
         || settings.artboards.len() > 10_000
         || settings.layers.len() > 10_000
         || settings.path_shapes.len() > 10_000
+        || settings.patterns.len() > 10_000
     {
         return Err(invalid(
             "The Linux editing snapshot has an unsupported version or invalid source count.",
@@ -326,12 +340,14 @@ pub(super) fn load(path: &Path) -> Result<Document> {
         }
     }
     path_shapes::validate(&settings.path_shapes, &mut seen)?;
-    // No compatibility image is decoded: source pixels alone consume the
-    // document allocation budget.
-    let mut document = load_native_checked(&source_path, |source| {
+    let pattern_pixels = patterns::preflight(&root, &source_path, &settings.patterns)?;
+    // Reserve tile pixels before decoding source layers. The compatibility
+    // image is not decoded when editable sources are available.
+    let mut document = load_native_checked(&source_path, pattern_pixels, |source| {
         let mut metadata = source.clone();
         restore_artboards(&mut metadata, &settings.artboards)?;
         path_shapes::preflight(source, &settings.path_shapes)?;
+        patterns::validate_layers(source, &settings.patterns)?;
         metadata.validate()
     })?;
     document.paths = settings.paths;
@@ -350,6 +366,7 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     }
     restore_artboards(&mut document, &settings.artboards)?;
     path_shapes::restore(&mut document, settings.path_shapes)?;
+    patterns::restore(&mut document, &source_path, settings.patterns)?;
     document.validate()?;
     Ok(document)
 }
@@ -395,7 +412,7 @@ fn file_names(path: &Path) -> Result<Vec<String>> {
                 Err(error) => return Err(error.into()),
             }
         }
-        for folder in ["images", "raw"] {
+        for folder in ["images", "raw", "patterns"] {
             let relative = format!("{prefix}{folder}");
             let directory = path.join(&relative);
             match fs::symlink_metadata(&directory) {

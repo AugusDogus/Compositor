@@ -3,6 +3,9 @@ use crate::{Result, effects::LayerEffects, invalid};
 use image::RgbaImage;
 use wgpu::util::DeviceExt;
 
+// Twelve vec4 blocks in effects.wgsl, shared by every effects-pipeline caller.
+pub(super) const PARAMETER_WORDS: usize = 48;
+
 pub(in crate::render) fn render(
     image: &RgbaImage,
     effects: &LayerEffects,
@@ -20,7 +23,9 @@ pub(in crate::render) fn render(
 impl Engine {
     fn effects(&mut self, image: &RgbaImage, effects: &LayerEffects) -> Result<Option<RgbaImage>> {
         let bytes = image.len() as u64;
-        if bytes > self.device.limits().max_storage_buffer_binding_size {
+        let pattern = effects.pattern_overlay.as_ref();
+        let pattern_bytes = pattern.map_or(0, |s| s.pattern.pixels().len() as u64);
+        if bytes + pattern_bytes > self.device.limits().max_storage_buffer_binding_size {
             return Ok(None);
         }
         let errors = crate::gpu::ErrorScopes::new(&self.device);
@@ -33,11 +38,20 @@ impl Engine {
             })
         };
         let storage = wgpu::BufferUsages::STORAGE;
+        let mut combined = Vec::new();
+        let pixel_bytes = if let Some(pattern) = pattern {
+            combined.reserve(image.len() + pattern.pattern.pixels().len());
+            combined.extend_from_slice(image.as_raw());
+            combined.extend_from_slice(pattern.pattern.pixels().as_raw());
+            combined.as_slice()
+        } else {
+            image.as_raw().as_slice()
+        };
         let pixels = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Effects source"),
-                contents: image.as_raw(),
+                contents: pixel_bytes,
                 usage: storage,
             });
         let planes: Vec<_> = (0..9)
@@ -81,7 +95,16 @@ impl Engine {
             .inner_glow
             .as_ref()
             .filter(|s| s.size > 0. && s.opacity > 0.);
-        let mut params = [0u32; 40];
+        let mut params = [0u32; PARAMETER_WORDS];
+        if let Some(s) = pattern {
+            params[40] = (bytes / 4) as u32;
+            params[41] = s.pattern.pixels().width();
+            params[42] = s.pattern.pixels().height();
+            params[43] = 1;
+            params[44] = (s.settings.scale as f32).to_bits();
+            params[45] = (s.settings.opacity as f32).to_bits();
+            params[46] = (effects.margin() as f32).to_bits();
+        }
         params[0] = image.width();
         params[1] = image.height();
         let colors = [
@@ -209,6 +232,53 @@ mod tests {
     use image::Rgba;
     #[test]
     #[ignore = "Requires a hardware Vulkan adapter"]
+    fn pattern_gpu_matches_cpu_for_scaled_transparent_tiles_and_effect_padding() {
+        let mut engine = Engine::new().unwrap();
+        let image = RgbaImage::from_fn(31, 23, |x, y| {
+            Rgba([73, 91, 121, if x < 3 || y < 3 { 0 } else { (x * 7) as u8 }])
+        });
+        let pattern = crate::pattern::Pattern::from_pixels(
+            "Alpha tile",
+            RgbaImage::from_fn(3, 2, |x, y| {
+                Rgba([
+                    x as u8 * 120,
+                    y as u8 * 240,
+                    91,
+                    if x == y { 0 } else { 173 },
+                ])
+            }),
+        )
+        .unwrap();
+        for scale in [0.05, 0.7, 1., 1.7, 20.] {
+            let mut overlay = crate::pattern::Overlay::new(pattern.clone());
+            overlay.settings.scale = scale;
+            overlay.settings.opacity = 0.73;
+            let effects = LayerEffects {
+                pattern_overlay: Some(Box::new(overlay)),
+                color_overlay: Some(ColorOverlayEffect {
+                    red: 0.4,
+                    opacity: 0.2,
+                    ..Default::default()
+                }),
+                shadow: Some(ShadowEffect {
+                    blur: 1.3,
+                    distance: 3.7,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            let gpu = engine.effects(&image, &effects).unwrap().unwrap();
+            let cpu = crate::effects::cpu::render(&image, &effects);
+            for (i, (a, b)) in gpu.as_raw().iter().zip(cpu.as_raw()).enumerate() {
+                assert!(
+                    a.abs_diff(*b) <= 1,
+                    "scale={scale} byte={i} gpu={a} cpu={b}"
+                );
+            }
+        }
+    }
+    #[test]
+    #[ignore = "Requires a hardware Vulkan adapter"]
     fn effects_gpu_matches_reference_for_every_effect_and_fractional_shadow() {
         let mut engine = Engine::new().unwrap();
         let image = RgbaImage::from_fn(67, 59, |x, y| {
@@ -225,6 +295,7 @@ mod tests {
         });
         for inside in [false, true] {
             let effects = LayerEffects {
+                pattern_overlay: None,
                 inner_glow: Some(InnerGlowEffect {
                     size: 6.3,
                     red: 0.4,

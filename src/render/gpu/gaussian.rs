@@ -112,7 +112,7 @@ impl Engine {
             mapped_at_creation: false,
         });
         for (phase, source, destination) in [(5, input, rows), (6, rows, columns)] {
-            let mut params = [0u32; 40];
+            let mut params = [0u32; super::effects::PARAMETER_WORDS];
             params[0] = size[0];
             params[1] = size[1];
             params[2] = phase;

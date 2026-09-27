@@ -70,6 +70,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Camera RAW development | ✅ | ✅[^raw] | ⚠️ Nikon/Canon[^raw] |
 | Stroke, drop shadow, color overlay and inner shadow | ✅ | ✅ | ❌ |
 | Outer Glow and Inner Glow | ✅ | ✅ | ❌ |
+| Pattern Overlay and PAT import | ❌ | ✅ | ❌ |
 | Line shapes | ✅ | ✅ | ❌ |
 | Selection feathering | ✅ | ✅ | ✅ |
 | Soft Light blend mode | ✅ | ✅ | ❌ |

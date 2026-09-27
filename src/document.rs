@@ -352,9 +352,20 @@ impl Document {
         }
         let mut pixels = 0_u64;
         let mut mask_pixels = 0_u64;
+        let mut pattern_sources = HashSet::new();
         let mut raw_sources = HashSet::new();
         let mut raw_bytes = 0_u64;
         for layer in &self.layers {
+            if let Some(overlay) = layer
+                .effects
+                .as_ref()
+                .and_then(|e| e.pattern_overlay.as_ref())
+            {
+                let tile = overlay.pattern.pixels();
+                if pattern_sources.insert(Arc::as_ptr(tile)) {
+                    pixels += u64::from(tile.width()) * u64::from(tile.height());
+                }
+            }
             if let Some(shape) = layer.path_shape() {
                 shape.source().validate()?;
                 if layer.text.is_some() || layer.shape.is_some() || layer.raw.is_some() {

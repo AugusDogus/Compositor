@@ -183,6 +183,7 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
                 gaussian(&shape, width, height, (s.size / 2.) as f32)
             }
         });
+    let inset = f64::from(effects.margin());
     RgbaImage::from_fn(image.width(), image.height(), |x, y| {
         let i = y as usize * width + x as usize;
         let mut out = [0.; 4];
@@ -208,6 +209,14 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> RgbaImage {
                 source[c] = source[c] * (1. - coverage) + color[c] as f32 * coverage;
             }
         };
+        if let Some(s) = &effects.pattern_overlay {
+            let rgba = s.sample([f64::from(x) + 0.5 - inset, f64::from(y) + 0.5 - inset]);
+            tint(
+                &mut source,
+                [rgba[0], rgba[1], rgba[2]],
+                (rgba[3] * s.settings.opacity) as f32,
+            );
+        }
         if let Some(s) = &effects.color_overlay {
             tint(&mut source, [s.red, s.green, s.blue], s.opacity as f32);
         }

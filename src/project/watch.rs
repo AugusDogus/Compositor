@@ -96,7 +96,7 @@ fn hash_authoring(path: &Path, hash: &mut impl Hasher) -> Result<()> {
         name.hash(hash);
         hash_optional_entry(&source.join(name), hash, true)?;
     }
-    for name in ["images", "raw"] {
+    for name in ["images", "raw", "patterns"] {
         name.hash(hash);
         let directory = source.join(name);
         if !hash_optional_entry(&directory, hash, false)?.is_some_and(|m| m.is_dir()) {

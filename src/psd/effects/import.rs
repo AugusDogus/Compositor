@@ -176,6 +176,7 @@ pub(in crate::psd) fn decode(e: &ps::LayerEffectsInfo) -> Mapping<LayerEffects> 
         })
         .transpose()?;
     let effects = LayerEffects {
+        pattern_overlay: None,
         stroke,
         color_overlay,
         outer_glow,

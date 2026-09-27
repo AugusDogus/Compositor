@@ -26,6 +26,7 @@ fn document(effects: LayerEffects) -> Document {
 }
 fn effects() -> LayerEffects {
     LayerEffects {
+        pattern_overlay: None,
         stroke: Some(StrokeEffect {
             size: 2.,
             red: 1.,

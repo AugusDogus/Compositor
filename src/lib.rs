@@ -76,6 +76,7 @@ pub fn invalid(message: impl Into<String>) -> Error {
 
 pub mod path_operations;
 pub mod path_shape;
+pub mod pattern;
 pub mod update;
 pub mod vector_path;
 

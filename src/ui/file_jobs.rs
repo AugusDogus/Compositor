@@ -4,6 +4,10 @@ use compositor::{document::Layer, invalid};
 use uuid::Uuid;
 
 pub(super) enum FileJob {
+    PatternPack {
+        request: super::layer_effects::pattern::Request,
+        path: PathBuf,
+    },
     BrushTip(PathBuf),
     BrushTips {
         pack: Arc<compositor::brush::sampled::abr::Pack>,
@@ -49,6 +53,10 @@ pub(super) enum FileJob {
 }
 
 pub(super) enum Completed {
+    PatternPack {
+        request: super::layer_effects::pattern::Request,
+        imported: super::layer_effects::pattern::Imported,
+    },
     BrushTip(compositor::brush::sampled::Tip),
     BrushPack(compositor::brush::sampled::abr::Pack),
     BrushHose(compositor::brush::sampled::gih::Hose),
@@ -75,7 +83,9 @@ impl FileJob {
     fn operation(&self) -> alerts::Operation {
         match self {
             Self::Open(_) | Self::OpenRenderedCopy(_) => alerts::Operation::Open,
-            Self::BrushTip(_) | Self::BrushTips { .. } => alerts::Operation::Import,
+            Self::PatternPack { .. } | Self::BrushTip(_) | Self::BrushTips { .. } => {
+                alerts::Operation::Import
+            }
             Self::Import { .. } => alerts::Operation::Import,
             Self::Export { path, .. } => match path
                 .extension()
@@ -110,6 +120,10 @@ impl FileJob {
                     }],
                     failures: Vec::new(),
                 })
+            }
+            Self::PatternPack { request, path } => {
+                let imported = super::layer_effects::pattern::Imported::read(&path)?;
+                Ok(Completed::PatternPack { request, imported })
             }
             Self::BrushTip(path) => {
                 if path
@@ -319,6 +333,9 @@ impl Editor {
         _cx: &mut EventContext,
     ) -> Result<()> {
         match completed {
+            Completed::PatternPack { request, imported } => {
+                self.receive_pattern_pack(request, imported)?
+            }
             Completed::BrushTip(tip) => self.install_brush_tip(tip)?,
             Completed::BrushHose(hose) => self.install_brush_hose(hose)?,
             Completed::BrushPack(pack) => self.open_brush_pack(pack),

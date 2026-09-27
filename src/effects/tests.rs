@@ -147,6 +147,7 @@ fn effect_settings_and_disabled_flags_round_trip_with_undo() {
     session
         .edit("Layer Effects", |doc| {
             doc.layers[0].effects = Some(LayerEffects {
+                pattern_overlay: None,
                 stroke: Some(StrokeEffect {
                     enabled: Some(false),
                     size: 500.,
@@ -431,4 +432,53 @@ fn inner_glow_is_clipped_to_shape_and_preserves_editable_schema() {
         crate::project::load(&path).unwrap().layers[0].effects,
         Some(effects)
     );
+}
+
+#[test]
+fn pattern_origin_survives_effect_padding_and_follows_layer_transform() {
+    let mut doc = crate::document::Document::new(12, 8).unwrap();
+    doc.layers[0].content = crate::document::LayerContent::Raster(Some(std::sync::Arc::new(
+        RgbaImage::from_pixel(4, 2, Rgba([40, 80, 120, 128])),
+    )));
+    doc.layers[0].transform = crate::geometry::Transform::new(4, 2);
+    let pattern = crate::pattern::Pattern::from_pixels(
+        "Tile",
+        RgbaImage::from_fn(2, 1, |x, _| {
+            if x == 0 {
+                Rgba([255, 0, 0, 255])
+            } else {
+                Rgba([0, 0, 255, 0])
+            }
+        }),
+    )
+    .unwrap();
+    doc.layers[0].effects = Some(LayerEffects {
+        pattern_overlay: Some(Box::new(crate::pattern::Overlay::new(pattern))),
+        ..Default::default()
+    });
+    let before = crate::render::render(&doc, 12, 8).unwrap();
+    assert_eq!(before[(0, 0)], Rgba([255, 0, 0, 128]));
+    assert_eq!(before[(1, 0)], Rgba([40, 80, 120, 128]));
+    doc.layers[0].effects.as_mut().unwrap().shadow = Some(ShadowEffect {
+        distance: 7.,
+        blur: 1.,
+        opacity: 0.,
+        ..Default::default()
+    });
+    assert_eq!(crate::render::render(&doc, 12, 8).unwrap(), before);
+    doc.layers[0].transform.origin = [3., 2.];
+    let moved = crate::render::render(&doc, 12, 8).unwrap();
+    assert_eq!(moved[(3, 2)], before[(0, 0)]);
+    assert_eq!(moved[(4, 2)], before[(1, 0)]);
+    doc.layers[0]
+        .effects
+        .as_mut()
+        .unwrap()
+        .pattern_overlay
+        .as_mut()
+        .unwrap()
+        .settings
+        .enabled = false;
+    let hidden = crate::render::render(&doc, 12, 8).unwrap();
+    assert_eq!(hidden[(3, 2)], Rgba([40, 80, 120, 128]));
 }

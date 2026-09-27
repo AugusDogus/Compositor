@@ -26,12 +26,18 @@ impl Editor {
         let kind = edit.kind;
         let enabled = kind.enabled(&edit.effects);
         content = content.child(self.effect_actions(cx, edit));
+        if kind == EffectKind::Pattern {
+            content = content.child(self.pattern_controls(cx, edit));
+        }
         if enabled.is_some() {
-            content = content.child(self.effect_color_controls(cx, edit));
+            if kind != EffectKind::Pattern {
+                content = content.child(self.effect_color_controls(cx, edit));
+            }
             let parameters = match kind {
                 EffectKind::Stroke | EffectKind::Glow | EffectKind::InnerGlow => {
                     vec![Parameter::Size, Parameter::Opacity]
                 }
+                EffectKind::Pattern => vec![Parameter::Scale, Parameter::Opacity],
                 EffectKind::Overlay => vec![Parameter::Opacity],
                 _ => vec![
                     Parameter::Opacity,
@@ -130,6 +136,7 @@ impl Editor {
             .child(self.scalar_slider(
                 cx,
                 match parameter {
+                    Parameter::Scale => "effect-scale",
                     Parameter::Opacity => "effect-opacity",
                     Parameter::Size => "effect-size",
                     Parameter::Angle => "effect-angle",

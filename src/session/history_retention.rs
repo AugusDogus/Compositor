@@ -73,6 +73,16 @@ fn visit_assets(document: &Document, seen: &mut HashSet<usize>) -> usize {
         });
     }
     for layer in &document.layers {
+        if let Some(overlay) = layer
+            .effects
+            .as_ref()
+            .and_then(|e| e.pattern_overlay.as_ref())
+        {
+            let tile = overlay.pattern.pixels();
+            if seen.insert(Arc::as_ptr(tile) as usize) {
+                bytes = bytes.saturating_add(tile.as_raw().len());
+            }
+        }
         if let Some(shape) = layer.path_shape()
             && seen.insert(std::ptr::from_ref(shape.source()) as usize)
         {

@@ -104,11 +104,12 @@ pub fn load(path: &Path) -> Result<Document> {
 }
 
 fn load_native(path: &Path) -> Result<Document> {
-    load_native_checked(path, |_| Ok(()))
+    load_native_checked(path, 0, |_| Ok(()))
 }
 
 fn load_native_checked(
     path: &Path,
+    reserved_pixels: u64,
     preflight: impl FnOnce(&Document) -> Result<()>,
 ) -> Result<Document> {
     let root = path.canonicalize()?;
@@ -235,7 +236,7 @@ fn load_native_checked(
     }
     doc.validate()?;
     preflight(&doc)?;
-    let mut source_pixels = 0_u64;
+    let mut source_pixels = reserved_pixels;
     let mut mask_pixels = 0_u64;
     for (layer, record) in doc.layers.iter_mut().zip(manifest.layers) {
         for (filename, is_mask) in [(record.image_file, false), (record.mask_file, true)] {
@@ -374,7 +375,9 @@ fn save_checked_for(
     Ok(saved_fingerprint)
 }
 
-pub(crate) fn validate_storage_metadata(document: &Document) -> Result<()> {
+/// Checks project metadata limits without encoding raster assets.
+/// Call before committing edits that can substantially increase stored metadata.
+pub fn validate_storage_metadata(document: &Document) -> Result<()> {
     raw::validate_metadata(document)?;
     editors::metadata(document)?;
     if authoring::needed(document) {
@@ -386,6 +389,9 @@ pub(crate) fn validate_storage_metadata(document: &Document) -> Result<()> {
 
 fn native_metadata(document: &Document) -> Result<Vec<u8>> {
     let records = document.layers.iter().map(|layer| {
+        if layer.effects.as_ref().is_some_and(|e| e.pattern_overlay.is_some()) {
+            return Err(invalid("Pattern Overlay requires a Linux authoring snapshot."));
+        }
         let image_file = layer.raster().map(|_| asset_name(layer.id, false));
         let mask_file = layer.mask.as_ref().map(|_| asset_name(layer.id, true));
         Ok(Record {

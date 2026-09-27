@@ -16,6 +16,13 @@ struct Entry {
     effects: LayerEffects,
     rendered: Arc<RgbaImage>,
 }
+fn retained_bytes(effects: &LayerEffects, rendered: &RgbaImage) -> usize {
+    rendered.len()
+        + effects
+            .pattern_overlay
+            .as_ref()
+            .map_or(0, |s| s.pattern.pixels().len())
+}
 static CACHE: OnceLock<Mutex<Vec<Entry>>> = OnceLock::new();
 fn cache() -> &'static Mutex<Vec<Entry>> {
     CACHE.get_or_init(|| Mutex::new(Vec::new()))
@@ -78,12 +85,17 @@ fn surface(
         None
     };
     let rendered = Arc::new(gpu.unwrap_or_else(|| super::cpu::render(&padded, effects)));
-    if rendered.len() <= 64 * 1024 * 1024
+    let retained = retained_bytes(effects, &rendered);
+    if retained <= 64 * 1024 * 1024
         && let Ok(mut entries) = cache().lock()
     {
         entries.retain(|e| e.source.strong_count() > 0);
         while entries.len() >= 8
-            || entries.iter().map(|e| e.rendered.len()).sum::<usize>() + rendered.len()
+            || entries
+                .iter()
+                .map(|e| retained_bytes(&e.effects, &e.rendered))
+                .sum::<usize>()
+                + retained
                 > 64 * 1024 * 1024
         {
             if entries.is_empty() {

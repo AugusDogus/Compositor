@@ -1,6 +1,7 @@
 //! Nondestructive layer effects with one undo entry per confirmed editing session.
 mod buttons;
 mod controls;
+pub(super) mod pattern;
 #[cfg(test)]
 mod tests;
 use super::*;
@@ -15,18 +16,21 @@ pub(super) enum EffectKind {
     Inner,
     Glow,
     InnerGlow,
+    Pattern,
 }
 impl EffectKind {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self::Stroke,
         Self::Shadow,
         Self::Overlay,
         Self::Inner,
         Self::Glow,
         Self::InnerGlow,
+        Self::Pattern,
     ];
     fn label(self) -> &'static str {
         match self {
+            Self::Pattern => "Pattern Overlay",
             Self::Stroke => "Stroke",
             Self::Shadow => "Drop Shadow",
             Self::Overlay => "Color Overlay",
@@ -37,6 +41,7 @@ impl EffectKind {
     }
     fn enabled(self, e: &LayerEffects) -> Option<bool> {
         match self {
+            Self::Pattern => e.pattern_overlay.as_ref().map(|s| s.settings.enabled),
             Self::Stroke => e.stroke.as_ref().map(|s| s.enabled != Some(false)),
             Self::Shadow => e.shadow.as_ref().map(|s| s.enabled != Some(false)),
             Self::Overlay => e.color_overlay.as_ref().map(|s| s.enabled != Some(false)),
@@ -47,6 +52,7 @@ impl EffectKind {
     }
     fn color(self, e: &LayerEffects) -> [f64; 3] {
         match self {
+            Self::Pattern => None,
             Self::Stroke => e.stroke.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Shadow => e.shadow.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Overlay => e.color_overlay.as_ref().map(|s| [s.red, s.green, s.blue]),
@@ -65,6 +71,7 @@ pub(super) struct EffectsEditor {
     color: String,
     error: String,
     copy_to: bool,
+    patterns: pattern::Choices,
 }
 #[derive(Clone, Copy)]
 pub(super) enum Parameter {
@@ -73,10 +80,12 @@ pub(super) enum Parameter {
     Angle,
     Distance,
     Blur,
+    Scale,
 }
 impl Parameter {
     fn label(self) -> &'static str {
         match self {
+            Self::Scale => "Scale (%)",
             Self::Opacity => "Opacity (%)",
             Self::Size => "Size (px)",
             Self::Angle => "Angle (°)",
@@ -86,6 +95,7 @@ impl Parameter {
     }
     fn range(self) -> (f64, f64) {
         match self {
+            Self::Scale => (5., 2000.),
             Self::Opacity => (0., 100.),
             Self::Size | Self::Blur => (0., 500.),
             Self::Angle => (-360., 360.),
@@ -104,6 +114,7 @@ impl EffectsEditor {
     pub(super) fn set_color(&mut self, rgb: [u8; 4]) {
         let [r, g, b, _] = rgb.map(|v| f64::from(v) / 255.);
         match self.kind {
+            EffectKind::Pattern => {}
             EffectKind::Stroke => {
                 if let Some(s) = &mut self.effects.stroke {
                     (s.red, s.green, s.blue) = (r, g, b);
@@ -146,6 +157,15 @@ impl EffectsEditor {
     }
     pub(super) fn number(&self, p: Parameter) -> f64 {
         match self.kind {
+            EffectKind::Pattern => self
+                .effects
+                .pattern_overlay
+                .as_ref()
+                .map_or(0., |s| match p {
+                    Parameter::Scale => s.settings.scale * 100.,
+                    Parameter::Opacity => s.settings.opacity * 100.,
+                    _ => 0.,
+                }),
             EffectKind::Stroke => self.effects.stroke.as_ref().map_or(0., |s| match p {
                 Parameter::Opacity => s.opacity * 100.,
                 Parameter::Size => s.size,
@@ -185,6 +205,15 @@ impl EffectsEditor {
     }
     pub(super) fn set_number(&mut self, p: Parameter, value: f64) {
         match self.kind {
+            EffectKind::Pattern => {
+                if let Some(s) = &mut self.effects.pattern_overlay {
+                    match p {
+                        Parameter::Scale => s.settings.scale = value / 100.,
+                        Parameter::Opacity => s.settings.opacity = value / 100.,
+                        _ => {}
+                    }
+                }
+            }
             EffectKind::Stroke => {
                 if let Some(s) = &mut self.effects.stroke {
                     match p {
@@ -283,6 +312,7 @@ impl Editor {
             color: String::new(),
             error: String::new(),
             copy_to: false,
+            patterns: pattern::Choices::default(),
         };
         edit.kind = EffectKind::ALL
             .into_iter()
@@ -294,11 +324,15 @@ impl Editor {
         Ok(())
     }
     pub(super) fn change_effect(&mut self, change: impl FnOnce(&mut EffectsEditor)) {
+        if self.pending {
+            return;
+        }
         let Some(Form::Effects(edit)) = &mut self.modal else {
             return;
         };
         change(edit);
-        if edit.kind.enabled(&edit.effects).is_some()
+        if edit.kind != EffectKind::Pattern
+            && edit.kind.enabled(&edit.effects).is_some()
             && compositor::palette::parse_hex(&edit.color).is_err()
         {
             edit.error = "Enter an RGB color such as #336699.".into();
@@ -340,6 +374,7 @@ impl Editor {
             })?;
         let effects = layer.effects.get_or_insert_default();
         match kind {
+            EffectKind::Pattern => effects.pattern_overlay = source.pattern_overlay,
             EffectKind::Stroke => effects.stroke = source.stroke,
             EffectKind::Shadow => effects.shadow = source.shadow,
             EffectKind::Overlay => effects.color_overlay = source.color_overlay,
@@ -364,6 +399,7 @@ impl Editor {
             {
                 return Err(compositor::invalid(e.error.clone()));
             }
+            compositor::project::validate_storage_metadata(&self.session().document)?;
             self.session_mut().commit()?;
         } else {
             self.session_mut().cancel();

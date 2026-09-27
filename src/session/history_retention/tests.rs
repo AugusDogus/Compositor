@@ -161,3 +161,52 @@ fn undo_releases_a_future_image_that_exceeds_the_production_budget() {
     assert!(s.redo_label().is_none());
     assert!(retained.upgrade().is_none());
 }
+
+#[test]
+fn pattern_history_counts_shared_tiles_once_and_excludes_live_tiles() {
+    let mut doc = document(1);
+    let pattern =
+        crate::pattern::Pattern::from_pixels("Tile", RgbaImage::from_pixel(8, 8, Rgba([77; 4])))
+            .unwrap();
+    doc.layers[0].effects = Some(crate::effects::LayerEffects {
+        pattern_overlay: Some(Box::new(crate::pattern::Overlay::new(pattern))),
+        ..Default::default()
+    });
+    let mut duplicate = doc.layers[0].clone();
+    duplicate.id = Uuid::new_v4();
+    doc.add(duplicate).unwrap();
+    let mut session = Session::new(doc, None);
+    session
+        .edit("Pattern opacity", |doc| {
+            doc.layers[0]
+                .effects
+                .as_mut()
+                .unwrap()
+                .pattern_overlay
+                .as_mut()
+                .unwrap()
+                .settings
+                .opacity = 0.5;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(session.retained_history_bytes(Canvas::Visible), 0);
+    session
+        .edit("Remove patterns", |doc| {
+            for layer in &mut doc.layers {
+                layer.effects = None;
+            }
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(session.retained_history_bytes(Canvas::Visible), 8 * 8 * 4);
+    session.undo();
+    assert!(
+        session.document.layers[0]
+            .effects
+            .as_ref()
+            .unwrap()
+            .pattern_overlay
+            .is_some()
+    );
+}
