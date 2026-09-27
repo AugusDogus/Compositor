@@ -4,6 +4,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Dodge, Burn and Sponge brushes support pressure, selection-aware strokes and undo. Dodge/Burn offer tonal ranges; Sponge can saturate or desaturate. Large unselected strokes use Vulkan when available.
 - Unsharp Mask sharpens raster layers with amount, radius and threshold controls, selection-aware preview and undo.
 - High Pass isolates edges around neutral gray, with radius control, selection-aware preview and undo.
 - Still GIF import/export supports up to 256 colors. Export makes alpha below 50% transparent and the rest opaque; animation editing is not supported.

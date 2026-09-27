@@ -17,6 +17,11 @@ pub(super) fn mask_picker() -> Dropdown<bool> {
 
 impl Editor {
     pub(super) fn brush_header(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        let opacity_label = match self.tools.tool {
+            Tool::Dodge | Tool::Burn => "Exposure",
+            Tool::Blur | Tool::Smudge | Tool::Liquify | Tool::Sponge => "Strength",
+            _ => "Opacity",
+        };
         let mut row = div()
             .flex_row()
             .items_center()
@@ -68,29 +73,19 @@ impl Editor {
                     (0., 100.),
                 ),
             )
-            .child(
-                self.scrub_label(
-                    cx,
-                    "brush-opacity-label",
-                    Scalar::BrushOpacity,
-                    (1., 100.),
-                    1.,
-                    text(
-                        if matches!(self.tools.tool, Tool::Blur | Tool::Smudge | Tool::Liquify) {
-                            "Strength"
-                        } else {
-                            "Opacity"
-                        },
-                    )
-                    .text_size(12.)
-                    .line_height(15.),
-                ),
-            )
+            .child(self.scrub_label(
+                cx,
+                "brush-opacity-label",
+                Scalar::BrushOpacity,
+                (1., 100.),
+                1.,
+                text(opacity_label).text_size(12.).line_height(15.),
+            ))
             .child(
                 self.scalar_slider(
                     cx,
                     "brush-opacity-slider",
-                    "Opacity",
+                    opacity_label,
                     Scalar::BrushOpacity,
                     (1., 100.),
                     100.,
@@ -126,7 +121,14 @@ impl Editor {
         }
         if matches!(
             self.tools.tool,
-            Tool::Brush | Tool::Erase | Tool::Clone | Tool::Blur | Tool::Heal
+            Tool::Brush
+                | Tool::Erase
+                | Tool::Clone
+                | Tool::Blur
+                | Tool::Heal
+                | Tool::Dodge
+                | Tool::Burn
+                | Tool::Sponge
         ) {
             row = row
                 .child(Self::segment("Pressure", self.tools.pen_pressure)
@@ -142,7 +144,13 @@ impl Editor {
             row = row.child(self.mask_paint_picker(cx));
         } else if !matches!(
             self.tools.tool,
-            Tool::Clone | Tool::Blur | Tool::Smudge | Tool::Liquify
+            Tool::Clone
+                | Tool::Blur
+                | Tool::Smudge
+                | Tool::Liquify
+                | Tool::Dodge
+                | Tool::Burn
+                | Tool::Sponge
         ) {
             row = row.child(self.header_foreground(cx, palette_controls::ForegroundStyle::Brush));
         }

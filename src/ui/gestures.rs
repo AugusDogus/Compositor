@@ -191,7 +191,14 @@ impl Editor {
                 return Ok(());
             }
             match self.tools.tool {
-                Tool::Brush | Tool::Erase | Tool::Clone | Tool::Blur | Tool::Heal => {
+                Tool::Brush
+                | Tool::Erase
+                | Tool::Clone
+                | Tool::Blur
+                | Tool::Heal
+                | Tool::Dodge
+                | Tool::Burn
+                | Tool::Sponge => {
                     if self.tools.tool == Tool::Clone && event.modifiers.contains(Modifiers::ALT) {
                         self.tools.clone_source = Some(point);
                         self.tools.clone_offset = None;
@@ -199,8 +206,12 @@ impl Editor {
                         return Ok(());
                     }
                     if !self.can_edit_pixels()
+                        || (self.tools.tool.is_tonal() && !self.can_paint_tonal())
                         || (self.tools.mask_target
-                            && matches!(self.tools.tool, Tool::Clone | Tool::Heal))
+                            && matches!(
+                                self.tools.tool,
+                                Tool::Clone | Tool::Heal | Tool::Dodge | Tool::Burn | Tool::Sponge
+                            ))
                     {
                         return Ok(());
                     }
@@ -218,6 +229,9 @@ impl Editor {
                     let mode = match self.tools.tool {
                         Tool::Erase if !self.tools.mask_target => PaintMode::Erase,
                         Tool::Blur => PaintMode::Blur,
+                        Tool::Dodge | Tool::Burn | Tool::Sponge => {
+                            PaintMode::Tonal(self.tonal_operation())
+                        }
                         Tool::Heal => PaintMode::Heal(self.tools.healing),
                         Tool::Clone => {
                             let offset = self.clone_stroke_offset(from).ok_or_else(|| {
@@ -236,6 +250,11 @@ impl Editor {
                             PaintMode::Paint => "Brush Stroke",
                             PaintMode::Erase => "Erase",
                             PaintMode::Blur => "Blur",
+                            PaintMode::Tonal(_) => match self.tools.tool {
+                                Tool::Dodge => "Dodge",
+                                Tool::Burn => "Burn",
+                                _ => "Sponge",
+                            },
                             PaintMode::Clone { .. } => "Clone Stamp",
                             PaintMode::Heal(_) => "Spot Healing",
                         }

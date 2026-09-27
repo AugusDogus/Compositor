@@ -39,6 +39,15 @@ impl Editor {
             Tool::Heal => {
                 "Drag over blemishes to heal · [ ] size · Shift-[ ] hardness · Escape cancel · Space to pan"
             }
+            Tool::Dodge => {
+                "Drag to lighten existing pixels · 100% exposure adds up to one stop · Range limits affected tones · 1–0 exposure"
+            }
+            Tool::Burn => {
+                "Drag to darken existing pixels · 100% exposure removes up to one stop · Range limits affected tones · 1–0 exposure"
+            }
+            Tool::Sponge => {
+                "Drag to change saturation · Choose Saturate or Desaturate · 1–0 strength · Escape cancel"
+            }
             Tool::Blur => {
                 "Drag to soften · [ ] size · Shift-[ ] hardness · 1–0 strength · Space to pan"
             }

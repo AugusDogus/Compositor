@@ -163,6 +163,11 @@ impl Editor {
                 Icon::Stamp,
                 "Clone Stamp (S) · Alt-click sets the source",
             ),
+            (
+                self.tools.tool_preferences.tonal(),
+                Icon::Exposure,
+                "Dodge · Burn · Sponge",
+            ),
             (smear, Icon::Droplet, "Smear (R)"),
             (Tool::Gradient, Icon::Gradient, "Gradient (G)"),
             (
@@ -183,6 +188,8 @@ impl Editor {
                 quickgui::ElementId::from("text-tool")
             } else if tool == Tool::Object {
                 quickgui::ElementId::from("object-tool")
+            } else if tool.is_tonal() {
+                quickgui::ElementId::from("tonal-tool")
             } else if matches!(tool, Tool::Brush | Tool::Erase) {
                 quickgui::ElementId::from("brush-tool")
             } else {
@@ -225,6 +232,7 @@ impl Editor {
                 } else {
                     Color::TRANSPARENT
                 })
+                .disabled(tool.is_tonal() && !self.can_paint_tonal())
                 .on_click(cx.listener(id, move |this, cx| this.select_tool(tool, cx)));
             tools = tools.child(item);
         }
@@ -309,6 +317,9 @@ impl Editor {
                 | Tool::Blur
                 | Tool::Smudge
                 | Tool::Liquify
+                | Tool::Dodge
+                | Tool::Burn
+                | Tool::Sponge
         ) {
             bar = bar.child(self.tool_family_controls(cx));
         }
@@ -322,6 +333,9 @@ impl Editor {
                 ),
             );
         }
+        if self.tools.tool.is_tonal() {
+            bar = bar.child(self.tonal_controls(cx));
+        }
         if matches!(self.tools.tool, Tool::Clone | Tool::Heal) {
             bar = bar.child(self.brush_mode_controls(cx));
         }
@@ -334,6 +348,9 @@ impl Editor {
                 | Tool::Blur
                 | Tool::Smudge
                 | Tool::Liquify
+                | Tool::Dodge
+                | Tool::Burn
+                | Tool::Sponge
         ) {
             bar = bar.child(self.brush_header(cx)).child(div().flex_1());
             if self.tools.tool == Tool::Clone && self.tools.clone_source.is_none() {
@@ -404,6 +421,11 @@ impl Editor {
             Tool::Lasso | Tool::Polygon => {
                 &[(Tool::Lasso, "Freehand"), (Tool::Polygon, "Polygonal")]
             }
+            Tool::Dodge | Tool::Burn | Tool::Sponge => &[
+                (Tool::Dodge, "Dodge"),
+                (Tool::Burn, "Burn"),
+                (Tool::Sponge, "Sponge"),
+            ],
             Tool::Brush | Tool::Erase => &[(Tool::Brush, "Paint"), (Tool::Erase, "Erase")],
             Tool::Blur | Tool::Smudge | Tool::Liquify => &[
                 (Tool::Liquify, "Liquify"),

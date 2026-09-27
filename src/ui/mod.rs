@@ -154,6 +154,7 @@ mod tests;
 mod text_editor;
 mod thumbnails;
 mod titlebar;
+mod tonal_controls;
 mod tool_cursor;
 mod tool_defaults;
 #[cfg(test)]
@@ -202,6 +203,9 @@ pub enum Tool {
     Clone,
     Heal,
     Blur,
+    Dodge,
+    Burn,
+    Sponge,
     Smudge,
     Liquify,
     Gradient,
@@ -212,7 +216,7 @@ pub enum Tool {
     Zoom,
 }
 impl Tool {
-    const ALL: [(Self, &'static str); 21] = [
+    const ALL: [(Self, &'static str); 24] = [
         (Self::Move, "V  Move"),
         (Self::Rectangle, "M  Select"),
         (Self::Ellipse, "   Ellipse"),
@@ -234,6 +238,9 @@ impl Tool {
         (Self::Liquify, "   Liquify"),
         (Self::Text, "T  Type"),
         (Self::Object, "O  Object Selection"),
+        (Self::Dodge, "   Dodge"),
+        (Self::Burn, "   Burn"),
+        (Self::Sponge, "   Sponge"),
     ];
     fn label(self) -> &'static str {
         if self == Self::Idle {

@@ -45,12 +45,20 @@ enum Smear {
     Liquify,
 }
 
+#[derive(Clone, Copy)]
+enum ToneBrush {
+    Dodge,
+    Burn,
+    Sponge,
+}
+
 pub(super) struct ToolPreferences {
-    tips: [Tip; 3],
+    tips: [Tip; 4],
     brush: BrushMode,
     marquee: Marquee,
     lasso: Lasso,
     smear: Smear,
+    tonal: ToneBrush,
 }
 
 impl Default for ToolPreferences {
@@ -61,11 +69,20 @@ impl Default for ToolPreferences {
             opacity: 1.,
         };
         Self {
-            tips: [Tip::from_brush(Brush::default()), soft, soft],
+            tips: [
+                Tip::from_brush(Brush::default()),
+                soft,
+                soft,
+                Tip {
+                    opacity: 0.5,
+                    ..soft
+                },
+            ],
             brush: BrushMode::Paint,
             marquee: Marquee::Rectangle,
             lasso: Lasso::Freehand,
             smear: Smear::Liquify,
+            tonal: ToneBrush::Dodge,
         }
     }
 }
@@ -74,6 +91,7 @@ impl ToolPreferences {
     pub fn select(&mut self, from: Tool, to: Tool, brush: &mut Brush) {
         let family = |tool| match tool {
             Tool::Clone => 1,
+            Tool::Dodge | Tool::Burn | Tool::Sponge => 3,
             Tool::Blur | Tool::Smudge | Tool::Liquify => 2,
             _ => 0,
         };
@@ -83,6 +101,9 @@ impl ToolPreferences {
             self.tips[to_family].apply(brush);
         }
         match to {
+            Tool::Dodge => self.tonal = ToneBrush::Dodge,
+            Tool::Burn => self.tonal = ToneBrush::Burn,
+            Tool::Sponge => self.tonal = ToneBrush::Sponge,
             Tool::Brush => self.brush = BrushMode::Paint,
             Tool::Erase => self.brush = BrushMode::Erase,
             Tool::Rectangle => self.marquee = Marquee::Rectangle,
@@ -96,6 +117,13 @@ impl ToolPreferences {
         }
     }
 
+    pub fn tonal(&self) -> Tool {
+        match self.tonal {
+            ToneBrush::Dodge => Tool::Dodge,
+            ToneBrush::Burn => Tool::Burn,
+            ToneBrush::Sponge => Tool::Sponge,
+        }
+    }
     pub fn brush(&self) -> Tool {
         match self.brush {
             BrushMode::Paint => Tool::Brush,

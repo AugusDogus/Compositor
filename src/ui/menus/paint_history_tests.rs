@@ -59,6 +59,9 @@ fn brush_history_names_the_tool_and_mask_target_and_round_trips_pixels() {
         (Tool::Brush, false, "Brush Stroke"),
         (Tool::Erase, false, "Erase"),
         (Tool::Blur, false, "Blur"),
+        (Tool::Dodge, false, "Dodge"),
+        (Tool::Burn, false, "Burn"),
+        (Tool::Sponge, false, "Sponge"),
         (Tool::Clone, false, "Clone Stamp"),
         (Tool::Heal, false, "Spot Healing"),
         (Tool::Brush, true, "Paint Mask"),
@@ -76,11 +79,14 @@ fn brush_history_names_the_tool_and_mask_target_and_round_trips_pixels() {
 }
 
 #[test]
-fn clone_and_healing_ignore_mask_strokes_without_starting_history() {
+fn image_brushes_ignore_mask_strokes_without_starting_history() {
     for (tool, source) in [
         (Tool::Clone, Some([12., 12.])),
         (Tool::Clone, None),
         (Tool::Heal, Some([12., 12.])),
+        (Tool::Dodge, None),
+        (Tool::Burn, None),
+        (Tool::Sponge, None),
     ] {
         let mut e = editor();
         e.tools.clone_source = source;
@@ -150,5 +156,23 @@ fn selection_commands_and_control_clicked_thumbnails_name_the_selection_source()
         )
         .unwrap();
         cx.update(view, |e, _| history(e, label, before)).unwrap();
+    }
+}
+
+#[test]
+fn tonal_brushes_ignore_blank_layers_without_starting_history() {
+    for tool in [Tool::Dodge, Tool::Burn, Tool::Sponge] {
+        let mut e = editor();
+        e.session_mut().document.layers[0].content = LayerContent::Raster(None);
+        e.tools.tool = tool;
+        let before = e.session().document.clone();
+        assert!(!e.can_paint_tonal());
+        for phase in [PointerPhase::Down, PointerPhase::Move, PointerPhase::Up] {
+            stroke(&mut e, phase).unwrap();
+        }
+        assert_eq!(e.session().document, before);
+        assert!(e.session().undo_label().is_none());
+        assert!(!e.session().has_pending_edit());
+        assert!(e.gesture.is_none());
     }
 }

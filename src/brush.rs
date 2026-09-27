@@ -3,6 +3,7 @@ mod coverage;
 mod path;
 mod source;
 mod tablet;
+pub mod tonal;
 use source::Source;
 pub use tablet::{Input, Tip};
 
@@ -38,6 +39,7 @@ impl Default for Brush {
 pub enum PaintMode {
     Paint,
     Erase,
+    Tonal(tonal::Tonal),
     Clone { offset: Point },
     Blur,
     Heal(crate::filters::Healing),
@@ -109,6 +111,11 @@ impl Stroke {
         if !mask {
             layer.require_rasterized()?;
         }
+        if matches!(mode, PaintMode::Tonal(_)) && layer.raster().is_none() {
+            return Err(invalid(
+                "Tonal brushes need existing image pixels. Paint or import an image first; the layer is unchanged.",
+            ));
+        }
         if !(1. ..=5000.).contains(&brush.diameter)
             || !(0. ..=1.).contains(&brush.hardness)
             || !(0. ..=1.).contains(&brush.opacity)
@@ -117,9 +124,14 @@ impl Stroke {
                 "Brush size, hardness, or opacity is outside its supported range.",
             ));
         }
-        if mask && matches!(mode, PaintMode::Clone { .. } | PaintMode::Heal(_)) {
+        if mask
+            && matches!(
+                mode,
+                PaintMode::Clone { .. } | PaintMode::Heal(_) | PaintMode::Tonal(_)
+            )
+        {
             return Err(invalid(
-                "Clone and healing edit image pixels. Switch from the mask to the layer.",
+                "Clone, healing, and tonal brushes edit image pixels. Switch from the mask to the layer.",
             ));
         }
         let source = if matches!(mode, PaintMode::Clone { .. }) {
@@ -420,7 +432,9 @@ impl Stroke {
             let alpha = coverage as f64 / 255.
                 * self.brush.opacity
                 * selection.as_ref().map_or(1., |s| s.coverage(doc_point));
-            changed = true;
+            if !matches!(self.mode, PaintMode::Tonal(_)) {
+                changed = true;
+            }
             match &mut destination {
                 Destination::Mask { pixels, original } => {
                     let ox = x.min(original.width() - 1);
@@ -458,6 +472,8 @@ impl Stroke {
                     }
                     let result = if self.mode == PaintMode::Erase {
                         [before[0], before[1], before[2], before[3] * (1. - alpha)]
+                    } else if let PaintMode::Tonal(operation) = self.mode {
+                        operation.apply(before, alpha)
                     } else if self.mode == PaintMode::Blur {
                         let out_alpha = before[3] + (top[3] - before[3]) * alpha;
                         let mut result = [0., 0., 0., out_alpha];
@@ -473,7 +489,9 @@ impl Stroke {
                         top[3] *= alpha;
                         Blend::Normal.composite(before, top)
                     };
-                    pixels[(x, y)] = Rgba(result.map(|v| (v.clamp(0., 1.) * 255.).round() as u8));
+                    let result = Rgba(result.map(|v| (v.clamp(0., 1.) * 255.).round() as u8));
+                    changed |= pixels[(x, y)] != result;
+                    pixels[(x, y)] = result;
                 }
             }
         }

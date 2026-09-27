@@ -1,6 +1,6 @@
 // MetalBrushCoverage.swift's continuous deposition integral, on Vulkan via wgpu.
 // The caller restores the provisional tail before dispatch, so each input contains
-// only settled density. Unselected paint/erase also blends original stroke pixels;
+// only settled density. Unselected paint/erase/tonal also blends original stroke pixels;
 // other tools apply color, selection, and stroke opacity on the CPU afterward.
 struct Parameters {
     mapping: vec4<f32>,
@@ -57,6 +57,24 @@ fn alpha(value: f32) -> f32 {
     if u.geometry.w >= 1.0 { return value; }
     return 1.0 - exp(-value);
 }
+// Must match brush::tonal's reference path, including sRGB transfer and range weights.
+fn tonal_color(base: vec4<f32>, amount: f32) -> vec4<f32> {
+    if base.a == 0.0 || amount == 0.0 { return base; }
+    let luminance = dot(base.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+    if u.size.z >= 5u {
+        let saturation = 1.0 + select(-amount, amount, u.size.z == 5u);
+        return vec4<f32>(clamp(vec3<f32>(luminance) + (base.rgb - luminance) * saturation, vec3<f32>(0.0), vec3<f32>(1.0)), base.a);
+    }
+    var weight = 1.0;
+    if u.size.w == 1u { weight = 1.0 - smoothstep(0.0, 0.75, luminance); }
+    if u.size.w == 2u { weight = 4.0 * luminance * (1.0 - luminance); }
+    if u.size.w == 3u { weight = smoothstep(0.25, 1.0, luminance); }
+    let exposure = exp2(amount * weight * select(1.0, -1.0, u.size.z == 4u));
+    let linear = select(pow((base.rgb + 0.055) / 1.055, vec3<f32>(2.4)), base.rgb / 12.92, base.rgb <= vec3<f32>(0.04045));
+    let adjusted = clamp(linear * exposure, vec3<f32>(0.0), vec3<f32>(1.0));
+    let rgb = select(1.055 * pow(adjusted, vec3<f32>(1.0 / 2.4)) - 0.055, adjusted * 12.92, adjusted <= vec3<f32>(0.0031308));
+    return vec4<f32>(rgb, base.a);
+}
 @compute @workgroup_size(16, 16)
 fn brush(@builtin(global_invocation_id) pixel: vec3<u32>) {
     if pixel.x >= u.size.x || pixel.y >= u.size.y { return; }
@@ -86,7 +104,11 @@ fn brush(@builtin(global_invocation_id) pixel: vec3<u32>) {
                     color = vec4<f32>((u.color.rgb * top_alpha + base.rgb * base.a * (1.0 - top_alpha)) / out_alpha, out_alpha);
                 }
             }
+            if u.size.z >= 3u { color = tonal_color(base, amount); }
             result[index].color = pack4x8unorm(color);
+            if u.size.z >= 3u && result[index].color == original[index] {
+                result[index].changed = 0u;
+            }
         }
     }
 }

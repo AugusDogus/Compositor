@@ -9,6 +9,9 @@ impl Tool {
                 | Self::Erase
                 | Self::Clone
                 | Self::Heal
+                | Self::Dodge
+                | Self::Burn
+                | Self::Sponge
                 | Self::Blur
                 | Self::Smudge
                 | Self::Liquify

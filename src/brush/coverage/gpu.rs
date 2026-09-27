@@ -1,5 +1,5 @@
 //! Bounded GPU coverage processing. The document remains in the existing CPU
-//! editing model; deposition and ordinary paint/erase blending run on Vulkan.
+//! editing model; deposition and paint, erase, and tonal blending run on Vulkan.
 use super::{Brush, Plane, Region, Segment};
 use crate::brush::{Destination, PaintMode};
 use crate::{Result, invalid};
@@ -51,7 +51,7 @@ pub(in crate::brush) fn rasterize(
         .rasterize(region, plane, segment, brush)
 }
 
-/// Full pixel application for unselected Paint/Eraser strokes. Other tools keep
+/// Full pixel application for unselected paint, erase, and tonal strokes. Other tools keep
 /// their source sampling and selection semantics, using GPU coverage alone.
 pub(in crate::brush) fn paint(
     region: &Region,
@@ -71,6 +71,7 @@ pub(in crate::brush) fn paint(
     let operation = match mode {
         PaintMode::Paint => Operation::Paint,
         PaintMode::Erase => Operation::Erase,
+        PaintMode::Tonal(operation) => Operation::Tonal(operation),
         _ => return Ok(None),
     };
     let Ok(engine) = engine() else {
@@ -93,6 +94,7 @@ pub(in crate::brush) fn paint(
 enum Operation {
     Paint,
     Erase,
+    Tonal(crate::brush::tonal::Tonal),
 }
 enum Target<'a> {
     Coverage,
@@ -249,18 +251,22 @@ impl Engine {
             ] {
                 parameters.extend_from_slice(bytemuck::cast_slice(&field.map(|v| v as f32)));
             }
-            let operation = match target {
-                Target::Coverage => 0,
+            let (operation, range) = match target {
+                Target::Coverage => (0, 0),
                 Target::Image {
                     operation: Operation::Paint,
                     ..
-                } => 1,
+                } => (1, 0),
                 Target::Image {
                     operation: Operation::Erase,
                     ..
-                } => 2,
+                } => (2, 0),
+                Target::Image {
+                    operation: Operation::Tonal(operation),
+                    ..
+                } => operation.gpu_parameters(),
             };
-            parameters.extend_from_slice(bytemuck::cast_slice(&[width, rows, operation, 0]));
+            parameters.extend_from_slice(bytemuck::cast_slice(&[width, rows, operation, range]));
             parameters.extend_from_slice(bytemuck::cast_slice(&[
                 (brush.diameter * 0.025).max(0.25) as f32,
                 brush.opacity as f32,

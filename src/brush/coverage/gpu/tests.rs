@@ -6,7 +6,21 @@ use super::*;
 fn gpu_pixel_application_preserves_stroke_opacity_and_original_color() {
     let engine = Engine::new().unwrap();
     for hardness in [0., 1.] {
-        for mode in [PaintMode::Paint, PaintMode::Erase] {
+        use crate::brush::tonal::{Range, Tonal};
+        for mode in [
+            PaintMode::Paint,
+            PaintMode::Erase,
+            PaintMode::Tonal(Tonal::Dodge(Range::All)),
+            PaintMode::Tonal(Tonal::Dodge(Range::Shadows)),
+            PaintMode::Tonal(Tonal::Dodge(Range::Midtones)),
+            PaintMode::Tonal(Tonal::Dodge(Range::Highlights)),
+            PaintMode::Tonal(Tonal::Burn(Range::All)),
+            PaintMode::Tonal(Tonal::Burn(Range::Shadows)),
+            PaintMode::Tonal(Tonal::Burn(Range::Midtones)),
+            PaintMode::Tonal(Tonal::Burn(Range::Highlights)),
+            PaintMode::Tonal(Tonal::Saturate),
+            PaintMode::Tonal(Tonal::Desaturate),
+        ] {
             let brush = Brush {
                 diameter: 400.,
                 hardness,
@@ -46,6 +60,8 @@ fn gpu_pixel_application_preserves_stroke_opacity_and_original_color() {
                     top[3] *= amount;
                     let result = if mode == PaintMode::Erase {
                         [before[0], before[1], before[2], before[3] * (1. - amount)]
+                    } else if let PaintMode::Tonal(operation) = mode {
+                        operation.apply(before, amount)
                     } else {
                         crate::blend::Blend::Normal.composite(before, top)
                     };
@@ -54,6 +70,8 @@ fn gpu_pixel_application_preserves_stroke_opacity_and_original_color() {
                 }
                 let operation = if mode == PaintMode::Erase {
                     Operation::Erase
+                } else if let PaintMode::Tonal(operation) = mode {
+                    Operation::Tonal(operation)
                 } else {
                     Operation::Paint
                 };
