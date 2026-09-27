@@ -4,6 +4,22 @@ use compositor::{filters::Filter, invalid};
 impl Editor {
     pub(super) fn filter_fields(filter: Filter) -> (&'static str, Vec<(&'static str, String)>) {
         match filter {
+            Filter::Radial(settings) => (
+                "Radial Blur",
+                vec![
+                    (
+                        "Mode (spin or zoom)",
+                        match settings.mode {
+                            compositor::filters::radial::Mode::Spin => "spin",
+                            compositor::filters::radial::Mode::Zoom => "zoom",
+                        }
+                        .into(),
+                    ),
+                    ("Amount", settings.amount.to_string()),
+                    ("Center X", (settings.center[0] * 100.).to_string()),
+                    ("Center Y", (settings.center[1] * 100.).to_string()),
+                ],
+            ),
             Filter::HighPass { radius } => ("High Pass", vec![("Radius", radius.to_string())]),
             Filter::UnsharpMask {
                 amount,
@@ -99,6 +115,20 @@ impl Editor {
             }
         };
         Ok(match filter {
+            Filter::Radial(_) => {
+                let mode = match values.first().map(String::as_str) {
+                    Some("spin") => compositor::filters::radial::Mode::Spin,
+                    Some("zoom") => compositor::filters::radial::Mode::Zoom,
+                    _ => return Err(invalid("Choose Spin or Zoom for radial blur.")),
+                };
+                let settings = compositor::filters::radial::Radial {
+                    mode,
+                    amount: n(1)?,
+                    center: [n(2)? / 100., n(3)? / 100.],
+                };
+                settings.validate()?;
+                Filter::Radial(settings)
+            }
             Filter::HighPass { .. } => Filter::HighPass { radius: n(0)? },
             Filter::UnsharpMask { .. } => Filter::UnsharpMask {
                 amount: n(0)?,

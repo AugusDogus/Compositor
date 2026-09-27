@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn sharpening_previews_apply_once_and_support_undo_redo_and_cancel() {
+fn spatial_filter_previews_apply_once_and_support_undo_redo_and_cancel() {
     for filter in [
         Filter::UnsharpMask {
             amount: 100.,
@@ -9,6 +9,15 @@ fn sharpening_previews_apply_once_and_support_undo_redo_and_cancel() {
             threshold: 0.,
         },
         Filter::HighPass { radius: 2. },
+        Filter::Radial(compositor::filters::radial::Radial {
+            amount: 70.,
+            ..Default::default()
+        }),
+        Filter::Radial(compositor::filters::radial::Radial {
+            mode: compositor::filters::radial::Mode::Zoom,
+            amount: 70.,
+            ..Default::default()
+        }),
     ] {
         let mut e = Editor::with_test_document();
         let mut doc = Document::new(9, 9).unwrap();
@@ -864,4 +873,55 @@ fn filter_apply_rejects_a_target_moved_by_history() {
     assert!(e.job.is_none());
     assert!(e.filter_edit.is_none());
     assert_eq!(e.session().document, restored);
+}
+
+#[test]
+fn radial_blur_controls_switch_mode_edit_center_and_reject_invalid_parameters() {
+    use compositor::filters::radial::{Mode, Radial};
+    use quickgui::{Application, WindowOptions};
+    let mut editor = Editor::with_test_document();
+    compositor::edits::fill(
+        &mut editor.session_mut().document,
+        [100, 80, 50, 255],
+        false,
+        false,
+    )
+    .unwrap();
+    let original = editor.session().document.clone();
+    let filter = Filter::Radial(Radial::default());
+    editor.open_filter(filter).unwrap();
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("Radial blur").size(1280., 900.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    cx.click(window, "form-choice-0-zoom").unwrap();
+    cx.focus(window, 50_002_u64).unwrap();
+    cx.simulate_keystrokes(window, "ctrl-a").unwrap();
+    cx.simulate_input(window, "25").unwrap();
+    cx.read(view, |e| {
+        let Some(Form::Edit { fields, .. }) = &e.modal else {
+            panic!("Radial blur dialog closed");
+        };
+        let values: Vec<_> = fields.iter().map(|(_, value)| value.clone()).collect();
+        assert_eq!(
+            Editor::filter_values(filter, &values).unwrap(),
+            Filter::Radial(Radial {
+                mode: Mode::Zoom,
+                center: [0.25, 0.5],
+                ..Default::default()
+            })
+        );
+        for bad in ["NaN", "-1", "101"] {
+            let mut values = values.clone();
+            values[2] = bad.into();
+            assert!(Editor::filter_values(filter, &values).is_err());
+        }
+    })
+    .unwrap();
+    cx.click(window, "form-cancel").unwrap();
+    cx.read(view, |e| {
+        assert_eq!(e.session().document, original);
+        assert!(e.session().undo_label().is_none());
+    })
+    .unwrap();
 }

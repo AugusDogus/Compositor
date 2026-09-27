@@ -6,6 +6,7 @@ use std::time::Duration;
 pub(super) enum Operation {
     Geometry,
     MotionBlur,
+    RadialBlur,
     Resize,
     CoverageBlur,
     Effects,
@@ -16,6 +17,7 @@ impl Operation {
         match self {
             Self::Geometry => "Camera Raw geometry",
             Self::MotionBlur => "Motion blur",
+            Self::RadialBlur => "Radial blur",
             Self::Resize => "Preview resizing",
             Self::CoverageBlur => "Coverage blur",
             Self::Effects => "Layer effects",

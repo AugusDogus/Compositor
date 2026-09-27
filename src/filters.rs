@@ -3,6 +3,7 @@ pub mod finishing;
 mod gaussian;
 pub use gaussian::gaussian_rgba;
 pub(crate) mod motion;
+pub mod radial;
 mod sharpen;
 pub use finishing::Vignette;
 
@@ -17,6 +18,7 @@ use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Filter {
+    Radial(radial::Radial),
     HighPass {
         radius: f64,
     },
@@ -173,6 +175,7 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
     let mut result = match operation {
         Operation::Dither(settings) => dither::apply(&source, *settings)?,
         Operation::Pixels(filter) => match filter {
+            Filter::Radial(settings) => radial::apply(&source, settings)?,
             Filter::HighPass { radius } => sharpen::high_pass(&source, radius)?,
             Filter::UnsharpMask {
                 amount,

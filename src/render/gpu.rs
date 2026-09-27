@@ -5,6 +5,7 @@ pub(super) mod camera_geometry;
 pub(super) mod effects;
 pub(super) mod gaussian;
 pub(super) mod motion;
+pub(crate) mod radial;
 pub(crate) mod raw;
 mod readback;
 pub(super) mod resize;
@@ -66,6 +67,7 @@ pub(super) struct Engine {
     pipeline: wgpu::ComputePipeline,
     resize_pipeline: wgpu::ComputePipeline,
     motion_pipeline: wgpu::ComputePipeline,
+    radial: radial::Pipelines,
     camera_geometry_pipeline: wgpu::ComputePipeline,
     effects_pipeline: wgpu::ComputePipeline,
     output: wgpu::Buffer,
@@ -133,6 +135,7 @@ impl Engine {
             compilation_options: Default::default(),
             cache: None,
         });
+        let radial = radial::Pipelines::new(&device);
         let camera_geometry_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Camera Raw geometry"),
             source: wgpu::ShaderSource::Wgsl(include_str!("gpu/camera_geometry.wgsl").into()),
@@ -177,6 +180,7 @@ impl Engine {
             pipeline,
             resize_pipeline,
             motion_pipeline,
+            radial,
             camera_geometry_pipeline,
             effects_pipeline,
             output,

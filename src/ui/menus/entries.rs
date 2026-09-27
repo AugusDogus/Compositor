@@ -114,6 +114,11 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 }),
             ),
             command(
+                "Radial Blur…",
+                "",
+                Action::Filter(compositor::filters::Filter::Radial(Default::default())),
+            ),
+            command(
                 "High Pass…",
                 "",
                 Action::Filter(compositor::filters::Filter::HighPass { radius: 2. }),

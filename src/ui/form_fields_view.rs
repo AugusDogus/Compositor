@@ -286,7 +286,9 @@ impl Editor {
             let label = label.trim_end_matches(" (0 or 1)");
             return self.form_toggle(cx, index, label, value == "1");
         }
-        let options: &[(&str, &str)] = if label.starts_with("Sampling (") {
+        let options: &[(&str, &str)] = if label == "Mode (spin or zoom)" {
+            &[("Spin", "spin"), ("Zoom", "zoom")]
+        } else if label.starts_with("Sampling (") {
             &[
                 ("High Quality", "high"),
                 ("Smooth", "smooth"),
