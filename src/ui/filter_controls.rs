@@ -4,6 +4,27 @@ use compositor::{filters::Filter, invalid};
 impl Editor {
     pub(super) fn filter_fields(filter: Filter) -> (&'static str, Vec<(&'static str, String)>) {
         match filter {
+            Filter::ChannelMixer(settings) => {
+                let mut fields: Vec<_> = settings
+                    .rows
+                    .into_iter()
+                    .flatten()
+                    .enumerate()
+                    .map(|(index, value)| {
+                        (
+                            ["Red input", "Green input", "Blue input", "Constant"][index % 4],
+                            value.to_string(),
+                        )
+                    })
+                    .collect();
+                fields.push((
+                    "Monochrome (0 or 1)",
+                    u8::from(settings.monochrome).to_string(),
+                ));
+                fields.push(("Output channel", "red".into()));
+                ("Channel Mixer", fields)
+            }
+
             Filter::PhotoFilter(settings) => {
                 let [r, g, b] = settings.color.map(|v| (v * 255.).round() as u8);
                 (
@@ -130,6 +151,25 @@ impl Editor {
             }
         };
         Ok(match filter {
+            Filter::ChannelMixer(_) => {
+                let settings = compositor::adjustment::ChannelMixer {
+                    rows: [
+                        [n(0)?, n(1)?, n(2)?, n(3)?],
+                        [n(4)?, n(5)?, n(6)?, n(7)?],
+                        [n(8)?, n(9)?, n(10)?, n(11)?],
+                    ],
+                    monochrome: flag(12)?,
+                };
+                settings.validate()?;
+                if !matches!(
+                    values.get(13).map(String::as_str),
+                    Some("red" | "green" | "blue")
+                ) {
+                    return Err(invalid("Choose a Channel Mixer output channel."));
+                }
+                Filter::ChannelMixer(settings)
+            }
+
             Filter::PhotoFilter(_) => {
                 let color = values
                     .get(2)

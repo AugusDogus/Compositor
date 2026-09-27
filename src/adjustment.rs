@@ -1,4 +1,6 @@
+mod channel_mixer;
 mod color;
+pub use channel_mixer::ChannelMixer;
 mod editor;
 mod noise;
 mod photo_filter;

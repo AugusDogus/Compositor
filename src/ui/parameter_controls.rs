@@ -49,6 +49,12 @@ impl Parameter {
     fn for_field(action: Action, kind: Option<Kind>, index: usize) -> Option<Self> {
         use Scale::{Linear, Logarithmic};
         let (label, range, unit, scale) = match (action, kind, index) {
+            (Action::Filter(Filter::ChannelMixer(_)), _, i @ 0..=11) => (
+                ["Red", "Green", "Blue", "Constant"][i % 4],
+                (-200., 200.),
+                "%",
+                Linear(1),
+            ),
             (Action::Fade, _, 0) => ("Opacity", (0., 100.), "%", Linear(1)),
             (Action::Filter(Filter::PhotoFilter(_)), _, 0) => {
                 ("Density", (0., 100.), "%", Linear(0))

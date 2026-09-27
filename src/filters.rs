@@ -1,3 +1,4 @@
+pub(crate) mod channel_mixer;
 pub mod dither;
 pub mod finishing;
 mod gaussian;
@@ -20,6 +21,7 @@ use std::sync::Arc;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Filter {
     PhotoFilter(crate::adjustment::PhotoFilter),
+    ChannelMixer(crate::adjustment::ChannelMixer),
     Radial(radial::Radial),
     HighPass {
         radius: f64,
@@ -179,6 +181,7 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
         Operation::Pixels(filter) => match filter {
             Filter::Radial(settings) => radial::apply(&source, settings)?,
             Filter::PhotoFilter(settings) => photo_filter::apply(&source, settings)?,
+            Filter::ChannelMixer(settings) => channel_mixer::apply(&source, settings)?,
             Filter::HighPass { radius } => sharpen::high_pass(&source, radius)?,
             Filter::UnsharpMask {
                 amount,

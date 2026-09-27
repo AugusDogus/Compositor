@@ -25,6 +25,7 @@ mod canvas;
 mod canvas_background;
 mod canvas_content;
 mod canvas_preview;
+mod channel_mixer_controls;
 mod clipboard_jobs;
 mod clone_preview;
 mod closing;

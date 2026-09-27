@@ -140,7 +140,7 @@ impl Editor {
             )
             .child(self.form_input(cx, index, &displayed).text_right().w_full())
     }
-    fn field_choices(
+    pub(super) fn field_choices(
         &self,
         cx: &mut ViewContext<'_, Self>,
         index: usize,
@@ -186,6 +186,12 @@ impl Editor {
             Action::Filter(compositor::filters::Filter::PhotoFilter(_))
         ) {
             return self.photo_filter_fields(cx, action, fields);
+        }
+        if matches!(
+            action,
+            Action::Filter(compositor::filters::Filter::ChannelMixer(_))
+        ) {
+            return self.channel_mixer_fields(cx, action, fields);
         }
         let kind = self.adjustment_edit.as_ref().map(|e| e.settings.kind);
         if kind == Some(Kind::Levels) && !self.editing_brightness_contrast() {

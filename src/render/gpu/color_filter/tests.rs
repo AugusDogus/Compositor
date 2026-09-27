@@ -20,7 +20,9 @@ fn photo_filter_gpu_matches_cpu_for_colors_density_luminosity_and_alpha() {
                     density,
                     preserve_luminosity,
                 };
-                let gpu = engine.photo_filter(&source, settings).unwrap();
+                let gpu = engine
+                    .color_filter(&source, Settings::PhotoFilter(settings))
+                    .unwrap();
                 let cpu = crate::filters::photo_filter::reference(&source, settings);
                 for (a, b) in cpu.pixels().zip(gpu.pixels()) {
                     assert_eq!(a[3], b[3]);
@@ -46,7 +48,7 @@ fn photo_filter_gpu_large_image() {
     let source = RgbaImage::from_pixel(4000, 4000, image::Rgba([100, 150, 200, 255]));
     let started = std::time::Instant::now();
     let output = engine
-        .photo_filter(&source, PhotoFilter::default())
+        .color_filter(&source, Settings::PhotoFilter(PhotoFilter::default()))
         .unwrap();
     eprintln!(
         "Photo Filter 4000x4000 upload/compute/readback: {:?}",
@@ -71,7 +73,9 @@ fn photo_filter_gpu_splits_large_sources_without_losing_boundary_pixels() {
         ])
     });
     let settings = PhotoFilter::default();
-    let output = engine.photo_filter(&source, settings).unwrap();
+    let output = engine
+        .color_filter(&source, Settings::PhotoFilter(settings))
+        .unwrap();
     for (x, y) in [
         (0, 0),
         (4096, 4096),
@@ -82,6 +86,50 @@ fn photo_filter_gpu_splits_large_sources_without_losing_boundary_pixels() {
         let expected = settings.pixel(source[(x, y)].0);
         for channel in 0..4 {
             assert!(output[(x, y)][channel].abs_diff(expected[channel]) <= 1);
+        }
+    }
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn channel_mixer_gpu_matches_cpu_for_signed_coefficients_constants_monochrome_and_alpha() {
+    let engine = Engine::new().unwrap();
+    let source = RgbaImage::from_fn(257, 129, |x, y| {
+        image::Rgba([
+            (x % 256) as u8,
+            (y * 2) as u8,
+            ((x * y) % 256) as u8,
+            (y % 4 * 85) as u8,
+        ])
+    });
+    for rows in [
+        ChannelMixer::default().rows,
+        [[0., 100., 0., 0.], [0., 0., 100., 0.], [100., 0., 0., 0.]],
+        [
+            [-100., 200., 0., -50.],
+            [10., 30., 60., 10.],
+            [0., 0., 0., 50.],
+        ],
+        [[200.; 4], [-200.; 4], [0.; 4]],
+    ] {
+        for monochrome in [false, true] {
+            let settings = ChannelMixer { rows, monochrome };
+            let gpu = engine
+                .color_filter(&source, Settings::ChannelMixer(settings))
+                .unwrap();
+            let cpu = crate::filters::channel_mixer::reference(&source, settings);
+            for (a, b) in cpu.pixels().zip(gpu.pixels()) {
+                assert_eq!(a[3], b[3]);
+                if a[3] == 0 {
+                    assert_eq!(a, b);
+                }
+                for channel in 0..3 {
+                    assert!(
+                        a[channel].abs_diff(b[channel]) <= 1,
+                        "{settings:?}: {a:?}/{b:?}"
+                    );
+                }
+            }
         }
     }
 }
