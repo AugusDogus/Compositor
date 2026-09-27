@@ -56,3 +56,49 @@ impl Editor {
 
 #[cfg(test)]
 mod tests;
+
+pub(super) fn fields(
+    settings: compositor::adjustment::ChannelMixer,
+) -> Vec<(&'static str, String)> {
+    let mut fields: Vec<_> = settings
+        .rows
+        .into_iter()
+        .flatten()
+        .enumerate()
+        .map(|(index, value)| {
+            (
+                ["Red input", "Green input", "Blue input", "Constant"][index % 4],
+                value.to_string(),
+            )
+        })
+        .collect();
+    fields.push((
+        "Monochrome (0 or 1)",
+        u8::from(settings.monochrome).to_string(),
+    ));
+    fields.push(("Output channel", "red".into()));
+    fields
+}
+pub(super) fn parse(values: &[String]) -> Result<compositor::adjustment::ChannelMixer> {
+    use compositor::{adjustment::ChannelMixer, invalid};
+    let mut settings = ChannelMixer::default();
+    for (index, coefficient) in settings.rows.iter_mut().flatten().enumerate() {
+        *coefficient = values
+            .get(index)
+            .and_then(|s| s.trim().parse().ok())
+            .ok_or_else(|| invalid("Enter a Channel Mixer coefficient between -200% and 200%."))?;
+    }
+    settings.monochrome = match values.get(12).map(|s| s.trim()) {
+        Some("0") => false,
+        Some("1") => true,
+        _ => return Err(invalid("Monochrome must be 0 or 1.")),
+    };
+    if !matches!(
+        values.get(13).map(String::as_str),
+        Some("red" | "green" | "blue")
+    ) {
+        return Err(invalid("Choose a Channel Mixer output channel."));
+    }
+    settings.validate()?;
+    Ok(settings)
+}

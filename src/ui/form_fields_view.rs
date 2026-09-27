@@ -179,6 +179,7 @@ impl Editor {
         action: Action,
         fields: &[(&'static str, String)],
     ) -> Element {
+        let action = self.extended_control_action(action);
         if matches!(action, Action::ExportSizes) {
             return self.export_sizes_fields(cx, fields);
         }
@@ -188,7 +189,6 @@ impl Editor {
         if matches!(
             action,
             Action::Filter(compositor::filters::Filter::PhotoFilter(_))
-                | Action::EditExtendedAdjustment
         ) {
             return self.photo_filter_fields(cx, action, fields);
         }

@@ -287,6 +287,13 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                     compositor::adjustment::ExtendedAdjustment::PhotoFilter(Default::default()),
                 ),
             ),
+            command(
+                "Channel Mixer…",
+                "",
+                Action::ExtendedAdjustment(
+                    compositor::adjustment::ExtendedAdjustment::ChannelMixer(Default::default()),
+                ),
+            ),
             command("Invert", "", Action::Adjustment(Kind::Invert)),
             command("Gaussian Blur…", "", Action::Adjustment(Kind::GaussianBlur)),
             command("Motion Blur…", "", Action::Adjustment(Kind::MotionBlur)),

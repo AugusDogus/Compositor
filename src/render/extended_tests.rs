@@ -86,3 +86,45 @@ fn photo_filter_layers_gpu_matches_masks_groups_clipping_and_chains() {
         }
     }
 }
+
+#[test]
+fn channel_mixer_layer_uses_backdrop_channels_and_preserves_coverage() {
+    let mut doc = scene();
+    doc.layers[1].content = LayerContent::ExtendedAdjustment(Box::new(
+        ExtendedAdjustment::ChannelMixer(crate::adjustment::ChannelMixer {
+            rows: [[0., 0., 100., 0.], [0., 100., 0., 0.], [100., 0., 0., 0.]],
+            monochrome: false,
+        }),
+    ));
+    let image = render(&doc, 4, 2).unwrap();
+    assert_eq!(image[(0, 0)], Rgba([200, 100, 60, 128]));
+    assert_eq!(image[(1, 0)], Rgba([130, 100, 130, 128]));
+    assert_eq!(image[(3, 0)][3], 0);
+}
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
+fn channel_mixer_layers_gpu_matches_signed_coefficients_constants_and_monochrome() {
+    let mut engine = gpu::Engine::new().unwrap();
+    let mut doc = scene();
+    for monochrome in [false, true] {
+        for clipping in [false, true] {
+            doc.layers[1].clip_source = clipping.then_some(doc.layers[0].id);
+            doc.layers[1].content = LayerContent::ExtendedAdjustment(Box::new(
+                ExtendedAdjustment::ChannelMixer(crate::adjustment::ChannelMixer {
+                    rows: [
+                        [-200., 150., 180., 30.],
+                        [25., 15., -80., 60.],
+                        [50., 75., 20., -100.],
+                    ],
+                    monochrome,
+                }),
+            ));
+            let scene = gpu::scene::Scene::compile(&doc, [0.; 2], [1.; 2]).unwrap();
+            let actual = engine.render(&scene, [4, 2], [0.; 2], [1.; 2]).unwrap();
+            let expected = render(&doc, 4, 2).unwrap();
+            for (a, b) in actual.as_raw().iter().zip(expected.as_raw()) {
+                assert!(a.abs_diff(*b) <= 1, "mono={monochrome} clipped={clipping}: GPU={:?} CPU={:?}", actual, expected);
+            }
+        }
+    }
+}

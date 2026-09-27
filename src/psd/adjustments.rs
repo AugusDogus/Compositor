@@ -19,7 +19,16 @@ const RANGES: [ColorRange; 7] = [
     ColorRange::Magentas,
 ];
 
-pub(super) fn import(source: &ps::AdjustmentLayer) -> Result<Option<Adjustment>> {
+pub(super) fn import(
+    source: &ps::AdjustmentLayer,
+) -> Result<Option<crate::document::LayerContent>> {
+    if let ps::AdjustmentLayer::ChannelMixer(settings) = source {
+        return super::channel_mixer::import(settings).map(|a| {
+            Some(crate::document::LayerContent::ExtendedAdjustment(Box::new(
+                a,
+            )))
+        });
+    }
     let mut out = match source {
         ps::AdjustmentLayer::Levels(levels) => {
             let mut out = Adjustment::new(Kind::Levels);
@@ -156,7 +165,9 @@ pub(super) fn import(source: &ps::AdjustmentLayer) -> Result<Option<Adjustment>>
             out.lightness = master.lightness;
         }
     }
-    Ok(Some(out))
+    Ok(Some(crate::document::LayerContent::Adjustment(Box::new(
+        out,
+    ))))
 }
 
 pub(super) fn export(source: &Adjustment) -> Option<ps::AdjustmentLayer> {
@@ -272,6 +283,14 @@ pub(super) fn export(source: &Adjustment) -> Option<ps::AdjustmentLayer> {
 // mode. Validate supported records explicitly before editable data can be lost.
 pub(super) fn validate_record(key: &[u8], payload: &[u8]) -> Result<()> {
     let key = match key {
+        b"mixr" => {
+            if payload.len() < 44 || !matches!(payload.get(2..4), Some([0, 0] | [0, 1])) {
+                return Err(invalid(
+                    "PSD Channel Mixer data is truncated or has an invalid monochrome flag.",
+                ));
+            }
+            "mixr"
+        }
         b"levl" => "levl",
         b"curv" => "curv",
         b"hue2" => "hue2",

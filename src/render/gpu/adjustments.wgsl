@@ -124,6 +124,12 @@ fn adjust_rgb(rgb:vec3<f32>, kind:u32, offset:u32, point:vec2<f32>) -> vec3<f32>
             let after=dot(result,vec3(0.299,0.587,0.114));
             if settings[offset+4u]!=0.0 && after>0.000001 { result*=dot(rgb,vec3(0.299,0.587,0.114))/after; }
         }
+        case 14u: {
+            for (var i=0u; i<3u; i++) {
+                let row=offset+i*4u;
+                result[i]=rgb.r*settings[row]+rgb.g*settings[row+1u]+rgb.b*settings[row+2u]+settings[row+3u];
+            }
+        }
         default: {}
     }
     return clamp(result,vec3(0.0),vec3(1.0));

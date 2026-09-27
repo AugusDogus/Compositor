@@ -12,7 +12,7 @@ use uuid::Uuid;
 pub fn export_report(doc: &Document) -> ConversionReport {
     let mut report = ConversionReport::default();
     if requires_rendered_copy(doc) {
-        report.note("Photo Filter adjustment layers require a rendered PSD copy. All layers are flattened in this export; save a .comp project to retain editable layers and filter settings.");
+        report.note("Photo Filter or fractional Channel Mixer adjustment layers require a rendered PSD copy. All layers are flattened in this export; save a .comp project to retain editable layers and filter settings.");
         return report;
     }
     if doc.selection.is_some() {
@@ -26,6 +26,10 @@ pub fn export_report(doc: &Document) -> ConversionReport {
             && super::adjustments::export(adjustment).is_none()
         {
             report.note(format!("{}: adjustment layer is omitted from the editable PSD stack; it remains in the flattened composite.",layer.name));
+        }
+        if matches!(&layer.content, LayerContent::ExtendedAdjustment(a) if matches!(**a, crate::adjustment::ExtendedAdjustment::ChannelMixer(s) if s.monochrome))
+        {
+            report.note(format!("{}: PSD stores the active monochrome mix; inactive RGB mixes remain only in the .comp project.", layer.name));
         }
         if layer.mask.as_ref().is_some_and(|mask| !mask.linked) {
             report.note(format!(
@@ -135,6 +139,11 @@ fn export_layers(
                 continue;
             };
             Some(adjustment)
+        } else if let LayerContent::ExtendedAdjustment(adjustment) = &layer.content {
+            Some(
+                super::channel_mixer::export(adjustment)
+                    .ok_or_else(|| invalid("This Linux adjustment needs a rendered PSD copy."))?,
+            )
         } else {
             None
         };
@@ -280,7 +289,7 @@ fn to_blend(mode: Blend) -> BlendMode {
 fn requires_rendered_copy(doc: &Document) -> bool {
     doc.layers
         .iter()
-        .any(|layer| matches!(layer.content, LayerContent::ExtendedAdjustment(_)))
+        .any(|layer| matches!(&layer.content, LayerContent::ExtendedAdjustment(adjustment) if super::channel_mixer::export(adjustment).is_none()))
 }
 
 #[cfg(test)]

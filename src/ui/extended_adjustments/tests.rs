@@ -159,3 +159,78 @@ fn extended_photo_filter_controls_restore_picker_and_cancel_preview() {
     })
     .unwrap();
 }
+
+#[test]
+fn channel_mixer_preview_apply_reopen_and_save_keep_editable_rows() {
+    let mut e = Editor::with_test_document();
+    e.open_extended_adjustment(Some(ExtendedAdjustment::ChannelMixer(Default::default())))
+        .unwrap();
+    let original = e.session().document.clone();
+    e.update_form_field(0, "50");
+    e.update_form_field(1, "75.25");
+    e.update_form_field(3, "-10");
+    e.update_form_field(12, "1");
+    let preview = e.session().document.clone();
+    assert_ne!(original, preview);
+    e.extended_edit.as_mut().unwrap().preview = false;
+    e.refresh_extended_adjustment();
+    assert_eq!(e.session().document, original);
+    e.finish_extended_adjustment().unwrap();
+    assert_eq!(e.session().document, preview);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("Mixer.comp");
+    project::save(&preview, &path).unwrap();
+    assert_eq!(project::load(&path).unwrap(), preview);
+    e.open_adjustment(None).unwrap();
+    e.finish_extended_adjustment().unwrap();
+    assert_eq!(e.session().document, preview);
+    e.session_mut().undo();
+    assert_eq!(e.session().document, original);
+}
+
+#[test]
+fn channel_mixer_layer_shows_mixer_controls_and_sliders_update_live() {
+    use quickgui::{Application, WindowOptions};
+    let mut e = Editor::with_test_document();
+    e.open_extended_adjustment(Some(ExtendedAdjustment::ChannelMixer(Default::default())))
+        .unwrap();
+    let (mut cx, view) = Application::new()
+        .font(crate::UI_FONT)
+        .into_test_context(
+            WindowOptions::new("Channel Mixer layer").size(1280., 900.),
+            e,
+        )
+        .unwrap();
+    let window = view.window_handle();
+    for (channel, start) in [("red", 0), ("green", 4), ("blue", 8)] {
+        cx.click(window, format!("form-choice-13-{channel}"))
+            .unwrap();
+        for index in start..start + 4 {
+            assert!(
+                cx.element_bounds(window, format!("parameter-{index}"))
+                    .is_ok()
+            );
+        }
+    }
+    cx.click(window, "form-choice-13-red").unwrap();
+    cx.update(view, |e, cx| {
+        super::super::scalar_controls::Scalar::Field(3)
+            .set(e, 25.)
+            .unwrap();
+        e.changed(cx);
+    })
+    .unwrap();
+    cx.read(view, |e| {
+        assert!(matches!(&e.session().document.active_layer().unwrap().content, LayerContent::ExtendedAdjustment(a) if matches!(**a, ExtendedAdjustment::ChannelMixer(s) if s.rows[0][3]==25.)));
+    }).unwrap();
+    cx.focus(window, "workspace").unwrap();
+    cx.simulate_keystrokes(window, "enter").unwrap();
+    cx.read(view, |e| {
+        assert!(e.extended_edit.is_none());
+        assert_eq!(
+            e.session().undo_label(),
+            Some("Edit Channel Mixer Adjustment")
+        );
+    })
+    .unwrap();
+}

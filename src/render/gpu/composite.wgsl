@@ -61,6 +61,8 @@ fn coverage(index:u32,p:vec2<f32>) -> f32 {
 fn adjusted(layer:Layer,p:vec2<f32>,color:vec4<f32>,opacity:f32) -> vec4<f32> {
     let point=view.geometry.xy+(p+vec2(0.5))*view.geometry.zw;
     var rgb=adjust_rgb(color.rgb,layer.options.y,layer.info.w,point);
+    // Linux color adjustments preserve hidden backdrop RGB at zero alpha.
+    if color.a==0.0 && (layer.options.y==13u || layer.options.y==14u) {rgb=color.rgb;}
     if layer.options.y==11u || layer.options.y==12u {rgb=image_pixel(layer,p).rgb;}
     let blended=blend(layer.info.x,vec4(color.rgb,1.0),vec4(rgb,1.0));
     return vec4(mix(color.rgb,blended.rgb,opacity),color.a);

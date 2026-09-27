@@ -27,7 +27,7 @@ impl Editor {
             .active_layer()
             .ok_or_else(|| invalid("Select an adjustment layer to edit."))?;
         let LayerContent::ExtendedAdjustment(settings) = &layer.content else {
-            return Err(invalid("Select a Photo Filter adjustment layer."));
+            return Err(invalid("Select a Linux adjustment layer."));
         };
         let (layer, parent, settings) = (layer.id, layer.parent, **settings);
         self.session_mut()
@@ -44,6 +44,7 @@ impl Editor {
         });
         let fields = match settings {
             ExtendedAdjustment::PhotoFilter(s) => super::photo_filter_controls::fields(s),
+            ExtendedAdjustment::ChannelMixer(s) => super::channel_mixer_controls::fields(s),
         };
         self.modal = Some(Form::Edit {
             title: settings.label(),
@@ -52,6 +53,20 @@ impl Editor {
             error: String::new(),
         });
         Ok(())
+    }
+    pub(super) fn extended_control_action(&self, action: Action) -> Action {
+        if !matches!(action, Action::EditExtendedAdjustment) {
+            return action;
+        }
+        match self.extended_edit.as_ref().map(|draft| draft.original) {
+            Some(ExtendedAdjustment::PhotoFilter(settings)) => {
+                Action::Filter(compositor::filters::Filter::PhotoFilter(settings))
+            }
+            Some(ExtendedAdjustment::ChannelMixer(settings)) => {
+                Action::Filter(compositor::filters::Filter::ChannelMixer(settings))
+            }
+            None => action,
+        }
     }
     fn extended_settings(&self) -> Result<ExtendedAdjustment> {
         let draft = self
@@ -70,6 +85,9 @@ impl Editor {
         };
         let values: Vec<_> = fields.iter().map(|(_, value)| value.clone()).collect();
         match draft.original {
+            ExtendedAdjustment::ChannelMixer(_) => {
+                super::channel_mixer_controls::parse(&values).map(ExtendedAdjustment::ChannelMixer)
+            }
             ExtendedAdjustment::PhotoFilter(original) => {
                 super::photo_filter_controls::parse(&values, original)
                     .map(ExtendedAdjustment::PhotoFilter)

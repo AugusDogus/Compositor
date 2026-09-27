@@ -40,6 +40,11 @@ impl ChannelMixer {
             self.rows[if self.monochrome { 0 } else { channel }].map(|value| (value / 100.) as f32)
         })
     }
+    pub(crate) fn apply_rgb(self, input: [f32; 3]) -> [f32; 3] {
+        self.coefficients().map(|row| {
+            (input[0] * row[0] + input[1] * row[1] + input[2] * row[2] + row[3]).clamp(0., 1.)
+        })
+    }
     pub(crate) fn pixel(self, source: [u8; 4]) -> [u8; 4] {
         if source[3] == 0 || self.identity() {
             return source;
@@ -50,9 +55,8 @@ impl ChannelMixer {
             f32::from(source[2]) / 255.,
         ];
         let mut output = source;
-        for (channel, row) in self.coefficients().into_iter().enumerate() {
-            let value = input[0] * row[0] + input[1] * row[1] + input[2] * row[2] + row[3];
-            output[channel] = (value.clamp(0., 1.) * 255.).round() as u8;
+        for (channel, value) in self.apply_rgb(input).into_iter().enumerate() {
+            output[channel] = (value * 255.).round() as u8;
         }
         output
     }

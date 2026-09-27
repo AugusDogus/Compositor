@@ -1,5 +1,5 @@
 //! Linux authoring adjustments, persisted separately from the native v10 manifest.
-use super::PhotoFilter;
+use super::{ChannelMixer, PhotoFilter};
 use crate::Result;
 use serde::{Deserialize, Serialize};
 
@@ -7,16 +7,19 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "kind", content = "settings", deny_unknown_fields)]
 pub enum ExtendedAdjustment {
     PhotoFilter(PhotoFilter),
+    ChannelMixer(ChannelMixer),
 }
 impl ExtendedAdjustment {
     pub fn label(self) -> &'static str {
         match self {
             Self::PhotoFilter(_) => "Photo Filter",
+            Self::ChannelMixer(_) => "Channel Mixer",
         }
     }
     pub fn validate(self) -> Result<()> {
         match self {
             Self::PhotoFilter(settings) => settings.validate(),
+            Self::ChannelMixer(settings) => settings.validate(),
         }
     }
     /// Evaluate continuous backdrop RGB. Quantization belongs to the final output.
@@ -27,6 +30,7 @@ impl ExtendedAdjustment {
         let input = [rgba[0] as f32, rgba[1] as f32, rgba[2] as f32];
         let rgb = match self {
             Self::PhotoFilter(settings) => settings.apply_rgb(input),
+            Self::ChannelMixer(settings) => settings.apply_rgb(input),
         };
         [
             f64::from(rgb[0]),

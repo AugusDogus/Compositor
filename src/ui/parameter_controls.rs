@@ -56,7 +56,7 @@ impl Parameter {
                 Linear(1),
             ),
             (Action::Fade, _, 0) => ("Opacity", (0., 100.), "%", Linear(1)),
-            (Action::Filter(Filter::PhotoFilter(_)) | Action::EditExtendedAdjustment, _, 0) => {
+            (Action::Filter(Filter::PhotoFilter(_)), _, 0) => {
                 ("Density", (0., 100.), "%", Linear(0))
             }
             (Action::Filter(Filter::Radial(_)), _, 1) => ("Amount", (0., 100.), "", Linear(1)),

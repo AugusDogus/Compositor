@@ -95,6 +95,17 @@ fn layers(
             match super::adjustments::import(adjustment)? {
                 Some(adjustment) => {
                     report.note(format!("{name}: editable adjustment parameters are preserved; rendering may differ from Photoshop."));
+                    if let Some(ag_psd::psd::AdjustmentLayer::ChannelMixer(mixer)) =
+                        &info.adjustment
+                        && !mixer.monochrome.unwrap_or(false)
+                        && mixer.gray.as_ref().is_some_and(|gray| {
+                            [gray.red, gray.green, gray.blue, gray.constant]
+                                .iter()
+                                .any(|v| *v != 0.)
+                        })
+                    {
+                        report.note(format!("{name}: the inactive grayscale Channel Mixer preset is not imported; active RGB mixes are preserved."));
+                    }
                     Some(adjustment)
                 }
                 None => {
@@ -151,7 +162,7 @@ fn layers(
             layer.content = LayerContent::Group;
             layer.transform = Transform::new(doc.width, doc.height);
         } else if let Some(adjustment) = adjustment {
-            layer.content = LayerContent::Adjustment(Box::new(adjustment));
+            layer.content = adjustment;
             layer.transform = Transform::new(doc.width, doc.height);
         } else if let Some(text) = text {
             layer.text = Some(text.style);

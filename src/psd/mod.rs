@@ -1,5 +1,6 @@
 //! Photoshop is an interchange format. Conversion is staged before UI approval.
 mod adjustments;
+mod channel_mixer;
 mod color_adjustments;
 mod color_profile;
 mod crop;
