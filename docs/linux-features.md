@@ -9,6 +9,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 - Still GIF import/export supports up to 256 colors. Export makes alpha below 50% transparent and the rest opaque; animation editing is not supported.
 - AVIF export uses bundled AOM codecs, with lossy RGB color and full 8-bit transparency.
 - Edit > History browses retained undo/redo states and marks the saved state. History lasts only while the document is open.
+- PSD export retains supported layer styles as editable effects. Masked, clipped, nonuniformly scaled or non-Normal-blend effects use a baked fallback.
 - PSD/PSB imports convert embedded ICC profiles to sRGB for pixels and editable text/shape colors. v0.6.1 ignores these profiles.
 - Compressed SVG (`.svgz`) import, with a 16 MiB limit on expanded SVG data.
 - Image-menu commands rotate the whole canvas 90° in either direction, retaining editable layers and rotating masks, selections and guides. Visible Grain and Add Noise adjustments must be merged with their underlying layers first to preserve their patterns.
@@ -41,6 +42,7 @@ Recovery preserves committed document contents, not undo history or unfinished d
 - **PSD/PSB import:** accepts 8-bit RGB and grayscale files. Supported primitives and simple point/paragraph text remain editable. Unsupported text, smart objects and some vector content use cached pixels. Missing fonts and unsupported styles or transforms are reported. CMYK and non-8-bit files are unsupported.
 - **PSD export:** rasterizes text and shapes, preserves supported adjustment layers, masks and clipping, and reports conversions. Imports have been tested with Photoshop-created files; reopening exports in Photoshop remains unverified.
 - **PSD adjustments:** import and export preserve Levels, Curves, Hue/Saturation, Black & White, Color Balance and Invert as editable adjustment layers.
+- **PSD effects:** supported solid stroke, drop/inner shadow, color overlay and outer/inner glow styles remain editable on unmasked, Normal-blend raster layers outside clipping stacks. Unsupported imports are reported. Export bakes incompatible combinations; style opacity rounds to whole percentages, and Photoshop's stroke/blur rendering may differ. The flattened export preview retains the original rendered appearance.
 - **Color and precision:** image imports, including supported PSD/PSB files, convert embedded ICC profiles to sRGB. PSD layer pixels and editable text/shape colors are converted; blending and adjustments may render differently in the sRGB working space. The compositor and ordinary exports use 8-bit color. RAW Develop can export the developed image directly as 16-bit sRGB TIFF.
 
 ## Editing and platform limits

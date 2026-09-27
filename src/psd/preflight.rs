@@ -278,10 +278,6 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             if !len.is_multiple_of(2) && extra.remaining() > 0 {
                 extra.take(1)?;
             }
-            if matches!(key, b"lrFX" | b"lfx2" | b"lmfx") {
-                report
-                    .note("Photoshop layer effects are not imported; layer appearance may differ.");
-            }
             if !matches!(
                 key,
                 b"luni"

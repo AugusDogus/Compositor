@@ -45,6 +45,40 @@ fn pixels() -> ps::PixelData {
 }
 
 #[test]
+fn embedded_profile_converts_editable_effect_colors() {
+    use compositor::{
+        document::{Document, LayerContent},
+        effects::{ColorOverlayEffect, LayerEffects},
+    };
+    let mut doc = Document::new(1, 1).unwrap();
+    doc.layers[0].content = LayerContent::Raster(Some(std::sync::Arc::new(
+        image::RgbaImage::from_pixel(1, 1, image::Rgba([64, 64, 64, 255])),
+    )));
+    doc.layers[0].effects = Some(LayerEffects {
+        color_overlay: Some(ColorOverlayEffect {
+            red: 64. / 255.,
+            green: 64. / 255.,
+            blue: 64. / 255.,
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
+    let bytes = with_profile(&psd::encode(&doc).unwrap(), &linear_rgb());
+    let imported = psd::decode(&bytes).unwrap().document;
+    let color = imported.layers[0]
+        .effects
+        .as_ref()
+        .unwrap()
+        .color_overlay
+        .as_ref()
+        .unwrap();
+    for channel in [color.red, color.green, color.blue] {
+        assert!((channel * 255. - 137.).abs() <= 1.);
+    }
+    assert_eq!(color.opacity, 1.);
+}
+
+#[test]
 fn embedded_profile_converts_layer_and_flattened_pixels_in_psd_and_psb() {
     // Linear-light 64/255 becomes about 137/255 in sRGB; alpha and masks are coverage.
     for large in [false, true] {

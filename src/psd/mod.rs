@@ -3,6 +3,7 @@ mod adjustments;
 mod color_adjustments;
 mod color_profile;
 mod crop;
+mod effects;
 mod export;
 mod import;
 mod preflight;

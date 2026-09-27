@@ -6,6 +6,7 @@ use crate::{
     invalid, render,
 };
 use ag_psd::psd::{self as photoshop, BlendMode, PixelData};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 pub fn export_report(doc: &Document) -> ConversionReport {
@@ -39,10 +40,10 @@ pub fn export_report(doc: &Document) -> ConversionReport {
             .as_ref()
             .is_some_and(|effects| !effects.is_empty())
         {
-            report.note(format!(
-                "{}: layer effects and their mask are baked into pixels.",
-                layer.name
-            ));
+            match super::effects::encode(doc, layer) {
+                Ok(_) => report.note(format!("{}: supported layer effects remain editable. Photoshop's stroke and blur rendering may differ; the flattened composite retains the rendered appearance.", layer.name)),
+                Err(reason) => report.note(format!("{}: layer effects and their mask are baked into pixels because {reason}.", layer.name)),
+            }
         }
         if layer.shape.is_some() {
             report.note(format!("{}: editable shape is rasterized.", layer.name));
@@ -63,8 +64,16 @@ pub fn encode(doc: &Document) -> Result<Vec<u8>> {
         return Err(invalid("PSD export supports at most 10,000 layers."));
     }
     let mut budget = u64::from(doc.width) * u64::from(doc.height);
-    let prepared = crate::effects::prepare(doc, false)?;
-    let children = export_layers(&prepared, None, &mut budget, 0)?;
+    let mut source = doc.clone();
+    let mut effects = HashMap::new();
+    for layer in &mut source.layers {
+        if let Ok(styles) = super::effects::encode(doc, layer) {
+            effects.insert(layer.id, styles);
+            layer.effects = None;
+        }
+    }
+    let prepared = crate::effects::prepare(&source, false)?;
+    let children = export_layers(&prepared, None, &effects, &mut budget, 0)?;
     let composite = render::render(doc, doc.width, doc.height)?;
     let psd = photoshop::Psd {
         width: f64::from(doc.width),
@@ -97,6 +106,7 @@ fn charge(width: u32, height: u32, budget: &mut u64) -> Result<()> {
 fn export_layers(
     doc: &Document,
     parent: Option<Uuid>,
+    effects: &HashMap<Uuid, photoshop::LayerEffectsInfo>,
     budget: &mut u64,
     depth: usize,
 ) -> Result<Vec<photoshop::Layer>> {
@@ -131,10 +141,17 @@ fn export_layers(
             ..Default::default()
         };
         output.additional_info.name = Some(layer.name.clone());
+        output.additional_info.effects = effects.get(&layer.id).cloned();
         if let Some(adjustment) = adjustment {
             output.additional_info.adjustment = Some(adjustment);
         } else if layer.is_group() {
-            output.children = Some(export_layers(doc, Some(layer.id), budget, depth + 1)?);
+            output.children = Some(export_layers(
+                doc,
+                Some(layer.id),
+                effects,
+                budget,
+                depth + 1,
+            )?);
         } else {
             bake_layer(doc, layer, &mut output, budget)?;
         }

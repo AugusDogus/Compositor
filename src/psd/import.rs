@@ -80,7 +80,11 @@ fn layers(
         return Err(invalid("PSD folders exceed the 128-level nesting limit."));
     }
     let mut base = None;
-    for source in children {
+    let mut children = children.into_iter().peekable();
+    while let Some(source) = children.next() {
+        let clipping_base = children
+            .peek()
+            .is_some_and(|next| next.clipping.unwrap_or(false));
         let info = &source.additional_info;
         let name = info
             .name
@@ -123,9 +127,6 @@ fn layers(
             || (vector.is_none() && (info.vector_mask.is_some() || info.vector_fill.is_some()))
         {
             report.note(format!("{name}: text, unsupported vector, or smart-object content is converted to saved pixels."));
-        }
-        if info.effects.is_some() {
-            report.note(format!("{name}: Photoshop layer effects are omitted."));
         }
         let mut layer = Layer::blank(name, 1, 1);
         layer.parent = parent;
@@ -179,6 +180,32 @@ fn layers(
                 layer.transform.origin
             };
             layer.mask = import_mask(mask, report, &layer.name, origin)?;
+        }
+        if let Some(styles) = &info.effects {
+            let mapped = if layer.mask.is_some()
+                || layer.raster().is_none()
+                || layer.blend != Blend::Normal
+                || source.clipping.unwrap_or(false)
+                || clipping_base
+                || layer.text.is_some()
+                || layer.shape.is_some()
+            {
+                Err(
+                    "masked, transformed editable content, clipped or non-Normal effect layers are unsupported",
+                )
+            } else {
+                super::effects::decode(styles)
+            };
+            match mapped {
+                Ok(effects) => {
+                    layer.effects = Some(effects);
+                    report.note(format!("{}: supported layer effects remain editable; Photoshop's stroke and blur rendering may differ.", layer.name));
+                }
+                Err(reason) => report.note(format!(
+                    "{}: Photoshop layer effects are omitted because {reason}.",
+                    layer.name
+                )),
+            }
         }
         if source.clipping.unwrap_or(false) {
             layer.clip_source = base;

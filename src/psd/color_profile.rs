@@ -39,6 +39,39 @@ pub(super) fn convert(document: &mut Document, profile: &[u8]) -> Result<()> {
                 [run.red, run.green, run.blue] = color([run.red, run.green, run.blue], profile)?;
             }
         }
+        if let Some(effects) = &mut layer.effects {
+            for [red, green, blue] in [
+                effects
+                    .stroke
+                    .as_mut()
+                    .map(|s| [&mut s.red, &mut s.green, &mut s.blue]),
+                effects
+                    .shadow
+                    .as_mut()
+                    .map(|s| [&mut s.red, &mut s.green, &mut s.blue]),
+                effects
+                    .inner_shadow
+                    .as_mut()
+                    .map(|s| [&mut s.red, &mut s.green, &mut s.blue]),
+                effects
+                    .color_overlay
+                    .as_mut()
+                    .map(|s| [&mut s.red, &mut s.green, &mut s.blue]),
+                effects
+                    .outer_glow
+                    .as_mut()
+                    .map(|s| [&mut s.red, &mut s.green, &mut s.blue]),
+                effects
+                    .inner_glow
+                    .as_mut()
+                    .map(|s| [&mut s.red, &mut s.green, &mut s.blue]),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                [*red, *green, *blue] = color([*red, *green, *blue], profile)?;
+            }
+        }
     }
     Ok(())
 }

@@ -253,7 +253,7 @@ fn editable_text_effects_and_guides_survive_project_save_and_psd_reports_rasteri
         .unwrap()
         .document;
     assert!(converted.layers[0].text.is_none());
-    assert!(converted.layers[0].effects.is_none());
+    assert!(converted.layers[0].effects.is_some());
     assert_eq!(converted.guides[0].position, 50.);
     assert_eq!(
         render::render(&restored, 180, 100).unwrap(),
