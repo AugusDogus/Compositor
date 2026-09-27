@@ -3,7 +3,7 @@
 set -euo pipefail
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
-for command in dpkg-deb rpmbuild jq cargo; do
+for command in dpkg-deb rpmbuild bsdtar zstd jq cargo; do
     command -v "$command" >/dev/null || { printf 'Install %s and retry.\n' "$command" >&2; exit 1; }
 done
 version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "compositor") | .version')"
@@ -82,7 +82,40 @@ rpmbuild --define "_topdir $stage_dir/rpm" --define '_build_id_links none' \
     -bb "$stage_dir/rpm/compositor.spec"
 rpm="$project_root/dist/compositor-$package_version-1.x86_64.rpm"
 install -m644 "$stage_dir/rpm/RPMS/x86_64/compositor-$package_version-1.x86_64.rpm" "$rpm"
-for artifact in "$deb" "$rpm"; do
+
+# Pacman does not give '~' prerelease semantics. An alphabetic suffix sorts
+# before the same numeric release, including when the SemVer identifier is numeric.
+arch_version="${version/-/pre.}"
+arch_version="${arch_version//-/.}"
+install -Dm644 LICENSE "$stage_dir/root/usr/share/licenses/compositor/LICENSE"
+cat > "$stage_dir/root/.PKGINFO" <<EOF
+pkgname = compositor
+pkgbase = compositor
+pkgver = $arch_version-1
+pkgdesc = Layered image editor with bundled offline selection models
+url = https://github.com/AugusDogus/Compositor
+builddate = $(date +%s)
+packager = AugusDogus <AugusDogus@users.noreply.github.com>
+size = $(du -sb "$stage_dir/root" | cut -f1)
+arch = x86_64
+license = MIT
+license = LicenseRef-Bundled-Dependencies
+depend = glibc>=2.39
+depend = gcc-libs
+depend = wayland
+depend = xdg-desktop-portal
+optdepend = xdg-desktop-portal-gtk: GTK file dialogs
+optdepend = xdg-desktop-portal-kde: KDE file dialogs
+optdepend = xdg-desktop-portal-gnome: GNOME file dialogs
+EOF
+arch="$project_root/dist/compositor-$arch_version-1-x86_64.pkg.tar.zst"
+(
+    cd "$stage_dir/root"
+    bsdtar --uid 0 --gid 0 -czf .MTREE --format=mtree \
+        --options='!all,use-set,type,uid,gid,mode,time,size,sha256,link' .PKGINFO opt usr
+    bsdtar --uid 0 --gid 0 --no-fflags -cf - .PKGINFO .MTREE opt usr | zstd -10 -T2 -f -o "$arch"
+)
+for artifact in "$deb" "$rpm" "$arch"; do
     if (( $(stat -c %s "$artifact") >= 2147483648 )); then
         printf '%s exceeds the GitHub 2 GiB asset limit.\n' "$artifact" >&2
         exit 1
@@ -91,3 +124,4 @@ for artifact in "$deb" "$rpm"; do
 done
 dpkg-deb --info "$deb" >/dev/null
 rpm --checksig "$rpm"
+bsdtar -xOf "$arch" .PKGINFO >/dev/null
