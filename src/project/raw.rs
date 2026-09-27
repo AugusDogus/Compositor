@@ -1,7 +1,11 @@
 //! Linux RAW metadata is separate from the upstream manifest, whose PNG assets
 //! remain usable by readers that do not understand editable camera sources.
 use super::*;
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
+
+#[cfg(test)]
+mod tests;
 
 const NAME: &str = "linux-raw.json";
 
@@ -18,6 +22,32 @@ struct Record {
     layer: Uuid,
     source: Uuid,
     asset: crate::raw::RawAsset,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    binding: Option<[u8; 32]>,
+}
+
+/// Bind authoring data to the cached raster it can replace. Placement, masks and
+/// layer effects deliberately stay outside this digest: they do not change the
+/// developed source. This detects stale/corrupt sidecars, not malicious authors.
+fn binding(
+    document: Uuid,
+    layer: &Layer,
+    asset: &crate::raw::RawAsset,
+    source_digest: &[u8; 32],
+) -> Result<[u8; 32]> {
+    let pixels = layer
+        .raster()
+        .ok_or_else(|| invalid("The RAW layer has no cached pixels."))?;
+    let mut hash = Sha256::new();
+    hash.update(b"compositor-linux-raw-v2\0");
+    hash.update(document.as_bytes());
+    hash.update(layer.id.as_bytes());
+    hash.update(source_digest);
+    hash.update(serde_json::to_vec(asset)?);
+    hash.update(pixels.width().to_le_bytes());
+    hash.update(pixels.height().to_le_bytes());
+    hash.update(pixels.as_raw());
+    Ok(hash.finalize().into())
 }
 
 fn source_path(root: &Path, source: Uuid) -> PathBuf {
@@ -42,12 +72,13 @@ pub(super) fn load(doc: &mut Document, path: &Path, root: &Path) -> Result<()> {
         ));
     }
     let sources: Sources = serde_json::from_slice(&bytes)?;
-    if sources.version != 1 {
+    if !matches!(sources.version, 1 | 2) {
         return Err(invalid(
             "This project's RAW settings version is unsupported. Update Compositor before opening it.",
         ));
     }
     let mut cache: HashMap<Uuid, Arc<Vec<u8>>> = HashMap::new();
+    let mut digests: HashMap<Uuid, [u8; 32]> = HashMap::new();
     let mut seen = HashSet::new();
     let mut total = 0_u64;
     for record in sources.layers {
@@ -91,6 +122,16 @@ pub(super) fn load(doc: &mut Document, path: &Path, root: &Path) -> Result<()> {
         let mut asset = record.asset;
         asset.bytes = data;
         asset.validate()?;
+        if sources.version == 2 {
+            let source_digest = digests
+                .entry(record.source)
+                .or_insert_with(|| Sha256::digest(asset.bytes.as_slice()).into());
+            if record.binding != Some(binding(doc.id, layer, &asset, source_digest)?) {
+                return Err(invalid(
+                    "The project's RAW source or settings no longer match its cached image. No files were changed. Restore a matching backup, or remove linux-raw.json from a copy of the .comp folder to open only its cached pixels.",
+                ));
+            }
+        }
         layer.raw = Some(Arc::new(asset));
     }
     Ok(())
@@ -98,6 +139,7 @@ pub(super) fn load(doc: &mut Document, path: &Path, root: &Path) -> Result<()> {
 
 pub(super) fn save(doc: &Document, path: &Path) -> Result<()> {
     let mut sources = HashMap::new();
+    let mut digests: HashMap<Uuid, [u8; 32]> = HashMap::new();
     let mut records = Vec::new();
     let mut total = 0_u64;
     for layer in &doc.layers {
@@ -121,17 +163,21 @@ pub(super) fn save(doc: &Document, path: &Path) -> Result<()> {
             sources.insert(pointer, layer.id);
             layer.id
         };
+        let source_digest = digests
+            .entry(source)
+            .or_insert_with(|| Sha256::digest(asset.bytes.as_slice()).into());
         records.push(Record {
             layer: layer.id,
             source,
             asset: asset.as_ref().clone(),
+            binding: Some(binding(doc.id, layer, asset, source_digest)?),
         });
     }
     if records.is_empty() {
         return Ok(());
     }
     let bytes = serde_json::to_vec(&Sources {
-        version: 1,
+        version: 2,
         layers: records,
     })?;
     if bytes.len() as u64 > MANIFEST_LIMIT {
