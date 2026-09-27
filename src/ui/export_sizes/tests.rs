@@ -110,3 +110,45 @@ fn export_sizes_job_uses_its_snapshot_and_keeps_save_state() {
     assert_eq!(editor.session().dirty(), dirty);
     assert_eq!(editor.session().revision(), revision);
 }
+
+#[test]
+fn export_sizes_inputs_do_not_share_ids_with_retained_filter_fields() {
+    for action in [
+        Action::Filter(compositor::filters::Filter::Gaussian { radius: 2. }),
+        Action::AdjustPixels(Kind::HueSaturation),
+    ] {
+        let mut editor = Editor::with_test_document();
+        let mut document = Document::new(16, 12).unwrap();
+        compositor::edits::fill(&mut document, [80, 120, 160, 255], false, false).unwrap();
+        editor.tabs = vec![Session::new(document, None).into()];
+        let (mut cx, view) = Application::new()
+            .font(crate::UI_FONT)
+            .into_test_context(
+                WindowOptions::new("Export above numeric fields").size(1180., 780.),
+                editor,
+            )
+            .unwrap();
+        let window = view.window_handle();
+        cx.update(view, |editor, cx| {
+            editor.action(action, cx);
+            editor.action(Action::ExportSizes, cx);
+        })
+        .unwrap();
+        cx.focus(window, 60_000_u64).unwrap();
+        cx.simulate_keystrokes(window, "ctrl-a").unwrap();
+        cx.simulate_input(window, "24x24, 48x48").unwrap();
+        cx.click(window, "form-choice-2-jpeg").unwrap();
+        cx.focus(window, 60_003_u64).unwrap();
+        cx.simulate_keystrokes(window, "ctrl-a").unwrap();
+        cx.simulate_input(window, "92").unwrap();
+        cx.read(view, |editor| {
+            assert!(matches!(&editor.modal, Some(Form::Edit { fields, .. }) if fields[0].1 == "24x24, 48x48" && fields[3].1 == "92"));
+            assert!(editor.retained_panel.is_some());
+        }).unwrap();
+        cx.click(window, "form-cancel").unwrap();
+        cx.read(view, |editor| {
+            assert!(editor.floating_panel_kind().is_some())
+        })
+        .unwrap();
+    }
+}

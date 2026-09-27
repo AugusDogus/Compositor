@@ -54,7 +54,10 @@ impl Editor {
         if let Some((_, sizes)) = fields.first() {
             contents = contents
                 .child(text("Sizes in pixels, separated by commas").text_size(13.))
-                .child(self.form_input(cx, 0, sizes).w_full());
+                .child(
+                    self.form_input_with_id(cx, 0, sizes, self.size_field_id(0))
+                        .w_full(),
+                );
         }
         let mut presets = div().flex_row().gap(6.);
         for (label, sizes) in [
@@ -91,7 +94,10 @@ impl Editor {
                         .items_center()
                         .gap(12.)
                         .child(text("Quality (0–100)").text_size(13.))
-                        .child(self.form_input(cx, 3, quality).w(80.)),
+                        .child(
+                            self.form_input_with_id(cx, 3, quality, self.size_field_id(3))
+                                .w(80.),
+                        ),
                 );
             }
         }

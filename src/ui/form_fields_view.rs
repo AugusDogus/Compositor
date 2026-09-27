@@ -12,7 +12,7 @@ impl Editor {
         self.form_input_with_id(cx, index, value, id)
     }
 
-    fn form_input_with_id(
+    pub(super) fn form_input_with_id(
         &self,
         cx: &mut ViewContext<'_, Self>,
         index: usize,
