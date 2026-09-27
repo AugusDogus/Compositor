@@ -149,6 +149,7 @@ fn effect_settings_and_disabled_flags_round_trip_with_undo() {
             doc.layers[0].effects = Some(LayerEffects {
                 pattern_overlay: None,
                 gradient_overlay: None,
+                bevel: None,
                 stroke: Some(StrokeEffect {
                     enabled: Some(false),
                     size: 500.,

@@ -11,7 +11,7 @@ use crate::{
 pub(super) const PARAMETER_WORDS: usize = 48 + 16 + MAX_STOPS * 10;
 
 pub(super) fn encode(
-    parameters: &mut [u32; PARAMETER_WORDS],
+    parameters: &mut [u32; super::PARAMETER_WORDS],
     size: [u32; 2],
     effects: &LayerEffects,
 ) -> Result<()> {

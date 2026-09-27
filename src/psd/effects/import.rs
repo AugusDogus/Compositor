@@ -178,6 +178,7 @@ pub(in crate::psd) fn decode(e: &ps::LayerEffectsInfo) -> Mapping<LayerEffects> 
     let effects = LayerEffects {
         pattern_overlay: None,
         gradient_overlay: None,
+        bevel: None,
         stroke,
         color_overlay,
         outer_glow,

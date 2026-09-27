@@ -25,6 +25,9 @@ impl Editor {
                 this.change_effect(|e| {
                     let visible = Some(!kind.enabled(&e.effects).unwrap_or(false));
                     match kind {
+                        EffectKind::Bevel => {
+                            e.effects.bevel.get_or_insert_default().enabled = visible == Some(true);
+                        }
                         EffectKind::Gradient => {
                             e.effects.gradient_overlay.get_or_insert_default().enabled =
                                 visible == Some(true);
@@ -82,6 +85,7 @@ impl Editor {
             actions = actions.child(self.control("Remove").id("effect-remove").on_click(
                 cx.listener("effect-remove", move |this, cx| {
                     this.change_effect(|e| match kind {
+                        EffectKind::Bevel => e.effects.bevel = None,
                         EffectKind::Gradient => {
                             e.effects.gradient_overlay = None;
                             e.sync_overlay_stop();

@@ -17,6 +17,8 @@ pub struct LayerEffects {
     pub pattern_overlay: Option<Box<crate::pattern::Overlay>>,
     #[serde(skip)]
     pub gradient_overlay: Option<Box<crate::gradient_overlay::Overlay>>,
+    #[serde(skip)]
+    pub bevel: Option<Box<crate::bevel::Settings>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inner_shadow: Option<ShadowEffect>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -173,9 +175,11 @@ impl ShadowEffect {
 }
 impl LayerEffects {
     pub fn validate(&self) -> bool {
-        self.gradient_overlay
-            .as_ref()
-            .is_none_or(|s| s.validate().is_ok())
+        self.bevel.as_ref().is_none_or(|s| s.validate().is_ok())
+            && self
+                .gradient_overlay
+                .as_ref()
+                .is_none_or(|s| s.validate().is_ok())
             && self
                 .pattern_overlay
                 .as_ref()
@@ -217,12 +221,14 @@ impl LayerEffects {
             && self.color_overlay.is_none()
             && self.pattern_overlay.is_none()
             && self.gradient_overlay.is_none()
+            && self.bevel.is_none()
             && self.inner_shadow.is_none()
             && self.outer_glow.is_none()
             && self.inner_glow.is_none()
     }
     pub fn visible(&self) -> Self {
         Self {
+            bevel: self.bevel.clone().filter(|s| s.enabled),
             pattern_overlay: self.pattern_overlay.clone().filter(|s| s.settings.enabled),
             gradient_overlay: self.gradient_overlay.clone().filter(|s| s.enabled),
             outer_glow: self.outer_glow.clone().filter(|s| s.enabled != Some(false)),
@@ -251,7 +257,12 @@ impl LayerEffects {
             .as_ref()
             .map_or(0., |s| s.distance + s.blur * 3.);
         let glow = effects.outer_glow.as_ref().map_or(0., |s| s.size * 3.);
-        stroke.max(shadow).max(glow).ceil() as u32 + 2
+        let bevel = effects
+            .bevel
+            .as_ref()
+            .filter(|s| s.style != crate::bevel::Style::Inner && s.size > 0.)
+            .map_or(0., |s| s.size * 1.5 + 1.);
+        stroke.max(shadow).max(glow).max(bevel).ceil() as u32 + 2
     }
 }
 

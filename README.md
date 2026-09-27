@@ -72,6 +72,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Outer Glow and Inner Glow | ✅ | ✅ | ❌ |
 | Pattern Overlay and PAT import | ❌ | ✅ | ❌ |
 | Gradient Overlay | ❌ | ✅ | ❌ |
+| Bevel/Emboss | ❌ | ✅ | ❌ |
 | Line shapes | ✅ | ✅ | ❌ |
 | Selection feathering | ✅ | ✅ | ✅ |
 | Soft Light blend mode | ✅ | ✅ | ❌ |

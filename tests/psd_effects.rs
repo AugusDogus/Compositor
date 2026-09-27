@@ -28,6 +28,7 @@ fn effects() -> LayerEffects {
     LayerEffects {
         pattern_overlay: None,
         gradient_overlay: None,
+        bevel: None,
         stroke: Some(StrokeEffect {
             size: 2.,
             red: 1.,

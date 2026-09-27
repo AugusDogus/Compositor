@@ -3,9 +3,10 @@ use crate::{Result, effects::LayerEffects, invalid};
 use image::RgbaImage;
 use wgpu::util::DeviceExt;
 
+mod bevel;
 mod gradient;
 // Shared by effects and coverage blur, matching the full effects.wgsl layout.
-pub(super) const PARAMETER_WORDS: usize = gradient::PARAMETER_WORDS;
+pub(super) const PARAMETER_WORDS: usize = gradient::PARAMETER_WORDS + 8;
 
 pub(in crate::render) fn render(
     image: &RgbaImage,
@@ -98,6 +99,7 @@ impl Engine {
             .filter(|s| s.size > 0. && s.opacity > 0.);
         let mut params = [0u32; PARAMETER_WORDS];
         gradient::encode(&mut params, [image.width(), image.height()], effects)?;
+        bevel::encode(&mut params, effects)?;
         if let Some(s) = pattern {
             params[40] = (bytes / 4) as u32;
             params[41] = s.pattern.pixels().width();
@@ -206,8 +208,20 @@ impl Engine {
                 run(6, [(s.size / 2.) as f32, 0.], first, inner_glow);
             }
         }
-        // The composition phase does not otherwise read its input plane.
-        run(7, [0.; 2], inner_glow, scratch);
+        let height_field = if let Some(settings) = &effects.bevel {
+            if settings.size <= 0.02 {
+                run(4, [0.; 2], shape, second);
+            } else {
+                run(5, [(settings.size / 2.) as f32, 0.], shape, first);
+                run(6, [(settings.size / 2.) as f32, 0.], first, second);
+            }
+            second
+        } else {
+            scratch
+        };
+        // Composition reads the inner-glow input and Bevel height destination
+        // without writing either plane, retaining the eight storage bindings.
+        run(7, [0.; 2], inner_glow, height_field);
         encoder.copy_buffer_to_buffer(&output, 0, &readback, 0, bytes);
         let result = self.readback(
             encoder,
@@ -299,6 +313,7 @@ mod tests {
             let effects = LayerEffects {
                 pattern_overlay: None,
                 gradient_overlay: None,
+                bevel: None,
                 inner_glow: Some(InnerGlowEffect {
                     size: 6.3,
                     red: 0.4,

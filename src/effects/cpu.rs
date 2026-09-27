@@ -183,6 +183,11 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> crate::Result
                 gaussian(&shape, width, height, (s.size / 2.) as f32)
             }
         });
+    let bevel = effects
+        .bevel
+        .as_ref()
+        .map(|settings| crate::bevel::surface::Surface::new(&shape, width, height, settings))
+        .transpose()?;
     let inset = f64::from(effects.margin());
     let gradient = effects
         .gradient_overlay
@@ -270,11 +275,31 @@ pub(crate) fn render(image: &RgbaImage, effects: &LayerEffects) -> crate::Result
                 ring[i] / shape[i] * s.opacity as f32,
             );
         }
+        let relief = bevel
+            .as_ref()
+            .map(|surface| surface.sample(x as usize, y as usize));
+        if let (Some(settings), Some(shading)) = (&effects.bevel, relief)
+            && settings.style == crate::bevel::Style::Inner
+        {
+            tint(&mut source, [1.; 3], shading.highlight);
+            tint(&mut source, [0.; 3], shading.shadow);
+        }
         out = over(
             out,
             [source[0] as f64, source[1] as f64, source[2] as f64],
             source[3],
         );
+        if let (Some(settings), Some(shading)) = (&effects.bevel, relief)
+            && settings.style != crate::bevel::Style::Inner
+        {
+            let coverage = if settings.style == crate::bevel::Style::Outer {
+                1. - shape[i]
+            } else {
+                1.
+            };
+            out = over(out, [1.; 3], shading.highlight * coverage);
+            out = over(out, [0.; 3], shading.shadow * coverage);
+        }
         if out[3] > 0. {
             for c in 0..3 {
                 out[c] /= out[3];

@@ -1,4 +1,5 @@
 //! Nondestructive layer effects with one undo entry per confirmed editing session.
+mod bevel;
 mod buttons;
 mod controls;
 mod gradient;
@@ -19,9 +20,10 @@ pub(super) enum EffectKind {
     InnerGlow,
     Pattern,
     Gradient,
+    Bevel,
 }
 impl EffectKind {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self::Stroke,
         Self::Shadow,
         Self::Overlay,
@@ -30,9 +32,11 @@ impl EffectKind {
         Self::InnerGlow,
         Self::Pattern,
         Self::Gradient,
+        Self::Bevel,
     ];
     fn label(self) -> &'static str {
         match self {
+            Self::Bevel => "Bevel/Emboss",
             Self::Gradient => "Gradient Overlay",
             Self::Pattern => "Pattern Overlay",
             Self::Stroke => "Stroke",
@@ -45,6 +49,7 @@ impl EffectKind {
     }
     fn enabled(self, e: &LayerEffects) -> Option<bool> {
         match self {
+            Self::Bevel => e.bevel.as_ref().map(|s| s.enabled),
             Self::Gradient => e.gradient_overlay.as_ref().map(|s| s.enabled),
             Self::Pattern => e.pattern_overlay.as_ref().map(|s| s.settings.enabled),
             Self::Stroke => e.stroke.as_ref().map(|s| s.enabled != Some(false)),
@@ -57,7 +62,7 @@ impl EffectKind {
     }
     fn color(self, e: &LayerEffects) -> [f64; 3] {
         match self {
-            Self::Pattern | Self::Gradient => None,
+            Self::Pattern | Self::Gradient | Self::Bevel => None,
             Self::Stroke => e.stroke.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Shadow => e.shadow.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Overlay => e.color_overlay.as_ref().map(|s| [s.red, s.green, s.blue]),
@@ -87,10 +92,20 @@ pub(super) enum Parameter {
     Distance,
     Blur,
     Scale,
+    BevelSize,
+    Depth,
+    Altitude,
+    Highlight,
+    Shading,
 }
 impl Parameter {
     fn label(self) -> &'static str {
         match self {
+            Self::BevelSize => "Size (px)",
+            Self::Depth => "Depth (%)",
+            Self::Altitude => "Altitude (°)",
+            Self::Highlight => "Highlight (%)",
+            Self::Shading => "Shadow (%)",
             Self::Scale => "Scale (%)",
             Self::Opacity => "Opacity (%)",
             Self::Size => "Size (px)",
@@ -101,6 +116,10 @@ impl Parameter {
     }
     fn range(self) -> (f64, f64) {
         match self {
+            Self::BevelSize => (0., 250.),
+            Self::Depth => (1., 1000.),
+            Self::Altitude => (0., 90.),
+            Self::Highlight | Self::Shading => (0., 100.),
             Self::Scale => (5., 2000.),
             Self::Opacity => (0., 100.),
             Self::Size | Self::Blur => (0., 500.),
@@ -120,7 +139,7 @@ impl EffectsEditor {
     pub(super) fn set_color(&mut self, rgb: [u8; 4]) {
         let [r, g, b, _] = rgb.map(|v| f64::from(v) / 255.);
         match self.kind {
-            EffectKind::Pattern => {}
+            EffectKind::Pattern | EffectKind::Bevel => {}
             EffectKind::Gradient => self.set_overlay_color(rgb),
             EffectKind::Stroke => {
                 if let Some(s) = &mut self.effects.stroke {
@@ -167,6 +186,7 @@ impl EffectsEditor {
     }
     pub(super) fn number(&self, p: Parameter) -> f64 {
         match self.kind {
+            EffectKind::Bevel => self.bevel_number(p),
             EffectKind::Gradient => {
                 self.effects
                     .gradient_overlay
@@ -225,6 +245,7 @@ impl EffectsEditor {
     }
     pub(super) fn set_number(&mut self, p: Parameter, value: f64) {
         match self.kind {
+            EffectKind::Bevel => self.set_bevel_number(p, value),
             EffectKind::Gradient => {
                 if let Some(s) = &mut self.effects.gradient_overlay {
                     match p {
@@ -362,8 +383,10 @@ impl Editor {
             return;
         };
         change(edit);
-        if !matches!(edit.kind, EffectKind::Pattern | EffectKind::Gradient)
-            && edit.kind.enabled(&edit.effects).is_some()
+        if !matches!(
+            edit.kind,
+            EffectKind::Pattern | EffectKind::Gradient | EffectKind::Bevel
+        ) && edit.kind.enabled(&edit.effects).is_some()
             && compositor::palette::parse_hex(&edit.color).is_err()
         {
             edit.error = "Enter an RGB color such as #336699.".into();
@@ -409,6 +432,7 @@ impl Editor {
             })?;
         let effects = layer.effects.get_or_insert_default();
         match kind {
+            EffectKind::Bevel => effects.bevel = source.bevel,
             EffectKind::Gradient => effects.gradient_overlay = source.gradient_overlay,
             EffectKind::Pattern => effects.pattern_overlay = source.pattern_overlay,
             EffectKind::Stroke => effects.stroke = source.stroke,

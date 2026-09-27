@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Bevel/Emboss adds editable Inner Bevel, Outer Bevel and Emboss lighting, with size, depth, direction, altitude and highlight/shadow opacity. Preview, copy and undo preserve source pixels. Linux projects retain the settings; macOS and PSD receive rendered layers.
+
 - Gradient Overlay recolors a layer with linear or radial gradients. Edit color and opacity stops independently, with angle, reverse, opacity, preview and undo. Linux projects keep the settings; macOS and PSD receive rendered layers.
 
 - Pattern Overlay tiles imported Photoshop PAT patterns over a layer, with scale, opacity, preview and undo. Import supports 8-bit RGB and grayscale packs. Linux projects embed selected patterns; macOS and PSD receive rendered layers. Unused patterns remain available while the effects dialog is open.

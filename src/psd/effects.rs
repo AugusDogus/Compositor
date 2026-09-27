@@ -33,6 +33,11 @@ fn linear() -> ps::EffectContour {
 
 pub(super) fn encode(doc: &Document, layer: &Layer) -> Mapping<ps::LayerEffectsInfo> {
     let effects = layer.effects.as_ref().ok_or("no layer effects")?;
+    if effects.bevel.is_some() {
+        return Err(
+            "Bevel/Emboss is rendered into PSD pixels; save a .comp project to keep it editable",
+        );
+    }
     if effects.gradient_overlay.is_some() {
         return Err(
             "Gradient Overlay is rendered into PSD pixels; save a .comp project to keep its independent color and opacity stops editable",

@@ -1,4 +1,4 @@
-struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32>, insideGlow: vec4<f32>, pattern: vec4<u32>, tile: vec4<f32>, gradient: vec4<u32>, gradientSettings:vec4<f32>, gradientGeometry:vec4<i32>, gradientBounds:vec4<i32>, gradientColors:array<vec4<f32>,32>, gradientOpacity:array<vec4<f32>,32>, gradientKeys:array<vec4<i32>,16> }
+struct Params { size: vec4<u32>, geometry: vec4<f32>, stroke: vec4<f32>, shadow: vec4<f32>, overlay: vec4<f32>, inner: vec4<f32>, flags: vec4<u32>, glow: vec4<f32>, more: vec4<u32>, insideGlow: vec4<f32>, pattern: vec4<u32>, tile: vec4<f32>, gradient: vec4<u32>, gradientSettings:vec4<f32>, gradientGeometry:vec4<i32>, gradientBounds:vec4<i32>, gradientColors:array<vec4<f32>,32>, gradientOpacity:array<vec4<f32>,32>, gradientKeys:array<vec4<i32>,16>, bevelLight:vec4<f32>, bevelSettings:vec4<f32> }
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var<storage,read> pixels: array<u32>;
 @group(0) @binding(2) var<storage,read> input: array<f32>;
@@ -61,6 +61,18 @@ fn gradient_sample(point:vec2<f32>) -> vec4<f32> {
  t=clamp(t,0.,1.);
  return vec4(gradient_stop(p.gradientColors,p.gradient.z,t,key,false),gradient_stop(p.gradientOpacity,p.gradient.w,t,key,true).x);
 }
+fn bevel_shading(point:vec2<u32>) -> vec2<f32> {
+ let w=p.size.x; let h=p.size.y;
+ let left=point.y*w+u32(max(i32(point.x)-1,0));
+ let right=point.y*w+min(point.x+1u,w-1u);
+ let top=u32(max(i32(point.y)-1,0))*w+point.x;
+ let bottom=min(point.y+1u,h-1u)*w+point.x;
+ let nx=-(output[right]-output[left])*p.bevelLight.w;
+ let ny=-(output[bottom]-output[top])*p.bevelLight.w;
+ let length=sqrt(nx*nx+ny*ny+1.);
+ let delta=(nx*p.bevelLight.x+ny*p.bevelLight.y+p.bevelLight.z)/length-p.bevelLight.z;
+ return min(2.*max(vec2(delta,-delta),vec2(0.)),vec2(1.))*p.bevelSettings.yz;
+}
 @compute @workgroup_size(16,16)
 fn effects(@builtin(global_invocation_id) gid:vec3<u32>) {
  let w=p.size.x; let h=p.size.y; if gid.x>=w || gid.y>=h {return;} let i=gid.y*w+gid.x; let phase=p.size.z;
@@ -112,7 +124,18 @@ fn effects(@builtin(global_invocation_id) gid:vec3<u32>) {
  }
  if p.flags.w==1u {source=vec4<f32>(mix(source.xyz,p.inner.xyz,(1.-inner[i])*p.inner.w),source.a);}
  if p.flags.x==1u && p.flags.y==1u && source.a>0. {source=vec4<f32>(mix(source.xyz,p.stroke.xyz,ring[i]/alpha(i)*p.stroke.w),source.a);}
+ var relief=vec2(0.);
+ if p.bevelSettings.x>0. {relief=bevel_shading(gid.xy);}
+ if p.bevelSettings.x==1. {
+  source=vec4(mix(source.rgb,vec3(1.),relief.x),source.a);
+  source=vec4(source.rgb*(1.-relief.y),source.a);
+ }
  color=over(color,source.xyz,source.a);
+ if p.bevelSettings.x>=2. {
+  let coverage=select(1.,1.-alpha(i),p.bevelSettings.x==2.);
+  color=over(color,vec3(1.),relief.x*coverage);
+  color=over(color,vec3(0.),relief.y*coverage);
+ }
  if color.a>0. {color=vec4<f32>(color.xyz/color.a,color.a);}
  let bytes=vec4<u32>(round(clamp(color,vec4<f32>(0.),vec4<f32>(1.))*255.));
  result[i]=bytes.x|(bytes.y<<8u)|(bytes.z<<16u)|(bytes.w<<24u);

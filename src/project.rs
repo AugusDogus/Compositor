@@ -389,8 +389,8 @@ pub fn validate_storage_metadata(document: &Document) -> Result<()> {
 
 fn native_metadata(document: &Document) -> Result<Vec<u8>> {
     let records = document.layers.iter().map(|layer| {
-        if layer.effects.as_ref().is_some_and(|e| e.pattern_overlay.is_some() || e.gradient_overlay.is_some()) {
-            return Err(invalid("Pattern Overlay and Gradient Overlay require a Linux authoring snapshot."));
+        if layer.effects.as_ref().is_some_and(|e| e.pattern_overlay.is_some() || e.gradient_overlay.is_some() || e.bevel.is_some()) {
+            return Err(invalid("Pattern Overlay, Gradient Overlay and Bevel/Emboss require a Linux authoring snapshot."));
         }
         let image_file = layer.raster().map(|_| asset_name(layer.id, false));
         let mask_file = layer.mask.as_ref().map(|_| asset_name(layer.id, true));
