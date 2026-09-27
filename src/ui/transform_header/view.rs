@@ -64,7 +64,7 @@ impl Editor {
         div()
             .flex_row()
             .items_center()
-            .gap(12.)
+            .gap(if cx.size().width < 1600. { 6. } else { 12. })
             .flex_shrink_0()
             .child(
                 Self::check_control("Auto Select", self.tools.transform_auto_select)
@@ -88,6 +88,9 @@ impl Editor {
     }
 
     fn transform_numeric_controls(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        // Keep complete controls visible on laptop-sized windows. Smaller
+        // windows retain horizontal scrolling without shrinking input text.
+        let compact = cx.size().width < 1600.;
         let bounds = self.header_transform_bounds();
         let disabled = bounds.is_none() || !self.can_edit_transform_numbers();
         let transform = bounds.unwrap_or(Transform::new(1, 1));
@@ -98,8 +101,8 @@ impl Editor {
         let mut row = div()
             .flex_row()
             .items_center()
-            .gap(12.)
-            .px(18.)
+            .gap(if compact { 6. } else { 12. })
+            .px(if compact { 0. } else { 18. })
             .flex_shrink_0();
         for (index, label) in ["X", "Y", "W", "H", "Scale", "°"].into_iter().enumerate() {
             let id = format!("transform-value-{index}");
@@ -164,9 +167,11 @@ impl Editor {
                     .items_center()
                     .gap(4.)
                     .w(if index == 4 {
-                        110.
+                        if compact { 98. } else { 110. }
                     } else if index == 5 {
-                        75.
+                        if compact { 65. } else { 75. }
+                    } else if compact {
+                        68.
                     } else {
                         85.
                     })
@@ -223,6 +228,7 @@ impl Editor {
         ] {
             row = row.child(
                 Self::tool_header_control(label)
+                    .px(if compact { 6. } else { 11. })
                     .flex_shrink_0()
                     .disabled(disabled)
                     .on_click(cx.listener(id, move |this, cx| {

@@ -2,6 +2,59 @@ use super::*;
 use quickgui::{Application, WindowOptions};
 
 #[test]
+fn desktop_transform_fields_and_flips_fit_without_partial_controls() {
+    for (width, mask) in [
+        (1280., false),
+        (1280., true),
+        (1440., false),
+        (1600., false),
+        (1920., false),
+    ] {
+        let mut editor = Editor::with_test_document();
+        if mask {
+            editor.tools.mask_target = true;
+            editor.session_mut().document.layers[0].mask = Some(compositor::document::Mask {
+                pixels: Arc::new(image::GrayImage::from_pixel(1, 1, image::Luma([255]))),
+                enabled: true,
+                linked: false,
+                placement: None,
+            });
+        }
+        let (mut cx, view) = Application::new()
+            .font(crate::UI_FONT)
+            .into_test_context(
+                WindowOptions::new("Transform field visibility").size(width, 800.),
+                editor,
+            )
+            .unwrap();
+        let window = view.window_handle();
+        let viewport = cx
+            .element_bounds(window, "transform-fields-scroll")
+            .unwrap();
+        for id in [
+            "transform-value-0",
+            "transform-value-1",
+            "transform-value-2",
+            "transform-value-3",
+            "transform-value-4",
+            "transform-value-5",
+            "transform-flip-h",
+            "transform-flip-v",
+        ] {
+            let field = cx.element_bounds(window, id).unwrap();
+            assert!(
+                field.x >= viewport.x && field.right() <= viewport.right(),
+                "{id} is clipped at {width}: {field:?}, viewport={viewport:?}"
+            );
+            assert!(
+                field.width >= 40.,
+                "{id} must remain usable at {width}: {field:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn sampling_picker_is_fully_visible_beside_transform_actions() {
     let mut observations = Vec::new();
     for (width, height) in [(1280., 800.), (800., 594.)] {
