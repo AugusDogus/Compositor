@@ -4,6 +4,9 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- GBR v2 brush tips support imported shapes, spacing, pressure, tilt, selections and undo. Paint and Erase use the foreground color or mask coverage; embedded RGB colors are not used. Tips stay loaded for the current session.
+- Brightness/Contrast provides direct pixel edits and adjustment layers with preview and undo. It saves as native Levels; Mac saves retain those Levels but remove the Linux slider settings.
+- Radial Blur provides Spin and Zoom modes with a movable center, selection-aware preview and undo. Vulkan accelerates supported image sizes, with a CPU path when unavailable.
 - Multi-stop gradients support 2–32 color/opacity stops, numeric or dragged positioning, linear/radial painting and mask gradients.
 - Dodge, Burn and Sponge brushes support pressure, selection-aware strokes and undo. Dodge/Burn offer tonal ranges; Sponge can saturate or desaturate. Large unselected strokes use Vulkan when available.
 - Unsharp Mask sharpens raster layers with amount, radius and threshold controls, selection-aware preview and undo.
