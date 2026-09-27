@@ -207,6 +207,8 @@ impl Editor {
             "parameter-7",
             "parameter-8",
             "parameter-9",
+            "parameter-10",
+            "parameter-11",
         ]
         .get(index)
         .copied()?;

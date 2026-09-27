@@ -41,6 +41,17 @@ fn channel_mixer_output_controls_retain_channels_across_monochrome_and_cancel() 
         )
         .unwrap();
     let window = view.window_handle();
+    for (channel, start) in [("red", 0), ("green", 4), ("blue", 8)] {
+        cx.click(window, format!("form-choice-13-{channel}"))
+            .unwrap();
+        for index in start..start + 4 {
+            assert!(
+                cx.element_bounds(window, format!("parameter-{index}"))
+                    .is_ok(),
+                "Missing {channel} coefficient {index}"
+            );
+        }
+    }
     cx.click(window, "form-choice-13-green").unwrap();
     assert!(cx.element_bounds(window, "parameter-4").is_ok());
     assert!(cx.element_bounds(window, "parameter-0").is_err());
