@@ -15,6 +15,12 @@ pub(super) enum FileJob {
         paths: Vec<PathBuf>,
         center: Option<compositor::geometry::Point>,
     },
+    ExportSizes {
+        document: Document,
+        batch: compositor::export_sizes::Batch,
+        parent: PathBuf,
+        title: String,
+    },
     ExportPsd {
         document: Document,
         path: PathBuf,
@@ -72,6 +78,7 @@ impl FileJob {
                 Some("gif") => alerts::Operation::ExportGif,
                 _ => alerts::Operation::ExportPng,
             },
+            Self::ExportSizes { .. } => alerts::Operation::ExportSizes,
             Self::ExportPsd { .. } => alerts::Operation::ExportPsd,
             Self::ExportJpeg { .. } => alerts::Operation::ExportJpeg,
         }
@@ -96,6 +103,18 @@ impl FileJob {
                 }
             }
             Self::BrushTips { pack, selected } => pack.decode(&selected).map(Completed::BrushTips),
+            Self::ExportSizes {
+                document,
+                batch,
+                parent,
+                title,
+            } => {
+                let path = batch.export(&document, &parent, &title)?;
+                Ok(Completed::Exported {
+                    path,
+                    jpeg_quality: None,
+                })
+            }
             Self::ExportPsd { document, path } => {
                 let bytes = compositor::psd::encode(&document)?;
                 image_io::export_encoded(&path, &bytes)?;

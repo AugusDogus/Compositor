@@ -20,6 +20,7 @@ impl Editor {
             match action {
                 Action::CanvasSize | Action::ImageSize | Action::Trim => self.open_form(action),
                 Action::ExportJpeg | Action::ExportJpegFile => self.open_jpeg(None),
+                Action::ExportSizes => self.open_export_sizes(),
                 _ => self.file_action(action, cx),
             }
             self.changed(cx);
@@ -139,6 +140,10 @@ impl Editor {
             Action::RemoveBackground => self.open_background(),
             Action::AdjustPixels(kind) => self.open_pixel_adjustment(kind),
             Action::EditAdjustment => self.open_adjustment(None),
+            Action::ExportSizes => {
+                self.open_export_sizes();
+                Ok(())
+            }
             Action::ExportJpeg | Action::ExportJpegFile => {
                 self.open_jpeg(None);
                 Ok(())

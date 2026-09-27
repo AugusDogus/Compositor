@@ -13,6 +13,7 @@ pub mod distort;
 pub mod document;
 pub mod edits;
 pub mod effects;
+pub mod export_sizes;
 pub mod filters;
 pub mod floating;
 pub mod geometry;

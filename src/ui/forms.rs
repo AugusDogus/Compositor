@@ -416,9 +416,10 @@ impl Editor {
                         || fields.is_empty()
                         || (matches!(action, Action::RemoveBackground)
                             && self.background_mode == super::background_controls::Mode::Basic)
-                        || self.adjustment_edit.as_ref().is_some_and(|e| {
-                            matches!(e.settings.kind, Kind::Curves | Kind::GradientMap)
-                        });
+                        || (matches!(action, Action::EditAdjustment)
+                            && self.adjustment_edit.as_ref().is_some_and(|e| {
+                                matches!(e.settings.kind, Kind::Curves | Kind::GradientMap)
+                            }));
                     if !fields_hidden {
                         contents = contents.child(
                             self.form_fields_view(cx, action, &fields)
@@ -536,13 +537,15 @@ impl Editor {
     // Keep the button's large Element temporaries out of the frame that also
     // constructs adjustment fields and sliders on the default test-thread stack.
     fn form_apply_button(action: Action, unavailable: bool) -> Element {
-        Self::control(if matches!(action, Action::ExportJpeg) {
-            "Export…"
-        } else if matches!(action, Action::ImageSize) {
-            "Resize"
-        } else {
-            "OK"
-        })
+        Self::control(
+            if matches!(action, Action::ExportJpeg | Action::ExportSizes) {
+                "Export…"
+            } else if matches!(action, Action::ImageSize) {
+                "Resize"
+            } else {
+                "OK"
+            },
+        )
         .bg(if unavailable {
             Color::rgb8(55, 62, 72)
         } else {
@@ -562,6 +565,10 @@ impl Editor {
             return;
         };
         if self.pending || self.automatic_filter_unavailable(*action) {
+            return;
+        }
+        if matches!(action, Action::ExportSizes) {
+            self.finish_export_sizes(cx);
             return;
         }
         if matches!(action, Action::ExportJpeg) {

@@ -11,6 +11,7 @@ impl Action {
                 | Self::Save
                 | Self::SaveAs
                 | Self::ExportPsd
+                | Self::ExportSizes
                 | Self::ExportPng
                 | Self::ExportTiff
                 | Self::ExportWebp

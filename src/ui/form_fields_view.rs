@@ -178,6 +178,9 @@ impl Editor {
         action: Action,
         fields: &[(&'static str, String)],
     ) -> Element {
+        if matches!(action, Action::ExportSizes) {
+            return self.export_sizes_fields(cx, fields);
+        }
         if matches!(action, Action::Dither) {
             return self.dither_fields(cx, fields);
         }

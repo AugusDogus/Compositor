@@ -219,7 +219,13 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
     document.validate()?;
     validate_size(document.width, document.height)?;
     let format = ImageFormat::from_path(path)?;
-    if !matches!(
+    validate_export_format(format)?;
+    let pixels = render::render(document, document.width, document.height)?;
+    export_pixels(pixels, document.resolution, path, quality)
+}
+
+fn validate_export_format(format: ImageFormat) -> Result<()> {
+    if matches!(
         format,
         ImageFormat::Png
             | ImageFormat::Jpeg
@@ -228,11 +234,24 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
             | ImageFormat::Gif
             | ImageFormat::Avif
     ) {
-        return Err(invalid(
+        Ok(())
+    } else {
+        Err(invalid(
             "Choose a PNG, JPEG, TIFF, WebP, GIF, or AVIF filename for export.",
+        ))
+    }
+}
+
+/// Atomically encode an already rendered export without resizing its source document.
+pub fn export_pixels(pixels: RgbaImage, resolution: f64, path: &Path, quality: u8) -> Result<()> {
+    validate_size(pixels.width(), pixels.height())?;
+    if !(1. ..=9600.).contains(&resolution) || quality > 100 {
+        return Err(invalid(
+            "Export resolution must be 1 to 9600 ppi and quality must be 0 to 100.",
         ));
     }
-    let pixels = render::render(document, document.width, document.height)?;
+    let format = ImageFormat::from_path(path)?;
+    validate_export_format(format)?;
     let directory = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -241,12 +260,12 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
     {
         let mut writer = BufWriter::new(temporary.as_file_mut());
         if format == ImageFormat::Jpeg {
-            writer.write_all(&encode_jpeg(&pixels, document.resolution, quality)?)?;
+            writer.write_all(&encode_jpeg(&pixels, resolution, quality)?)?;
         } else if format == ImageFormat::Png {
             let mut encoder = png::Encoder::new(&mut writer, pixels.width(), pixels.height());
             encoder.set_color(png::ColorType::Rgba);
             encoder.set_depth(png::BitDepth::Eight);
-            let per_meter = (document.resolution / 0.0254).round() as u32;
+            let per_meter = (resolution / 0.0254).round() as u32;
             encoder.set_pixel_dims(Some(png::PixelDimensions {
                 xppu: per_meter,
                 yppu: per_meter,

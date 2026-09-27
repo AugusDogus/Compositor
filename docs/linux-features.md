@@ -4,6 +4,7 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- File > Export Sizes writes up to 16 PNG or JPEG sizes into a new folder, with social, video and print presets or custom pixel dimensions. Fit adds padding; Fill crops centrally. PNG keeps transparency; JPEG uses white. The source project and existing exports stay unchanged.
 - Channel Mixer adjusts each output channel with signed red, green and blue contributions plus a constant, or produces monochrome output. It edits pixels with selection-aware preview and undo; it is not an editable adjustment layer.
 - Photo Filter adds warming, cooling, sepia and custom-color filtration, with density and Preserve Luminosity controls. It edits pixels with preview and undo; it is not an editable adjustment layer. Vulkan accelerates processing when available.
 - ABR import lets you choose sampled tip shapes from Photoshop brush packs, with a shape preview and original spacing. Photoshop dynamics, dual brushes, tip transforms and embedded texture patterns are not imported.

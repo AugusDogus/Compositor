@@ -17,6 +17,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command("Save", "Ctrl+S", Action::Save),
             command("Save As…", "Ctrl+Shift+S", Action::SaveAs),
             Sep,
+            command("Export Sizes…", "", Action::ExportSizes),
             command("Export PNG…", "Ctrl+Shift+E", Action::ExportPng),
             command("Export TIFF…", "", Action::ExportTiff),
             command("Export WebP…", "", Action::ExportWebp),
