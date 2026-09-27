@@ -1,11 +1,13 @@
 //! Loaded brush tips are bounded session resources; the chosen shape belongs to each project.
+mod import;
+mod library;
 use super::*;
 use compositor::brush::sampled::{Sampled, Shape, Tip};
 use compositor::invalid;
 use quickgui::PathPromptOptions;
 
-const MAX_TIPS: usize = 32;
-const MAX_TOTAL_PIXELS: usize = 16 * 1024 * 1024;
+const MAX_TIPS: usize = compositor::brush::sampled::abr::MAX_IMPORT_TIPS;
+const MAX_TOTAL_PIXELS: usize = compositor::brush::sampled::abr::MAX_IMPORT_PIXELS;
 
 #[derive(Default)]
 pub(super) struct Library {
@@ -17,6 +19,7 @@ struct Entry {
 }
 #[derive(Clone)]
 pub(super) struct Draft {
+    import: Option<import::Import>,
     spacing: String,
     error: String,
 }
@@ -28,62 +31,16 @@ impl Editor {
             Shape::Sampled(brush) => brush.spacing() * 100.,
         };
         self.modal = Some(Form::BrushTips(Draft {
+            import: None,
             spacing: format!("{spacing:.1}"),
             error: String::new(),
         }));
     }
 
-    pub(super) fn install_brush_tip(&mut self, tip: Tip) -> Result<()> {
-        let existing = self
-            .brush_presets
-            .tips
-            .iter()
-            .find(|entry| *entry.tip == tip)
-            .map(|entry| entry.tip.clone());
-        let tip = if let Some(tip) = existing {
-            tip
-        } else {
-            let pixels: usize = self
-                .brush_presets
-                .tips
-                .iter()
-                .map(|entry| entry.tip.pixels().len())
-                .sum();
-            if self.brush_presets.tips.len() >= MAX_TIPS
-                || pixels + tip.pixels().len() > MAX_TOTAL_PIXELS
-            {
-                return Err(invalid(
-                    "The session brush library is full (32 tips or 16 million tip pixels). Existing tips and edits are unchanged. Restart Compositor to load a different set.",
-                ));
-            }
-            let thumb = image::DynamicImage::ImageLuma8(tip.pixels().clone())
-                .thumbnail(40, 40)
-                .into_luma8();
-            let rgba = image::RgbaImage::from_fn(thumb.width(), thumb.height(), |x, y| {
-                image::Rgba([230, 230, 230, thumb[(x, y)][0]])
-            });
-            let thumbnail = Image::from_rgba(rgba.width(), rgba.height(), rgba.into_raw())
-                .map_err(|error| invalid(format!("Could not display the imported brush tip: {error}. Existing tips are unchanged.")))?;
-            let tip = Arc::new(tip);
-            self.brush_presets.tips.push(Entry {
-                tip: tip.clone(),
-                thumbnail,
-            });
-            tip
-        };
-        self.tools.brush_shape = Shape::Sampled(Sampled::new(tip));
-        self.open_brush_tips();
-        self.status = "Brush tip loaded for this session. Imported colors are not used; paint uses the foreground color.".into();
-        Ok(())
-    }
-
     fn load_brush_tip(&mut self, cx: &mut EventContext) {
-        let options = PathPromptOptions::new()
-            .title("Load GBR Brush Tip")
-            .filters([super::file_dialogs::file_filter(
-                "GIMP brush (GBR v2)",
-                &["gbr"],
-            )]);
+        let options = PathPromptOptions::new().title("Load Brush Tips").filters([
+            super::file_dialogs::file_filter("Brush tips (GBR, ABR)", &["gbr", "abr"]),
+        ]);
         let operation = alerts::Operation::Import;
         match cx.prompt_for_paths(options) {
             Ok(response) => {
@@ -100,7 +57,7 @@ impl Editor {
                         }
                         Err(error) => this.show_error(
                             operation,
-                            format!("Could not choose a brush: {error}. Retry Load GBR."),
+                            format!("Could not choose a brush: {error}. Retry Load Brushes."),
                         ),
                     }
                     cx.invalidate();
@@ -108,7 +65,7 @@ impl Editor {
             }
             Err(error) => self.show_error(
                 operation,
-                format!("Could not open the brush file dialog: {error}. Retry Load GBR."),
+                format!("Could not open the brush file dialog: {error}. Retry Load Brushes."),
             ),
         }
     }
@@ -137,6 +94,13 @@ impl Editor {
     }
 
     pub(super) fn brush_tips_view(&self, cx: &mut ViewContext<'_, Self>, draft: &Draft) -> Element {
+        if let Some(import) = &draft.import {
+            self.brush_import_view(cx, import, &draft.error)
+        } else {
+            self.loaded_brush_tips_view(cx, draft)
+        }
+    }
+    fn loaded_brush_tips_view(&self, cx: &mut ViewContext<'_, Self>, draft: &Draft) -> Element {
         let mut choices = div()
             .flex_col()
             .gap(4.)
@@ -192,11 +156,12 @@ impl Editor {
         }
         let sampled = matches!(self.tools.brush_shape, Shape::Sampled(_));
         div().flex_col().gap(12.).child(choices)
-            .child(Self::control("Load GBR…").on_click(cx.listener("brush-tip-load", |this, cx| this.load_brush_tip(cx))))
-            .child(text("GBR v2 tip shapes use the foreground color. Embedded RGB colors are not used. Tips stay loaded until Compositor closes.").wrap().text_size(12.))
+            .child(Self::control("Load Brushes…").on_click(cx.listener("brush-tip-load", |this, cx| this.load_brush_tip(cx))))
+            .child(text("GBR v2 and ABR sampled tips use the foreground color. Embedded colors are not used. Tips stay loaded until Compositor closes.").wrap().text_size(12.))
             .child(div().flex_row().items_center().gap(8.).child(text("Spacing (%)"))
                 .child(Self::text_field(draft.spacing.clone()).id("brush-tip-spacing").w(90.).disabled(!sampled)
                     .on_input(cx.input_listener("brush-tip-spacing", |this, value, cx| { this.brush_spacing_input(value); cx.invalidate(); }))))
+            .child(Self::control("Unload selected tip").disabled(!sampled).on_click(cx.listener("brush-tip-unload", |this, cx| { this.unload_brush_tip(); cx.invalidate(); })))
             .child(text(draft.error.clone()).text_size(12.).wrap())
             .child(Self::control("Close").on_click(cx.listener("brush-tips-close", |this, cx| this.cancel_form(cx))))
     }

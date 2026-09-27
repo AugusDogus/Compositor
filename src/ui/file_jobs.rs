@@ -5,6 +5,10 @@ use uuid::Uuid;
 
 pub(super) enum FileJob {
     BrushTip(PathBuf),
+    BrushTips {
+        pack: Arc<compositor::brush::sampled::abr::Pack>,
+        selected: Vec<usize>,
+    },
     Open(Vec<PathBuf>),
     Import {
         session: Uuid,
@@ -29,6 +33,8 @@ pub(super) enum FileJob {
 
 pub(super) enum Completed {
     BrushTip(compositor::brush::sampled::Tip),
+    BrushPack(compositor::brush::sampled::abr::Pack),
+    BrushTips(Vec<compositor::brush::sampled::Tip>),
     Opened {
         projects: Vec<OpenedProject>,
         failures: Vec<(PathBuf, compositor::Error)>,
@@ -51,7 +57,7 @@ impl FileJob {
     fn operation(&self) -> alerts::Operation {
         match self {
             Self::Open(_) => alerts::Operation::Open,
-            Self::BrushTip(_) => alerts::Operation::Import,
+            Self::BrushTip(_) | Self::BrushTips { .. } => alerts::Operation::Import,
             Self::Import { .. } => alerts::Operation::Import,
             Self::Export { path, .. } => match path
                 .extension()
@@ -73,8 +79,16 @@ impl FileJob {
     pub(super) fn run(self, open: &[(Uuid, PathBuf)]) -> Result<Completed> {
         match self {
             Self::BrushTip(path) => {
-                compositor::brush::sampled::read(&path).map(Completed::BrushTip)
+                if path
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("abr"))
+                {
+                    compositor::brush::sampled::abr::Pack::read(&path).map(Completed::BrushPack)
+                } else {
+                    compositor::brush::sampled::read(&path).map(Completed::BrushTip)
+                }
             }
+            Self::BrushTips { pack, selected } => pack.decode(&selected).map(Completed::BrushTips),
             Self::ExportPsd { document, path } => {
                 let bytes = compositor::psd::encode(&document)?;
                 image_io::export_encoded(&path, &bytes)?;
@@ -233,6 +247,8 @@ impl Editor {
     ) -> Result<()> {
         match completed {
             Completed::BrushTip(tip) => self.install_brush_tip(tip)?,
+            Completed::BrushPack(pack) => self.open_brush_pack(pack),
+            Completed::BrushTips(tips) => self.install_brush_tips(tips)?,
             Completed::Opened { projects, failures } => {
                 let opened = projects.len();
                 self.show_opened_projects(projects)?;

@@ -1,4 +1,5 @@
 //! Immutable sampled tip shapes. File colors are deliberately reduced to alpha.
+pub mod abr;
 mod gbr;
 pub(super) mod segment;
 use crate::{Result, invalid};

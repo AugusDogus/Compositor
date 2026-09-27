@@ -126,3 +126,85 @@ fn real_bristles_picker_keeps_thumbnails_inside_rows() {
         assert!(thumbnail.x >= row.x && thumbnail.x + thumbnail.width <= row.x + row.width);
     }
 }
+
+fn abr_pack() -> compositor::brush::sampled::abr::Pack {
+    compositor::brush::sampled::abr::Pack::from_bytes(
+        include_bytes!("../../../tests/fixtures/abr/sampled-v2.abr").to_vec(),
+    )
+    .unwrap()
+}
+#[test]
+fn abr_picker_imports_only_selected_tips_through_file_job_and_keeps_history_clean() {
+    let mut editor = Editor::with_test_document();
+    editor.open_brush_pack(abr_pack());
+    let original = editor.session().document.clone();
+    let (mut cx, view) = Application::new()
+        .into_test_context(WindowOptions::new("ABR import").size(1500., 900.), editor)
+        .unwrap();
+    let window = view.window_handle();
+    cx.click(window, "abr-tip-1").unwrap();
+    assert!(cx.element_bounds(window, "abr-import").is_ok());
+    let job = cx
+        .update(view, |e, _| {
+            e.import_abr_selection();
+            e.file_job.take().unwrap()
+        })
+        .unwrap();
+    let result = job.run(&[]).unwrap();
+    cx.update(view, |e, cx| {
+        e.pending = false;
+        let super::super::file_jobs::Completed::BrushTips(tips) = result else {
+            panic!("brush tip import");
+        };
+        e.install_brush_tips(tips).unwrap();
+        cx.invalidate();
+    })
+    .unwrap();
+    cx.read(view, |e| {
+        assert_eq!(e.brush_presets.tips.len(), 1);
+        assert_eq!(e.brush_presets.tips[0].tip.name(), "Asymmetric dots");
+        assert_eq!(e.brush_presets.tips[0].tip.spacing(), 0.75);
+        assert_eq!(e.session().document, original);
+        assert!(e.session().undo_label().is_none());
+    })
+    .unwrap();
+    cx.click(window, "brush-tip-unload").unwrap();
+    cx.read(view, |e| {
+        assert!(e.brush_presets.tips.is_empty());
+        assert!(matches!(e.tools.brush_shape, Shape::Round));
+    })
+    .unwrap();
+}
+#[test]
+fn capacity_failure_is_atomic_and_unload_releases_parked_project_references() {
+    let mut e = Editor::with_test_document();
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("tip.gbr");
+    for alpha in 0..31 {
+        let mut bytes = include_bytes!("../../../tests/fixtures/gbr/pixel.gbr").to_vec();
+        *bytes.last_mut().unwrap() = alpha;
+        std::fs::write(&path, bytes).unwrap();
+        e.install_brush_tip(compositor::brush::sampled::read(&path).unwrap())
+            .unwrap();
+    }
+    let selected = e.tools.brush_shape.clone();
+    e.tabs[0].parked_tools.brush_shape = selected;
+    let original = e.session().document.clone();
+    assert!(
+        e.install_brush_tips(abr_pack().decode(&[0, 1]).unwrap())
+            .is_err()
+    );
+    assert_eq!(
+        e.brush_presets.tips.len(),
+        31,
+        "failed pack install cannot retain its first tip"
+    );
+    e.unload_brush_tip();
+    assert_eq!(e.brush_presets.tips.len(), 30);
+    assert!(matches!(e.tabs[0].parked_tools.brush_shape, Shape::Round));
+    e.install_brush_tips(abr_pack().decode(&[0, 1]).unwrap())
+        .unwrap();
+    assert_eq!(e.brush_presets.tips.len(), 32);
+    assert_eq!(e.session().document, original);
+    assert!(e.session().undo_label().is_none());
+}

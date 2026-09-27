@@ -142,3 +142,38 @@ fn sampled_selection_erase_and_mask_keep_existing_semantics() {
     assert_eq!(mask[(45, 50)][0], 255);
     assert_eq!(mask[(55, 50)][0], 128);
 }
+
+#[test]
+fn imported_abr_asymmetric_alpha_paints_with_foreground_and_preserved_spacing() {
+    let pack =
+        sampled::abr::Pack::from_bytes(include_bytes!("fixtures/abr/sampled-v2.abr").to_vec())
+            .unwrap();
+    let mut tips = pack.decode(&[1]).unwrap();
+    let tip = tips.pop().unwrap();
+    assert_eq!(tip.spacing(), 0.75);
+    let mut doc = Document::new(9, 6).unwrap();
+    let mut stroke = Stroke::start_shaped_input(
+        &mut doc,
+        Input {
+            point: [4.5, 3.],
+            tip: None,
+        },
+        Brush {
+            diameter: 3.,
+            color: [210, 30, 160, 255],
+            ..Brush::default()
+        },
+        PaintMode::Paint,
+        false,
+        false,
+        Shape::Sampled(Sampled::new(Arc::new(tip))),
+    )
+    .unwrap();
+    stroke.finish(&mut doc).unwrap();
+    let pixels = doc.layers[0].raster().unwrap();
+    assert_eq!(pixels[(3, 2)][3], 0);
+    assert_eq!(pixels[(4, 2)].0, [210, 30, 160, 128]);
+    assert_eq!(pixels[(5, 2)].0, [210, 30, 160, 255]);
+    assert_eq!(pixels[(3, 3)].0, [210, 30, 160, 64]);
+    assert_eq!(pixels[(5, 3)][3], 0);
+}

@@ -621,6 +621,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "brushkit-abr"
+version = "0.4.1"
+dependencies = [
+ "byteorder",
+ "flate2",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "bstr"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -815,6 +824,7 @@ version = "0.6.1"
 dependencies = [
  "ag-psd",
  "arboard",
+ "brushkit-abr",
  "bytemuck",
  "cc",
  "flate2",

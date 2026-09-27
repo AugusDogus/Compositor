@@ -1,0 +1,6 @@
+These small ABR fixtures were authored for Compositor's importer tests.
+They contain original six-pixel asymmetric coverage patterns, not third-party brush artwork.
+sampled-v1.abr: legacy RLE, 3x2 tip, 50% spacing.
+sampled-v2.abr: legacy 8-bit and 16-bit uncompressed tips, named, 75% and 125% spacing.
+sampled-v6.abr: modern sampled block, 3x2 uncompressed tip, no descriptor.
+The fixtures are distributed under this repository's MIT license.

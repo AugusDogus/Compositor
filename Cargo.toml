@@ -44,6 +44,7 @@ i_overlay = "=8.1.2"
 ag-psd = "=0.3.0"
 flate2 = "=1.1.10"
 sha2 = "=0.11.0"
+brushkit-abr = "=0.4.1"
 
 rawler = "=0.7.2"
 rayon = "1.11"
@@ -52,6 +53,7 @@ rayon = "1.11"
 cc = "1"
 
 [patch.crates-io]
+brushkit-abr = { path = "vendor/brushkit-abr" }
 quickgui = { path = "vendor/quickgui" }
 quickgui-winit = { path = "vendor/quickgui-winit" }
 
