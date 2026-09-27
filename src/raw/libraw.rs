@@ -144,7 +144,8 @@ pub(super) fn decode(bytes: &[u8]) -> Result<DecodedRaw> {
     })
 }
 fn string(bytes: &[c_char]) -> String {
-    let bytes: Vec<u8> = bytes.iter().map(|v| *v as u8).collect();
+    // C char is signed on x86_64 and unsigned on aarch64. Preserve its byte bits.
+    let bytes: Vec<u8> = bytes.iter().map(|v| v.to_ne_bytes()[0]).collect();
     CStr::from_bytes_until_nul(&bytes)
         .map_or_else(|_| String::new(), |s| s.to_string_lossy().trim().to_owned())
 }
@@ -152,6 +153,15 @@ fn string(bytes: &[c_char]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn metadata_strings_preserve_utf8_bytes_on_either_char_signedness() {
+        let bytes: Vec<c_char> = b" Camera \xc3\xa9 \0ignored"
+            .iter()
+            .map(|v| c_char::from_ne_bytes([*v]))
+            .collect();
+        assert_eq!(string(&bytes), "Camera é");
+    }
+
     #[test]
     fn malformed_inputs_return_errors_without_a_surface() {
         for bytes in [&[][..], b"not a camera file", b"II*\0\xff\xff\xff\xff"] {
