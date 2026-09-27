@@ -128,6 +128,7 @@ if [[ "$needs_build" == true ]]; then
         python3 -m venv --clear "$build_env"
     fi
     "$build_env/bin/python" -m pip install --disable-pip-version-check --only-binary=:all: -r "$requirements"
+    "$build_env/bin/python" -B "$script_dir/test_object_selection_cpu_model.py"
     "$build_env/bin/python" -B "$script_dir/object_selection_model.py" \
         --checkpoint "$checkpoint" --config "$config" --output "$stage_dir/export"
     # Validate the entire export before replacing any cached or installed graph.

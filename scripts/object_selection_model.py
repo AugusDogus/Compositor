@@ -9,6 +9,7 @@ interactive FPN, interactive prompt encoder, and interactive mask decoder are us
 import argparse
 import gc
 import hashlib
+import platform
 import re
 import tempfile
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Literal
 import numpy as np
 import onnx
 import onnxruntime as ort
+from object_selection_cpu_model import cpu_graph
 import torch
 from onnxconverter_common import float16
 from safetensors import safe_open
@@ -248,7 +250,8 @@ def session(path: Path) -> ort.InferenceSession:
 def verify_export(
     output: Path, sample: torch.Tensor, features: tuple, decoder: Decoder
 ) -> None:
-    encoder = session(output / "vision_encoder_fp16.onnx")
+    precision = "cpu" if platform.machine() in ("aarch64", "arm64") else "fp16"
+    encoder = session(output / f"vision_encoder_{precision}.onnx")
     encoded = encoder.run(None, {"pixel_values": sample.numpy()})
     for actual, expected in zip(encoded, features, strict=True):
         if actual.shape != tuple(expected.shape) or not np.isfinite(actual).all():
@@ -257,7 +260,7 @@ def verify_export(
             )
     del encoder
     gc.collect()
-    exported = session(output / "prompt_encoder_mask_decoder_fp16.onnx")
+    exported = session(output / f"prompt_encoder_mask_decoder_{precision}.onnx")
     # Exercise dynamic empty points/boxes, multiple clicks, and combined prompts.
     for point_count, box_count in [(1, 0), (0, 1), (2, 0), (1, 1)]:
         points = torch.full((1, 1, point_count, 2), 400.0)
@@ -286,8 +289,8 @@ def verify_export(
                 raise ValueError(
                     f"Exported {name} is invalid for {point_count} points and {box_count} boxes. Model installation was not completed."
                 )
-            # FP16 may move logits near zero; reject large export errors while
-            # allowing expected rounding on this deterministic smoke fixture.
+            # ARM64 uses FP32 CPU arithmetic; x86 retains its existing graph.
+            # Reject large export errors on this deterministic smoke fixture.
             reference = reference.numpy()
             relative = np.linalg.norm(actual - reference) / max(
                 float(np.linalg.norm(reference)), 1e-6
@@ -345,6 +348,8 @@ def export(checkpoint: Path, config: Path, output: Path) -> None:
         convert_half(
             staging / "decoder.onnx", output / "prompt_encoder_mask_decoder_fp16.onnx"
         )
+        for name in ("vision_encoder", "prompt_encoder_mask_decoder"):
+            cpu_graph(output / f"{name}_fp16.onnx", output / f"{name}_cpu.onnx")
         print("Verifying SAM 3.1 native graphs", flush=True)
         # The decoder only needs prompt/mask modules. Release the large vision
         # backbone before ORT allocates its verification session on CI workers.

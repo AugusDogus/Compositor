@@ -1,5 +1,10 @@
 //! Prompted segmentation with cached image embeddings and a native ONNX decoder.
-use crate::{Result, document::Document, geometry::Point, inference::Runtime};
+use crate::{
+    Result,
+    document::Document,
+    geometry::Point,
+    inference::{Device, Runtime},
+};
 use image::{GrayImage, Luma, RgbaImage};
 use ort::{
     session::Session,
@@ -76,8 +81,21 @@ impl Engine {
                 .commit_from_file(&path)
                 .map_err(|e| failed("load its segmentation model", e))
         };
-        let encoder = load("vision_encoder_fp16.onnx")?;
-        let decoder = load("prompt_encoder_mask_decoder_fp16.onnx")?;
+        // ARM64 has native FP16 CPU kernels whose rounding accumulates through
+        // this network. Use FP32 arithmetic there, retaining the existing x86
+        // graph and standalone installations' model compatibility.
+        let (encoder_file, decoder_file) = match runtime.device() {
+            Device::Cpu if cfg!(target_arch = "aarch64") => (
+                "vision_encoder_cpu.onnx",
+                "prompt_encoder_mask_decoder_cpu.onnx",
+            ),
+            Device::Gpu | Device::Cpu => (
+                "vision_encoder_fp16.onnx",
+                "prompt_encoder_mask_decoder_fp16.onnx",
+            ),
+        };
+        let encoder = load(encoder_file)?;
+        let decoder = load(decoder_file)?;
         for (session, inputs, outputs) in [
             (&encoder, vec!["pixel_values"], FEATURES.to_vec()),
             (
