@@ -275,3 +275,62 @@ fn stroke_inside_selection_hole_restores_source_extent() {
     );
     assert_eq!(doc, original);
 }
+
+#[test]
+fn provisional_chord_alone_does_not_commit_a_raster_or_mask_edit() {
+    for target in ["blank", "text", "mask"] {
+        let mut doc = Document::new(300, 120).unwrap();
+        if target == "text" {
+            doc.add(
+                text::new_layer(
+                    text::Text::default(),
+                    RgbaImage::from_pixel(300, 120, Rgba([100, 120, 140, 0])),
+                    [0., 0.],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        }
+        if target == "mask" {
+            doc.active_layer_mut().unwrap().mask = Some(compositor::document::Mask {
+                pixels: std::sync::Arc::new(image::GrayImage::from_pixel(1, 1, image::Luma([255]))),
+                enabled: true,
+                linked: true,
+                placement: None,
+            });
+        }
+        doc.selection = Some(Selection::rectangle(
+            300,
+            120,
+            [215., 40.],
+            [216., 41.],
+            false,
+        ));
+        let original = doc.clone();
+        let mut stroke = Stroke::start(
+            &mut doc,
+            [20., 60.],
+            Brush {
+                diameter: 8.,
+                ..Brush::default()
+            },
+            PaintMode::Paint,
+            target == "mask",
+            false,
+        )
+        .unwrap();
+        stroke.to(&mut doc, [150., 20.]).unwrap();
+        stroke.to(&mut doc, [280., 60.]).unwrap();
+        let layer = doc.active_layer().unwrap();
+        if target == "mask" {
+            assert_eq!(layer.mask.as_ref().unwrap().pixels[(215, 40)][0], 0);
+        } else {
+            assert_eq!(layer.raster().unwrap()[(215, 40)][3], 255);
+        }
+        stroke.finish(&mut doc).unwrap();
+        assert!(
+            doc == original,
+            "Provisional {target} edit must be discarded"
+        );
+    }
+}

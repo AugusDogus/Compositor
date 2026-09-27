@@ -155,10 +155,10 @@ impl Stroke {
         if bounds[2] > bounds[0] && bounds[3] > bounds[1] {
             self.tail = self.backup_tail(doc, bounds)?;
         }
-        let saved = self.last;
+        let saved = (self.last, self.changed);
         let phase = self.sampled.as_ref().map(|state| (state.next, state.dab));
         let result = self.walk(doc, end);
-        self.last = saved;
+        (self.last, self.changed) = saved;
         if let (Some(state), Some(phase)) = (&mut self.sampled, phase) {
             (state.next, state.dab) = phase;
         }
