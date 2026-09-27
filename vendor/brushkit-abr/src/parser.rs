@@ -26,13 +26,13 @@ use std::collections::HashSet;
 use std::io::{Cursor, Read};
 use std::ops::Range;
 
-use super::descriptor::{extract_all_brush_info_inner, BrushDescInfo};
+use super::descriptor::{extract_all_brush_info_inner, BrushDescInfo, ExtractError};
 use super::pattern::parse_patt_block;
 use super::{
     AbrBrush, AbrError, AbrPack, AbrVersion, BrushDescriptor, ComputedPreset, DroppedTipDetail,
     SkippedPresetDetail, TipBitmap, UnsupportedTipPresetDetail,
 };
-use crate::limits::{MAX_DIMENSION, MAX_NAME_CODE_UNITS};
+use crate::limits::{MAX_DIMENSION, MAX_NAME_CODE_UNITS, MAX_RECORDS};
 
 const MAX_TIP_DECODED_BYTES: usize = 256 * 1024 * 1024;
 
@@ -90,7 +90,13 @@ fn parse_abr_with(bytes: &[u8], tips: Tips, patterns: PatternMode) -> Result<Par
                     block_start: block.start,
                 },
             };
-            let entries = parse_samp_block(block.data, version, subversion, block_mode);
+            let entries = parse_samp_block(
+                block.data,
+                version,
+                subversion,
+                block_mode,
+                MAX_RECORDS - bitmaps.len(),
+            )?;
             bitmaps.extend(entries);
         }
     }
@@ -100,12 +106,13 @@ fn parse_abr_with(bytes: &[u8], tips: Tips, patterns: PatternMode) -> Result<Par
     let mut desc_parse_error: Option<String> = None;
     for block in &blocks {
         if block.block_type == "desc" {
-            match extract_all_brush_info_inner(block.data) {
+            match extract_all_brush_info_inner(block.data, MAX_RECORDS - desc_infos.len()) {
                 Ok(infos) => {
                     if !infos.is_empty() {
                         desc_infos.extend(infos);
                     }
                 }
+                Err(ExtractError::RecordLimit) => return Err(AbrError::RecordLimit("descriptors")),
                 Err(e) => {
                     if desc_parse_error.is_none() {
                         desc_parse_error = Some(e.to_string());
@@ -523,6 +530,9 @@ fn parse_legacy(
     version: AbrVersion,
     defer: bool,
 ) -> Result<ParsedAbr, AbrError> {
+    if usize::from(brush_count) > MAX_RECORDS {
+        return Err(AbrError::RecordLimit("legacy brushes"));
+    }
     let mut brushes = Vec::new();
     let mut tips = Vec::new();
 
@@ -785,6 +795,7 @@ fn read_blocks<'a>(
     let input: &'a [u8] = cursor.get_ref();
     let file_len = input.len() as u64;
     let mut blocks = Vec::new();
+    let mut block_count = 0;
 
     loop {
         let pos = cursor.position();
@@ -800,6 +811,10 @@ fn read_blocks<'a>(
             break;
         }
 
+        if block_count >= MAX_RECORDS {
+            return Err(AbrError::RecordLimit("blocks"));
+        }
+        block_count += 1;
         let mut type_buf = [0u8; 4];
         cursor
             .read_exact(&mut type_buf)
@@ -890,22 +905,28 @@ const SUB2_RECT_OFFSET: usize = 301;
 /// framed the whole block. `clean == false` means the walk stopped early on a
 /// zero length or a body running past the block end; the frames before that
 /// point are still returned.
-fn frame_samp_entries_by_length(data: &[u8]) -> (Vec<(usize, usize)>, bool) {
+fn frame_samp_entries_by_length(
+    data: &[u8],
+    remaining: usize,
+) -> Result<(Vec<(usize, usize)>, bool), AbrError> {
     let mut entries = Vec::new();
     let mut at = 0usize;
     while at + 4 <= data.len() {
         let len = u32::from_be_bytes(data[at..at + 4].try_into().unwrap()) as usize;
         if len == 0 {
-            return (entries, false);
+            return Ok((entries, false));
         }
         let start = at + 4;
         let Some(end) = start.checked_add(len).filter(|&end| end <= data.len()) else {
-            return (entries, false);
+            return Ok((entries, false));
         };
+        if entries.len() >= remaining {
+            return Err(AbrError::RecordLimit("sampled records"));
+        }
         entries.push((start, end));
         at = end.next_multiple_of(4);
     }
-    (entries, true)
+    Ok((entries, true))
 }
 
 /// Split a samp block into entries. The declared lengths frame it whenever the
@@ -917,11 +938,19 @@ fn parse_samp_block(
     version: AbrVersion,
     subversion: u16,
     mode: TipMode,
-) -> Vec<Option<SampEntry>> {
-    let uuids = find_all_uuid_offsets(data);
+    remaining: usize,
+) -> Result<Vec<Option<SampEntry>>, AbrError> {
     let documented = documented_rect_offset(version, subversion);
-    let (frames, clean) = frame_samp_entries_by_length(data);
-
+    let (frames, clean) = frame_samp_entries_by_length(data, remaining)?;
+    let every_body_is_anchored = frames
+        .iter()
+        .all(|&(start, end)| extract_entry_uuid(&data[start..end]).is_some());
+    // Valid framing wins over UUID-shaped bytes inside pixels. Only scan for
+    // recovery anchors when the length chain cannot identify anchored records.
+    if clean && every_body_is_anchored {
+        return Ok(parse_samp_block_by_lengths(data, &frames, documented, mode));
+    }
+    let uuids = find_all_uuid_offsets(data, remaining)?;
     if uuids.is_empty() {
         if !clean {
             eprintln!(
@@ -929,20 +958,13 @@ fn parse_samp_block(
                 frames.len()
             );
         }
-        return parse_samp_block_by_lengths(data, &frames, documented, mode);
-    }
-
-    let every_body_is_anchored = frames
-        .iter()
-        .all(|&(start, end)| extract_entry_uuid(&data[start..end]).is_some());
-    if clean && every_body_is_anchored {
-        return parse_samp_block_by_lengths(data, &frames, documented, mode);
+        return Ok(parse_samp_block_by_lengths(data, &frames, documented, mode));
     }
 
     eprintln!(
         "warning: samp entry lengths do not frame the block; falling back to the uuid anchor scan"
     );
-    parse_samp_block_by_uuids(data, &uuids, documented, mode)
+    Ok(parse_samp_block_by_uuids(data, &uuids, documented, mode))
 }
 
 fn documented_rect_offset(version: AbrVersion, subversion: u16) -> Option<usize> {
@@ -1228,9 +1250,10 @@ fn decode_bitmap(data: &[u8], header: &BitmapHeader) -> Result<TipBitmap, AbrErr
             dec.read_to_end(&mut buf)
                 .map_err(|e| AbrError::Decompression(format!("zlib: {e}")))?;
             if buf.len() != expected {
-                return Err(AbrError::Decompression(
-                    format!("zlib output has {} bytes, expected {expected}", buf.len()),
-                ));
+                return Err(AbrError::Decompression(format!(
+                    "zlib output has {} bytes, expected {expected}",
+                    buf.len()
+                )));
             }
             buf
         }
@@ -1263,21 +1286,24 @@ fn decode_bitmap(data: &[u8], header: &BitmapHeader) -> Result<TipBitmap, AbrErr
     })
 }
 
-fn find_all_uuid_offsets(data: &[u8]) -> Vec<(usize, String)> {
+fn find_all_uuid_offsets(data: &[u8], remaining: usize) -> Result<Vec<(usize, String)>, AbrError> {
     let mut results = Vec::new();
 
     if data.len() < 38 {
-        return results;
+        return Ok(results);
     }
 
     for i in 0..data.len().saturating_sub(37) {
         if data[i] == b'$' && is_uuid_at(data, i + 1) && data[i + 37] == 0 {
+            if results.len() >= remaining {
+                return Err(AbrError::RecordLimit("UUID recovery anchors"));
+            }
             let uuid = String::from_utf8_lossy(&data[i + 1..i + 37]).to_string();
             results.push((i, uuid));
         }
     }
 
-    results
+    Ok(results)
 }
 
 fn is_uuid_at(data: &[u8], start: usize) -> bool {
@@ -1422,6 +1448,31 @@ fn entry_err(offset: u64, reason: &str) -> AbrError {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn record_limits_fail_before_collecting_or_reading_record_payloads() {
+        let mut framed = Vec::new();
+        for _ in 0..=MAX_RECORDS {
+            framed.extend_from_slice(&[0, 0, 0, 1, 0, 0, 0, 0]);
+        }
+        assert!(matches!(
+            frame_samp_entries_by_length(&framed, MAX_RECORDS),
+            Err(AbrError::RecordLimit("sampled records"))
+        ));
+        let mut legacy = Cursor::new(&[][..]);
+        assert!(matches!(
+            parse_legacy(&mut legacy, (MAX_RECORDS + 1) as u16, AbrVersion::V1, true),
+            Err(AbrError::RecordLimit("legacy brushes"))
+        ));
+        let mut blocks = Vec::new();
+        for _ in 0..=MAX_RECORDS {
+            blocks.extend_from_slice(b"8BIMpatt\0\0\0\0");
+        }
+        let mut cursor = Cursor::new(blocks.as_slice());
+        assert!(matches!(
+            read_blocks(&mut cursor, PatternMode::Skip),
+            Err(AbrError::RecordLimit("blocks"))
+        ));
+    }
     use super::*;
     use brushkit_fixture::{write_bool, write_key};
     use byteorder::WriteBytesExt;
@@ -2437,7 +2488,7 @@ mod tests {
         let blocks = read_blocks(&mut cursor, PatternMode::Read).unwrap();
         let samp = blocks.iter().find(|b| b.block_type == "samp").unwrap();
 
-        let (frames, clean) = frame_samp_entries_by_length(samp.data);
+        let (frames, clean) = frame_samp_entries_by_length(samp.data, MAX_RECORDS).unwrap();
         assert!(clean, "the length chain frames the whole block");
         assert_eq!(frames.len(), 17);
         assert_eq!(
@@ -2446,7 +2497,7 @@ mod tests {
             "11 of the 17 bodies are unaligned"
         );
 
-        let anchors = find_all_uuid_offsets(samp.data);
+        let anchors = find_all_uuid_offsets(samp.data, MAX_RECORDS).unwrap();
         assert_eq!(anchors.len(), 17);
         let anchor_offsets: Vec<usize> = anchors.iter().map(|&(off, _)| off).collect();
         let frame_starts: Vec<usize> = frames.iter().map(|&(start, _)| start).collect();
@@ -2480,7 +2531,8 @@ mod tests {
         let mut block = Vec::new();
         block.write_u32::<BigEndian>(entry.len() as u32).unwrap();
         block.extend_from_slice(&entry);
-        let entries = parse_samp_block(&block, AbrVersion::V6, 1, TipMode::Eager);
+        let entries =
+            parse_samp_block(&block, AbrVersion::V6, 1, TipMode::Eager, MAX_RECORDS).unwrap();
         assert_eq!(entries.len(), 1);
         let b = entries[0].as_ref().unwrap();
         assert_eq!(b.bitmap.width, 4);
@@ -2500,7 +2552,8 @@ mod tests {
         e2_mod[1] = b'b';
         block.extend_from_slice(&e2_mod);
 
-        let entries = parse_samp_block(&block, AbrVersion::V10, 2, TipMode::Eager);
+        let entries =
+            parse_samp_block(&block, AbrVersion::V10, 2, TipMode::Eager, MAX_RECORDS).unwrap();
         assert_eq!(entries.len(), 2);
         assert!(entries[0].is_some());
         assert!(entries[1].is_some());
@@ -2526,9 +2579,14 @@ mod tests {
         push_framed(&mut block, &e1);
         push_framed(&mut block, &e2);
 
-        assert_eq!(find_all_uuid_offsets(&block).len(), 3, "three anchors");
+        assert_eq!(
+            find_all_uuid_offsets(&block, MAX_RECORDS).unwrap().len(),
+            3,
+            "three anchors"
+        );
 
-        let entries = parse_samp_block(&block, AbrVersion::V10, 2, TipMode::Eager);
+        let entries =
+            parse_samp_block(&block, AbrVersion::V10, 2, TipMode::Eager, MAX_RECORDS).unwrap();
         assert_eq!(entries.len(), 2);
 
         let first = entries[0].as_ref().unwrap();
@@ -2557,11 +2615,12 @@ mod tests {
         e2[1] = b'b';
         block.extend_from_slice(&e2);
 
-        let (frames, clean) = frame_samp_entries_by_length(&block);
+        let (frames, clean) = frame_samp_entries_by_length(&block, MAX_RECORDS).unwrap();
         assert!(!clean);
         assert_eq!(frames.len(), 1);
 
-        let entries = parse_samp_block(&block, AbrVersion::V10, 2, TipMode::Eager);
+        let entries =
+            parse_samp_block(&block, AbrVersion::V10, 2, TipMode::Eager, MAX_RECORDS).unwrap();
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].as_ref().unwrap().bitmap.width, 8);
         assert_eq!(entries[1].as_ref().unwrap().bitmap.width, 4);
@@ -2578,7 +2637,7 @@ mod tests {
     fn test_find_all_uuid_offsets() {
         let mut data = Vec::new();
         data.extend_from_slice(b"prefix$a1b2c3d4-e5f6-7890-abcd-ef1234567890\0more");
-        let uuids = find_all_uuid_offsets(&data);
+        let uuids = find_all_uuid_offsets(&data, MAX_RECORDS).unwrap();
         assert_eq!(uuids.len(), 1);
         assert_eq!(uuids[0].1, "a1b2c3d4-e5f6-7890-abcd-ef1234567890");
     }
@@ -2677,7 +2736,8 @@ mod tests {
         block.extend_from_slice(&[0u8; 1]);
         block.write_u32::<BigEndian>(e2.len() as u32).unwrap();
         block.extend_from_slice(&e2);
-        let entries = parse_samp_block(&block, AbrVersion::V6, 1, TipMode::Eager);
+        let entries =
+            parse_samp_block(&block, AbrVersion::V6, 1, TipMode::Eager, MAX_RECORDS).unwrap();
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].as_ref().unwrap().bitmap.width, 4);
         assert_eq!(entries[1].as_ref().unwrap().bitmap.width, 8);

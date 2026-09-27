@@ -139,3 +139,102 @@ fn aggregate_budget_is_checked_before_decoding_any_selected_tip() {
     let error = pack.decode(&[0, 1, 2, 3, 4]).unwrap_err().to_string();
     assert!(error.contains("16 million"), "{error}");
 }
+
+fn modern_blocks(blocks: &[(&[u8; 4], Vec<u8>)]) -> Vec<u8> {
+    let mut bytes = vec![0, 6, 0, 1];
+    for (kind, body) in blocks {
+        bytes.extend(b"8BIM");
+        bytes.extend(*kind);
+        bytes.extend((body.len() as u32).to_be_bytes());
+        bytes.extend(body);
+        bytes.resize(bytes.len().next_multiple_of(4), 0);
+    }
+    bytes
+}
+fn framed_tip(body: &[u8]) -> Vec<u8> {
+    let mut frame = (body.len() as u32).to_be_bytes().to_vec();
+    frame.extend(body);
+    frame.resize(frame.len().next_multiple_of(4), 0);
+    frame
+}
+fn recovered_sample_block(count: usize) -> Vec<u8> {
+    // A single valid outer frame contains many recovered UUID records.
+    // Its unanchored prefix forces the parser's compatibility recovery path.
+    let cell = &include_bytes!("../../../../tests/fixtures/abr/sampled-v6.abr")[20..];
+    let mut body = vec![0];
+    for _ in 0..count {
+        body.extend(cell);
+    }
+    framed_tip(&body)
+}
+#[test]
+fn recovered_uuid_records_are_bounded_before_pairing_and_across_blocks() {
+    let at_limit = modern_blocks(&[(b"samp", recovered_sample_block(2048))]);
+    assert_eq!(Pack::from_bytes(at_limit).unwrap().tips().len(), 2048);
+    for blocks in [
+        vec![(b"samp", recovered_sample_block(2049))],
+        vec![
+            (b"samp", recovered_sample_block(1536)),
+            (b"samp", recovered_sample_block(513)),
+        ],
+    ] {
+        let error = Pack::from_bytes(modern_blocks(&blocks))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("UUID recovery anchors"), "{error}");
+    }
+}
+#[test]
+fn uuid_shaped_pixels_do_not_trigger_recovery_limits_in_framed_tips() {
+    let mut body = include_bytes!("../../../../tests/fixtures/abr/sampled-v6.abr")[20..86].to_vec();
+    body[55..59].copy_from_slice(&2049_i32.to_be_bytes());
+    body[59..63].copy_from_slice(&38_i32.to_be_bytes());
+    for _ in 0..2049 {
+        body.extend(b"$a1b2c3d4-e5f6-7890-abcd-ef1234567890\0");
+    }
+    let pack = Pack::from_bytes(modern_blocks(&[(b"samp", framed_tip(&body))])).unwrap();
+    assert_eq!(pack.tips().len(), 1);
+    assert_eq!(
+        pack.decode(&[0]).unwrap()[0].pixels().dimensions(),
+        (38, 2049)
+    );
+}
+fn descriptor_block(count: usize) -> Vec<u8> {
+    let mut body = Vec::new();
+    for word in [16_u32, 0, 0] {
+        body.extend(word.to_be_bytes());
+    }
+    body.extend(b"null");
+    body.extend(1_u32.to_be_bytes());
+    body.extend(0_u32.to_be_bytes());
+    body.extend(b"BrshVlLs");
+    body.extend((count as u32).to_be_bytes());
+    for _ in 0..count {
+        body.extend(b"Objc");
+        body.extend(0_u32.to_be_bytes());
+        body.extend(0_u32.to_be_bytes());
+        body.extend(b"null");
+        body.extend(0_u32.to_be_bytes());
+    }
+    body
+}
+#[test]
+fn descriptor_presets_are_bounded_before_collecting_and_across_blocks() {
+    let at_limit = modern_blocks(&[(b"desc", descriptor_block(2048))]);
+    assert!(Pack::from_bytes(at_limit).is_ok());
+    for blocks in [
+        vec![(b"desc", descriptor_block(2049))],
+        vec![
+            (b"desc", descriptor_block(1536)),
+            (b"desc", descriptor_block(513)),
+        ],
+    ] {
+        let error = Pack::from_bytes(modern_blocks(&blocks))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("descriptors exceed the 2048-record limit"),
+            "{error}"
+        );
+    }
+}

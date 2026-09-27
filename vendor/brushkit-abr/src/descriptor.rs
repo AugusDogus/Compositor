@@ -49,7 +49,7 @@ pub struct BrushDescInfo {
 
 #[cfg(test)]
 pub fn extract_all_brush_info(data: &[u8]) -> Vec<BrushDescInfo> {
-    extract_all_brush_info_inner(data).unwrap_or_default()
+    extract_all_brush_info_inner(data, crate::limits::MAX_RECORDS).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -58,7 +58,18 @@ pub fn extract_brush_name(data: &[u8]) -> Option<String> {
     infos.into_iter().next().map(|i| i.name)
 }
 
-pub(crate) fn extract_all_brush_info_inner(data: &[u8]) -> io::Result<Vec<BrushDescInfo>> {
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ExtractError {
+    #[error("ABR descriptors exceed the 2048-record limit")]
+    RecordLimit,
+    #[error(transparent)]
+    Malformed(#[from] io::Error),
+}
+
+pub(crate) fn extract_all_brush_info_inner(
+    data: &[u8],
+    remaining: usize,
+) -> Result<Vec<BrushDescInfo>, ExtractError> {
     let mut cursor = Cursor::new(data);
 
     let _fmt_ver = cursor.read_u32::<BigEndian>()?;
@@ -101,6 +112,9 @@ pub(crate) fn extract_all_brush_info_inner(data: &[u8]) -> io::Result<Vec<BrushD
             for _ in 0..vl_count {
                 let elem_tag = read_type_tag(&mut cursor)?;
                 if elem_tag == "Objc" {
+                    if results.len() >= remaining {
+                        return Err(ExtractError::RecordLimit);
+                    }
                     match parse_brush_preset_objc(&mut cursor) {
                         Ok(info) => results.push(info),
                         Err(_) => break,
@@ -1735,7 +1749,7 @@ mod tests {
         data.extend_from_slice(b"null");
         data.write_u32::<BigEndian>(0).unwrap();
 
-        let res = extract_all_brush_info_inner(&data);
+        let res = extract_all_brush_info_inner(&data, crate::limits::MAX_RECORDS);
         assert!(res.is_ok(), "expected Ok, got {res:?}");
         assert!(res.unwrap().is_empty());
     }

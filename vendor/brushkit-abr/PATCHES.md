@@ -7,3 +7,7 @@ ZIP decoding in `src/parser.rs` reads at most the declared bitmap byte count plu
 Keep this patch until an upstream release provides equivalent bounded decoding. The importer regression `zip_expansion_is_bounded_by_declared_tip_dimensions` exercises rejection through the public deferred API.
 
 The published crate omits its workspace-only `brushkit-fixture` development dependency. The local manifest restores version 0.4.1 so the retained upstream unit tests can run with `cargo test --manifest-path vendor/brushkit-abr/Cargo.toml --lib`.
+
+Record limits are enforced inside the parser before collecting samples, UUID recovery anchors, or preset descriptors. Each category has a 2048-record budget shared across blocks, and exceeding it fails the entire parse. Block and legacy-record collection use the same limit. Descriptor limit errors bypass the malformed-description fallback so a partial pack cannot hide the failure. Valid anchored sample frames do not scan their pixel bytes for recovery UUIDs.
+
+The importer tests cover exact limits, one-block and cumulative recovery overflow, cumulative descriptor overflow, and UUID-shaped bytes inside valid pixels. These bounds prevent a single declared sample frame from hiding thousands of recovered records and allocating their metadata before the application can reject the pack. Pattern decoding remains unused: Compositor calls the deferred API that skips pattern blocks.

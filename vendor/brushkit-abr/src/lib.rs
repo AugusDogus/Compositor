@@ -577,6 +577,9 @@ pub struct TipBitmap {
 /// Errors that can occur during ABR parsing.
 #[derive(thiserror::Error, Debug)]
 pub enum AbrError {
+    #[error("ABR {0} exceed the 2048-record limit")]
+    RecordLimit(&'static str),
+
     /// Carries the raw major version read from the header, so a version this
     /// crate has no `AbrVersion` variant for can still be named in the message.
     #[error("unsupported ABR version {0}: the header reads fine, this version is not supported")]
