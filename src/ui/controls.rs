@@ -250,63 +250,9 @@ impl Editor {
     }
     fn generic_tool_options(&self, cx: &mut ViewContext<'_, Self>) -> Element {
         if self.tools.tool == Tool::Gradient {
-            return div()
-                .h(42.)
-                .flex_shrink_0()
-                .overflow_x_scroll()
-                .px(18.)
-                .gap(12.)
-                .flex_row()
-                .items_center()
-                .bg(self.colors.neutral(38))
-                .child(
-                    text("Gradient")
-                        .text_size(13.)
-                        .line_height(16.)
-                        .font_semibold()
-                        .flex_shrink_0(),
-                )
-                .child(self.gradient_controls(cx));
+            return self.gradient_header(cx);
         }
-        let mut bar = div()
-            .h(42.)
-            .px(18.)
-            .gap(if self.tools.tool == Tool::Crop {
-                14.
-            } else {
-                12.
-            })
-            .flex_row()
-            .items_center()
-            .bg(self.colors.neutral(38))
-            .flex_shrink_0()
-            .overflow_x_scroll()
-            .child(
-                text(match self.tools.tool {
-                    Tool::Move => "Transform",
-                    Tool::Rectangle | Tool::Ellipse => "Marquee",
-                    Tool::Polygon | Tool::Lasso => "Lasso",
-                    Tool::Wand => "Magic Wand",
-                    Tool::Object => "Object Selection",
-                    Tool::Clone => "Clone Stamp",
-                    Tool::Heal => "Spot Healing",
-                    Tool::Blur | Tool::Smudge | Tool::Liquify => "Smear",
-                    Tool::Eyedropper => "Eyedropper",
-                    Tool::Hand => "Pan",
-                    _ => self
-                        .tools
-                        .tool
-                        .label()
-                        .split_once("  ")
-                        .map_or(self.tools.tool.label(), |(_, name)| name),
-                })
-                .id("tool-header-title")
-                .flex_shrink_0()
-                .whitespace_nowrap()
-                .font_semibold()
-                .text_size(13.)
-                .line_height(16.),
-            );
+        let mut bar = self.tool_header_shell();
         if matches!(
             self.tools.tool,
             Tool::Rectangle
@@ -352,24 +298,7 @@ impl Editor {
                 | Tool::Burn
                 | Tool::Sponge
         ) {
-            bar = bar.child(self.brush_header(cx)).child(div().flex_1());
-            if self.tools.tool == Tool::Clone && self.tools.clone_source.is_none() {
-                bar = bar.child(
-                    text("Alt-click to set the source")
-                        .text_size(12.)
-                        .line_height(15.)
-                        .text_color(self.colors.neutral(160))
-                        .whitespace_nowrap(),
-                );
-            }
-            if self.tools.mask_target {
-                bar = bar.child(
-                    text("Mask")
-                        .text_size(12.)
-                        .line_height(15.)
-                        .text_color(self.colors.neutral(160)),
-                );
-            }
+            bar = self.brush_header_extras(cx, bar);
         }
 
         if matches!(
@@ -381,24 +310,7 @@ impl Editor {
                 | Tool::Wand
                 | Tool::Object
         ) {
-            bar = bar.child(self.selection_mode_controls(cx));
-            if matches!(self.tools.tool, Tool::Wand | Tool::Object) {
-                bar = bar.child(self.brush_mode_controls(cx));
-            }
-            if self.tools.tool != Tool::Rectangle {
-                bar = bar.child(
-                    self.check_control("Anti-alias", self.tools.selection_antialiased)
-                        .tooltip("Smooth selection edges; turn off for hard pixel edges")
-                        .on_click(cx.listener("selection-antialias", |this, cx| {
-                            this.tools.selection_antialiased = !this.tools.selection_antialiased;
-                            cx.invalidate();
-                        })),
-                );
-            }
-            if self.tools.tool == Tool::Object {
-                bar = bar.child(self.object_edge_control(cx));
-            }
-            bar = bar.child(self.selection_modify_controls(cx));
+            bar = self.selection_header_extras(cx, bar);
         }
 
         if self.tools.tool == Tool::Crop {
@@ -411,6 +323,108 @@ impl Editor {
             bar = bar.child(self.shape_header(cx));
         }
 
+        bar
+    }
+    fn gradient_header(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        div()
+            .h(42.)
+            .flex_shrink_0()
+            .overflow_x_scroll()
+            .px(18.)
+            .gap(12.)
+            .flex_row()
+            .items_center()
+            .bg(self.colors.neutral(38))
+            .child(
+                text("Gradient")
+                    .text_size(13.)
+                    .line_height(16.)
+                    .font_semibold()
+                    .flex_shrink_0(),
+            )
+            .child(self.gradient_controls(cx))
+    }
+    fn tool_header_shell(&self) -> Element {
+        div()
+            .h(42.)
+            .px(18.)
+            .gap(if self.tools.tool == Tool::Crop {
+                14.
+            } else {
+                12.
+            })
+            .flex_row()
+            .items_center()
+            .bg(self.colors.neutral(38))
+            .flex_shrink_0()
+            .overflow_x_scroll()
+            .child(
+                text(match self.tools.tool {
+                    Tool::Move => "Transform",
+                    Tool::Rectangle | Tool::Ellipse => "Marquee",
+                    Tool::Polygon | Tool::Lasso => "Lasso",
+                    Tool::Wand => "Magic Wand",
+                    Tool::Object => "Object Selection",
+                    Tool::Clone => "Clone Stamp",
+                    Tool::Heal => "Spot Healing",
+                    Tool::Blur | Tool::Smudge | Tool::Liquify => "Smear",
+                    Tool::Eyedropper => "Eyedropper",
+                    Tool::Hand => "Pan",
+                    _ => self
+                        .tools
+                        .tool
+                        .label()
+                        .split_once("  ")
+                        .map_or(self.tools.tool.label(), |(_, name)| name),
+                })
+                .id("tool-header-title")
+                .flex_shrink_0()
+                .whitespace_nowrap()
+                .font_semibold()
+                .text_size(13.)
+                .line_height(16.),
+            )
+    }
+    fn brush_header_extras(&self, cx: &mut ViewContext<'_, Self>, mut bar: Element) -> Element {
+        bar = bar.child(self.brush_header(cx)).child(div().flex_1());
+        if self.tools.tool == Tool::Clone && self.tools.clone_source.is_none() {
+            bar = bar.child(
+                text("Alt-click to set the source")
+                    .text_size(12.)
+                    .line_height(15.)
+                    .text_color(self.colors.neutral(160))
+                    .whitespace_nowrap(),
+            );
+        }
+        if self.tools.mask_target {
+            bar = bar.child(
+                text("Mask")
+                    .text_size(12.)
+                    .line_height(15.)
+                    .text_color(self.colors.neutral(160)),
+            );
+        }
+        bar
+    }
+    fn selection_header_extras(&self, cx: &mut ViewContext<'_, Self>, mut bar: Element) -> Element {
+        bar = bar.child(self.selection_mode_controls(cx));
+        if matches!(self.tools.tool, Tool::Wand | Tool::Object) {
+            bar = bar.child(self.brush_mode_controls(cx));
+        }
+        if self.tools.tool != Tool::Rectangle {
+            bar = bar.child(
+                self.check_control("Anti-alias", self.tools.selection_antialiased)
+                    .tooltip("Smooth selection edges; turn off for hard pixel edges")
+                    .on_click(cx.listener("selection-antialias", |this, cx| {
+                        this.tools.selection_antialiased = !this.tools.selection_antialiased;
+                        cx.invalidate();
+                    })),
+            );
+        }
+        if self.tools.tool == Tool::Object {
+            bar = bar.child(self.object_edge_control(cx));
+        }
+        bar = bar.child(self.selection_modify_controls(cx));
         bar
     }
     fn tool_family_controls(&self, cx: &mut ViewContext<'_, Self>) -> Element {
