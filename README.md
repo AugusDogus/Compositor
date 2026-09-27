@@ -75,6 +75,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Pattern Overlay and PAT import | ❌ | ✅ | ❌ |
 | Gradient Overlay | ❌ | ✅ | ❌ |
 | Bevel/Emboss | ❌ | ✅ | ❌ |
+| Blend If: Gray split handles | ❌ | ✅ | ❌ |
 | Line shapes | ✅ | ✅ | ❌ |
 | Selection feathering | ✅ | ✅ | ✅ |
 | Soft Light blend mode | ✅ | ✅ | ❌ |

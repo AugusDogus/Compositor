@@ -175,6 +175,16 @@ impl Scene {
             scene
                 .layers
                 .extend([u32::from(placement), adjustment, board_background, 0]);
+            let conditional = layer
+                .blend_if
+                .filter(|s| !s.is_identity())
+                .unwrap_or_default();
+            scene
+                .layers
+                .extend(conditional.source.endpoints().map(u32::from));
+            scene
+                .layers
+                .extend(conditional.underlying.endpoints().map(u32::from));
         }
         let state = RenderState::new(doc);
         fn visit(
@@ -242,7 +252,7 @@ impl Scene {
         }
         // Storage bindings cannot be empty, even for a blank document.
         if scene.layers.is_empty() {
-            scene.layers.resize(32, 0);
+            scene.layers.resize(40, 0);
         }
         if scene.adjustments.is_empty() {
             scene.adjustments.push(0.);

@@ -1,5 +1,6 @@
 //! Nondestructive layer effects with one undo entry per confirmed editing session.
 mod bevel;
+pub(super) mod blend_if;
 mod buttons;
 mod controls;
 mod gradient;
@@ -21,9 +22,10 @@ pub(super) enum EffectKind {
     Pattern,
     Gradient,
     Bevel,
+    BlendIf,
 }
 impl EffectKind {
-    const ALL: [Self; 9] = [
+    const ALL: [Self; 10] = [
         Self::Stroke,
         Self::Shadow,
         Self::Overlay,
@@ -33,9 +35,11 @@ impl EffectKind {
         Self::Pattern,
         Self::Gradient,
         Self::Bevel,
+        Self::BlendIf,
     ];
     fn label(self) -> &'static str {
         match self {
+            Self::BlendIf => "Blend If",
             Self::Bevel => "Bevel/Emboss",
             Self::Gradient => "Gradient Overlay",
             Self::Pattern => "Pattern Overlay",
@@ -47,8 +51,10 @@ impl EffectKind {
             Self::InnerGlow => "Inner Glow",
         }
     }
-    fn enabled(self, e: &LayerEffects) -> Option<bool> {
+    fn enabled(self, edit: &EffectsEditor) -> Option<bool> {
+        let e = &edit.effects;
         match self {
+            Self::BlendIf => edit.blend_if.map(|s| s.enabled),
             Self::Bevel => e.bevel.as_ref().map(|s| s.enabled),
             Self::Gradient => e.gradient_overlay.as_ref().map(|s| s.enabled),
             Self::Pattern => e.pattern_overlay.as_ref().map(|s| s.settings.enabled),
@@ -62,7 +68,7 @@ impl EffectKind {
     }
     fn color(self, e: &LayerEffects) -> [f64; 3] {
         match self {
-            Self::Pattern | Self::Gradient | Self::Bevel => None,
+            Self::Pattern | Self::Gradient | Self::Bevel | Self::BlendIf => None,
             Self::Stroke => e.stroke.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Shadow => e.shadow.as_ref().map(|s| [s.red, s.green, s.blue]),
             Self::Overlay => e.color_overlay.as_ref().map(|s| [s.red, s.green, s.blue]),
@@ -78,6 +84,7 @@ pub(super) struct EffectsEditor {
     id: Uuid,
     kind: EffectKind,
     effects: LayerEffects,
+    blend_if: Option<compositor::blend_if::Settings>,
     color: String,
     error: String,
     copy_to: bool,
@@ -139,7 +146,7 @@ impl EffectsEditor {
     pub(super) fn set_color(&mut self, rgb: [u8; 4]) {
         let [r, g, b, _] = rgb.map(|v| f64::from(v) / 255.);
         match self.kind {
-            EffectKind::Pattern | EffectKind::Bevel => {}
+            EffectKind::Pattern | EffectKind::Bevel | EffectKind::BlendIf => {}
             EffectKind::Gradient => self.set_overlay_color(rgb),
             EffectKind::Stroke => {
                 if let Some(s) = &mut self.effects.stroke {
@@ -186,6 +193,7 @@ impl EffectsEditor {
     }
     pub(super) fn number(&self, p: Parameter) -> f64 {
         match self.kind {
+            EffectKind::BlendIf => 0.,
             EffectKind::Bevel => self.bevel_number(p),
             EffectKind::Gradient => {
                 self.effects
@@ -245,6 +253,7 @@ impl EffectsEditor {
     }
     pub(super) fn set_number(&mut self, p: Parameter, value: f64) {
         match self.kind {
+            EffectKind::BlendIf => {}
             EffectKind::Bevel => self.set_bevel_number(p, value),
             EffectKind::Gradient => {
                 if let Some(s) = &mut self.effects.gradient_overlay {
@@ -359,6 +368,7 @@ impl Editor {
             id: layer.id,
             kind: EffectKind::Stroke,
             effects: layer.effects.clone().unwrap_or_default(),
+            blend_if: layer.blend_if,
             color: String::new(),
             error: String::new(),
             copy_to: false,
@@ -367,7 +377,7 @@ impl Editor {
         };
         edit.kind = EffectKind::ALL
             .into_iter()
-            .find(|k| k.enabled(&edit.effects).is_some())
+            .find(|k| k.enabled(&edit).is_some())
             .unwrap_or(EffectKind::Stroke);
         edit.color_text();
         edit.sync_overlay_stop();
@@ -385,8 +395,8 @@ impl Editor {
         change(edit);
         if !matches!(
             edit.kind,
-            EffectKind::Pattern | EffectKind::Gradient | EffectKind::Bevel
-        ) && edit.kind.enabled(&edit.effects).is_some()
+            EffectKind::Pattern | EffectKind::Gradient | EffectKind::Bevel | EffectKind::BlendIf
+        ) && edit.kind.enabled(edit).is_some()
             && compositor::palette::parse_hex(&edit.color).is_err()
         {
             edit.error = "Enter an RGB color such as #336699.".into();
@@ -396,12 +406,13 @@ impl Editor {
             edit.error.clone_from(&edit.gradient.error);
             return;
         }
-        let (id, effects) = (edit.id, edit.effects.clone());
+        let (id, effects, blend_if) = (edit.id, edit.effects.clone(), edit.blend_if);
         let mut document = self.session().document.clone();
         let Some(layer) = document.layers.iter_mut().find(|l| l.id == id) else {
             return;
         };
         layer.effects = (!effects.is_empty()).then_some(effects);
+        layer.blend_if = blend_if;
         match document.validate() {
             Ok(()) => {
                 self.session_mut().document = document;
@@ -422,6 +433,7 @@ impl Editor {
         };
         let kind = edit.kind;
         let source = edit.effects.clone();
+        let blend_if = edit.blend_if;
         let mut document = self.session().document.clone();
         let layer = document
             .layers
@@ -430,8 +442,9 @@ impl Editor {
             .ok_or_else(|| {
                 compositor::invalid("The destination layer no longer has editable pixels.")
             })?;
-        let effects = layer.effects.get_or_insert_default();
+        let mut effects = layer.effects.clone().unwrap_or_default();
         match kind {
+            EffectKind::BlendIf => layer.blend_if = blend_if,
             EffectKind::Bevel => effects.bevel = source.bevel,
             EffectKind::Gradient => effects.gradient_overlay = source.gradient_overlay,
             EffectKind::Pattern => effects.pattern_overlay = source.pattern_overlay,
@@ -442,6 +455,7 @@ impl Editor {
             EffectKind::Glow => effects.outer_glow = source.outer_glow,
             EffectKind::InnerGlow => effects.inner_glow = source.inner_glow,
         }
+        layer.effects = (!effects.is_empty()).then_some(effects);
         document.validate()?;
         self.session_mut().document = document;
         if let Some(Form::Effects(edit)) = &mut self.modal {

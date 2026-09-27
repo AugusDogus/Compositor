@@ -234,14 +234,7 @@ pub(super) fn validate(bytes: &[u8]) -> Result<Prepared<'_>> {
             }
         }
         let blending_ranges = extra.section()?;
-        if blending_ranges
-            .bytes
-            .chunks(4)
-            .any(|range| range != [0, 0, 255, 255])
-        {
-            report
-                .note("Photoshop Blend If ranges are omitted; affected layer blending may differ.");
-        }
+        super::blend_if::preflight(blending_ranges.bytes)?;
         let name = usize::from(extra.take(1)?[0]);
         extra.take(name)?;
         let pad = (4 - (name + 1) % 4) % 4;

@@ -6,6 +6,7 @@ use crate::{
 use std::{collections::HashSet, sync::Arc};
 use uuid::Uuid;
 
+mod merge_blend_if;
 mod transfer;
 pub(crate) use transfer::place_copies;
 pub use transfer::{
@@ -243,6 +244,9 @@ pub fn merge(doc: &mut Document, all: bool) -> Result<()> {
         .any(|l| selected.contains(&l.id) && (!l.is_group() || l.is_artboard()))
     {
         return Err(invalid("The selected folders contain no layers to merge."));
+    }
+    if !all {
+        merge_blend_if::validate(doc, &selected)?;
     }
     let mut source = doc.clone();
     source.layers.retain(|l| selected.contains(&l.id));

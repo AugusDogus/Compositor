@@ -1,4 +1,6 @@
 mod artboard;
+#[cfg(test)]
+mod blend_if_tests;
 mod downsample;
 pub(crate) mod gpu;
 #[cfg(test)]
@@ -107,6 +109,7 @@ fn coverage(
     point: Point,
     depth: usize,
     backgrounds: &HashMap<Uuid, f64>,
+    backdrop: [f64; 4],
 ) -> f64 {
     if depth > 256 {
         return 0.;
@@ -127,9 +130,15 @@ fn coverage(
         .clip_source
         .and_then(|id| doc.layer(id))
         .map_or(1., |source| {
-            coverage(doc, source, point, depth + 1, backgrounds)
+            coverage(doc, source, point, depth + 1, backgrounds, backdrop)
         });
-    alpha * layer.opacity * mask_alpha(layer, point, backgrounds) * upstream
+    let condition = layer.blend_if.map_or(1., |settings| {
+        let color = layer.raster().map_or([0.; 4], |image| {
+            pixel(image, layer.transform.unit(point), layer.transform.sampling)
+        });
+        settings.weight(color, backdrop)
+    });
+    alpha * layer.opacity * mask_alpha(layer, point, backgrounds) * upstream * condition
 }
 
 /// Bake only the upstream clipping coverage into a layer's source pixel grid.
@@ -138,8 +147,32 @@ pub(crate) fn clipped_pixels(doc: &Document, layer: &Layer) -> crate::Result<Opt
     let (Some(source), Some(pixels)) = (layer.clip_source, layer.raster()) else {
         return Ok(None);
     };
-    let source = doc.layer(source).ok_or_else(|| crate::invalid("The clipping source is missing. Reopen the project before copying or deleting its layers."))?;
-    let backgrounds = doc
+    let mut dependency = Some(source);
+    let mut conditional = false;
+    for _ in 0..=256 {
+        let Some(base) = dependency.and_then(|id| doc.layer(id)) else {
+            break;
+        };
+        conditional |= base.blend_if.is_some_and(|s| !s.is_identity());
+        dependency = base.clip_source;
+    }
+    let sampler = if conditional {
+        let mut sampler = Sampler::new(doc)?;
+        let in_stack = crate::clipping::stacks(doc).iter().any(|stack| {
+            doc.layers[stack.base].id == source
+                && stack
+                    .contiguous
+                    .iter()
+                    .any(|i| doc.layers[*i].id == layer.id)
+        });
+        sampler.state.before = Some(if in_stack { source } else { layer.id });
+        Some(sampler)
+    } else {
+        None
+    };
+    let prepared = sampler.as_ref().map_or(doc, |s| &s.document);
+    let source = prepared.layer(source).ok_or_else(|| crate::invalid("The clipping source is missing. Reopen the project before copying or deleting its layers."))?;
+    let backgrounds = prepared
         .layers
         .iter()
         .filter_map(|l| l.mask.as_ref().map(|m| (l.id, m.background())))
@@ -150,8 +183,16 @@ pub(crate) fn clipped_pixels(doc: &Document, layer: &Layer) -> crate::Result<Opt
             .transform
             .point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]);
         let mut pixel = pixels[(x, y)];
-        pixel[3] =
-            (f64::from(pixel[3]) * coverage(doc, source, point, 0, &backgrounds)).round() as u8;
+        pixel[3] = (f64::from(pixel[3])
+            * coverage(
+                prepared,
+                source,
+                point,
+                0,
+                &backgrounds,
+                sampler.as_ref().map_or([0.; 4], |s| s.sample(point)),
+            ))
+        .round() as u8;
         pixel
     })))
 }
@@ -278,7 +319,10 @@ fn paint_children(
             }
         } else if let Some(children) = state.stacks.get(&layer.id) {
             let mut group = own_pixel(layer, point, &state.backgrounds);
-            let alpha = group[3];
+            let alpha = group[3]
+                * layer
+                    .blend_if
+                    .map_or(1., |settings| settings.weight(group, *out));
             group[3] = 1.;
             for index in children {
                 let child = &doc.layers[*index];
@@ -300,6 +344,11 @@ fn paint_children(
                 } else {
                     let mut top = own_pixel(child, point, &state.backgrounds);
                     top[3] *= inherited.opacity;
+                    let mut backdrop = group;
+                    backdrop[3] = alpha;
+                    top[3] *= child
+                        .blend_if
+                        .map_or(1., |settings| settings.weight(top, backdrop));
                     group = child.blend.composite(group, top);
                 }
             }
@@ -322,7 +371,7 @@ fn paint_children(
             }
         } else if let Some(image) = layer.raster() {
             let mut top = pixel(image, layer.transform.unit(point), layer.transform.sampling);
-            top[3] = coverage(doc, layer, point, 0, &state.backgrounds)
+            top[3] = coverage(doc, layer, point, 0, &state.backgrounds, *out)
                 * inherited.mask
                 * inherited.opacity;
             *out = layer.blend.composite(*out, top);

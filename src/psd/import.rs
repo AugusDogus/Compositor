@@ -144,6 +144,8 @@ fn layers(
         layer.visible = !source.hidden.unwrap_or(false);
         layer.opacity = source.opacity.unwrap_or(1.) * info.fill_opacity.unwrap_or(1.);
         layer.blend = from_blend(source.blend_mode.unwrap_or(BlendMode::Normal), report);
+        layer.blend_if =
+            super::blend_if::import(info.blending_ranges.as_ref(), report, &layer.name)?;
         let group = source.children.is_some();
         if group && layer.blend != Blend::Normal {
             report.note(format!(

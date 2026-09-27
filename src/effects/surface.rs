@@ -150,6 +150,7 @@ pub(crate) fn rendered_transform(layer: &Layer) -> Transform {
 /// Temporary surfaces include the enabled raster mask, then follow the original
 /// transform. Clipping, folder masks, opacity and blend stay in the compositor.
 pub(crate) fn prepare(doc: &Document, accelerated: bool) -> Result<Document> {
+    crate::blend_if::validate_document(doc)?;
     let mut prepared = doc.clone();
     for layer in &mut prepared.layers {
         if layer

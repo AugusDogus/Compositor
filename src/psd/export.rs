@@ -43,6 +43,9 @@ pub fn export_report(doc: &Document) -> ConversionReport {
         report.note("Guides before the canvas origin are omitted from PSD output.");
     }
     for layer in &doc.layers {
+        if let Some(settings) = layer.blend_if {
+            super::blend_if::notice(settings, &mut report, &layer.name);
+        }
         if let LayerContent::Adjustment(adjustment) = &layer.content
             && super::adjustments::export(adjustment).is_none()
         {
@@ -186,6 +189,7 @@ fn export_layers(
         };
         output.additional_info.name = Some(layer.name.clone());
         output.additional_info.effects = effects.get(&layer.id).cloned();
+        output.additional_info.blending_ranges = super::blend_if::export(layer.blend_if);
         if let Some(adjustment) = adjustment {
             output.additional_info.adjustment = Some(adjustment);
         } else if layer.is_group() {
@@ -264,6 +268,7 @@ fn bake_layer(
     raster.clip_source = None;
     raster.opacity = 1.;
     raster.blend = Blend::Normal;
+    raster.blend_if = None;
     raster.visible = true;
     isolated.layers = vec![raster];
     let pixels = render::region(&isolated, width, height, [left, top], [1., 1.])?;

@@ -91,6 +91,7 @@ pub struct Layer {
     pub transform: Transform,
     pub opacity: f64,
     pub blend: Blend,
+    pub blend_if: Option<crate::blend_if::Settings>,
     pub mask: Option<Mask>,
     pub clip_source: Option<Uuid>,
     pub shape: Option<Shape>,
@@ -185,6 +186,7 @@ impl Layer {
             transform: Transform::new(width, height),
             opacity: 1.,
             blend: Blend::Normal,
+            blend_if: None,
             mask: None,
             clip_source: None,
             shape: None,
@@ -333,6 +335,7 @@ impl Document {
     }
     pub fn validate(&self) -> Result<()> {
         crate::artboard::validate(self)?;
+        crate::blend_if::validate_document(self)?;
         crate::vector_path::validate(&self.paths)?;
         crate::guides::validate(&self.guides)?;
         validate_canvas_size(self.width, self.height)?;

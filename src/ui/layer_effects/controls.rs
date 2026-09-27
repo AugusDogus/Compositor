@@ -24,12 +24,15 @@ impl Editor {
         }
         let mut content = div().flex_col().gap(14.).child(tabs);
         let kind = edit.kind;
-        let enabled = kind.enabled(&edit.effects);
+        let enabled = kind.enabled(edit);
         content = content.child(self.effect_actions(cx, edit));
         if kind == EffectKind::Pattern {
             content = content.child(self.pattern_controls(cx, edit));
         }
         if enabled.is_some() {
+            if kind == EffectKind::BlendIf {
+                content = content.child(self.blend_if_controls(cx, edit));
+            }
             if kind == EffectKind::Bevel {
                 content = content.child(self.bevel_controls(cx, edit));
             }
@@ -38,11 +41,15 @@ impl Editor {
             }
             if !matches!(
                 kind,
-                EffectKind::Pattern | EffectKind::Gradient | EffectKind::Bevel
+                EffectKind::Pattern
+                    | EffectKind::Gradient
+                    | EffectKind::Bevel
+                    | EffectKind::BlendIf
             ) {
                 content = content.child(self.effect_color_controls(cx, edit));
             }
             let parameters = match kind {
+                EffectKind::BlendIf => vec![],
                 EffectKind::Stroke | EffectKind::Glow | EffectKind::InnerGlow => {
                     vec![Parameter::Size, Parameter::Opacity]
                 }

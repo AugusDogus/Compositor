@@ -15,6 +15,7 @@ pub(super) struct SliderDrag {
 #[derive(Clone, Copy)]
 pub(super) enum Scalar {
     Effect(super::layer_effects::Parameter),
+    BlendIf(super::layer_effects::blend_if::Handle),
     BrushSize,
     BrushHardness,
     BrushSmoothing,
@@ -64,6 +65,10 @@ impl Scalar {
             Self::TextNumber(index) => editor.text_number_value(index),
             Self::PickerChannel(index) => editor.picker_channel_value(index),
             Self::TransformNumber(index) => editor.transform_number_value(index),
+            Self::BlendIf(handle) => match &editor.modal {
+                Some(Form::Effects(e)) => handle.value(e),
+                _ => 0.,
+            },
             Self::Effect(p) => match &editor.modal {
                 Some(Form::Effects(e)) => e.number(p),
                 _ => 0.,
@@ -109,6 +114,7 @@ impl Scalar {
             }
             Self::TransformNumber(index) => editor.set_transform_number(index, value)?,
             Self::Effect(p) => editor.change_effect(|e| e.set_number(p, value)),
+            Self::BlendIf(handle) => editor.change_effect(|e| handle.set(e, value)),
             Self::BrushSize => editor.tools.brush.diameter = value,
             Self::BrushSmoothing => editor.tools.brush_smoothing = value.clamp(0., 100.),
             Self::BrushHardness => editor.tools.brush.hardness = value / 100.,

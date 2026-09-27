@@ -24,6 +24,7 @@ struct LayerKey {
     opacity: f64,
     effects: Option<compositor::effects::LayerEffects>,
     blend: Blend,
+    blend_if: Option<compositor::blend_if::Settings>,
     clip_source: Option<Uuid>,
     content: Pixels,
     mask: Option<MaskKey>,
@@ -73,6 +74,7 @@ impl LayerKey {
             opacity: layer.opacity,
             effects: layer.effects.clone(),
             blend: layer.blend,
+            blend_if: layer.blend_if,
             clip_source: layer.clip_source,
             content: match &layer.content {
                 LayerContent::Raster(pixels) => Pixels::Raster(pixels.as_ref().map(Arc::downgrade)),
@@ -99,6 +101,7 @@ impl LayerKey {
             && self.transform == layer.transform
             && self.opacity == layer.opacity
             && self.effects == layer.effects
+            && self.blend_if == layer.blend_if
             && self.blend == layer.blend
             && self.clip_source == layer.clip_source
             && match (&self.content, &layer.content) {

@@ -2,6 +2,7 @@ struct Layer {
     image_map:vec4<f32>, image_dy:vec4<f32>,
     mask_map:vec4<f32>, mask_dy:vec4<f32>,
     image:vec4<u32>, mask:vec4<u32>, info:vec4<u32>, options:vec4<u32>,
+    blend_source:vec4<u32>, blend_underlying:vec4<u32>,
 }
 struct View { size:vec4<u32>, geometry:vec4<f32> }
 @group(0) @binding(0) var<uniform> view:View;
@@ -48,13 +49,13 @@ fn own_pixel(layer:Layer,p:vec2<f32>) -> vec4<f32> {
     let color=image_pixel(layer,p);
     return vec4(color.rgb,color.a*layer.image_dy.z*mask_alpha(layer,p));
 }
-fn coverage(index:u32,p:vec2<f32>) -> f32 {
+fn coverage(index:u32,p:vec2<f32>,backdrop:vec4<f32>) -> f32 {
     var i=index; var alpha=1.0;
     for(var depth=0u;depth<=256u;depth++){
         let layer=layers[i];
         var own=1.0;
         if layer.info.z==0u {own=image_pixel(layer,p).a;}
-        alpha*=own*layer.image_dy.z*mask_alpha(layer,p);
+        alpha*=own*layer.image_dy.z*mask_alpha(layer,p)*blend_if_weight(layer,image_pixel(layer,p),backdrop);
         if layer.info.y==0u {return alpha;}
         i=layer.info.y-1u;
     }
@@ -84,9 +85,9 @@ fn composite(@builtin(global_invocation_id) id:vec3<u32>) {
         switch op.x {
             case 0u: {masks[depth+1u]=masks[depth]*mask_alpha(layer,p); opacities[depth+1u]=opacities[depth]*layer.image_dy.z; depth++;}
             case 1u: {depth--;}
-            case 2u: {let top=image_pixel(layer,p); color=blend(layer.info.x,color,vec4(top.rgb,coverage(op.y,p)*masks[depth]*opacities[depth]));}
-            case 3u: {group=own_pixel(layer,p); group_input_alpha=group.a; group_alpha=group.a*masks[depth]*opacities[depth]; group.a=1.0;}
-            case 4u: {let top=own_pixel(layer,p); group=blend(layer.info.x,group,vec4(top.rgb,top.a*opacities[depth]));}
+            case 2u: {let top=image_pixel(layer,p); color=blend(layer.info.x,color,vec4(top.rgb,coverage(op.y,p,color)*masks[depth]*opacities[depth]));}
+            case 3u: {group=own_pixel(layer,p); group_input_alpha=group.a*blend_if_weight(layer,group,color); group_alpha=group_input_alpha*masks[depth]*opacities[depth]; group.a=1.0;}
+            case 4u: {let top=own_pixel(layer,p); group=blend(layer.info.x,group,vec4(top.rgb,top.a*opacities[depth]*blend_if_weight(layer,top,vec4(group.rgb,group_input_alpha))));}
             case 5u: {group=adjusted(layer,p,group,layer.image_dy.z*mask_alpha(layer,p)*opacities[depth]);}
             case 6u: {color=blend(layer.info.x,color,vec4(group.rgb,group_alpha));}
             case 7u: {color=adjusted(layer,p,color,layer.image_dy.z*mask_alpha(layer,p)*masks[depth]*opacities[depth]);}

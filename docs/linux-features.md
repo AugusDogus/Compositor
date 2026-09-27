@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Blend If fades a pixel, text, shape or RAW layer using independent black/white split handles for its own Gray tones and the underlying layers. Masks, clipping stacks, preview and undo remain editable. Partial merges must include the backdrop and clipping context used by Blend If. Gray is measured from nearest-byte RGB; transparent backdrops do not exclude a layer. Linux projects retain disabled settings; PSD retains active Gray ranges. Folder, adjustment-layer and channel-specific PSD ranges are unsupported, and Photoshop rendering can differ.
+
 - Shadows/Highlights lifts dark areas and reduces bright areas using a configurable neighborhood radius. Direct pixel edits and editable adjustment layers support preview, masks and undo. Vulkan accelerates the neighborhood blur. Linux projects retain the settings; macOS and PSD receive a rendered composite.
 
 - Vibrance adjusts color intensity with protection for skin tones, alongside a separate Saturation control. Use it as a pixel edit or an editable adjustment layer, with preview and undo. Linux projects retain the settings; PSD keeps whole-number slider values editable and renders fractional values.

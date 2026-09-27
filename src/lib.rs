@@ -2,6 +2,7 @@ pub mod adjustment;
 pub mod background;
 pub mod bevel;
 pub mod blend;
+pub mod blend_if;
 pub mod brush;
 pub mod camera_raw;
 pub mod canvas_rotation;

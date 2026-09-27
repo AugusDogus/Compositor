@@ -100,6 +100,7 @@ impl Engine {
         let source = [
             include_str!("gpu/composite.wgsl"),
             include_str!("gpu/blend.wgsl"),
+            include_str!("gpu/blend_if.wgsl"),
             include_str!("gpu/adjustments.wgsl"),
             include_str!("gpu/selective_color_math.wgsl"),
             include_str!("gpu/threshold_math.wgsl"),

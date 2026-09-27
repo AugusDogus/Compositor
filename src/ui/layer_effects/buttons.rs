@@ -6,7 +6,7 @@ impl Editor {
         edit: &EffectsEditor,
     ) -> Element {
         let kind = edit.kind;
-        let enabled = kind.enabled(&edit.effects);
+        let enabled = kind.enabled(edit);
         if kind == EffectKind::Pattern && enabled.is_none() {
             return div();
         }
@@ -23,8 +23,11 @@ impl Editor {
             .on_click(cx.listener("effect-toggle", move |this, cx| {
                 let color = this.tools.background.map(|c| c as f64 / 255.);
                 this.change_effect(|e| {
-                    let visible = Some(!kind.enabled(&e.effects).unwrap_or(false));
+                    let visible = Some(!kind.enabled(e).unwrap_or(false));
                     match kind {
+                        EffectKind::BlendIf => {
+                            e.blend_if.get_or_insert_default().enabled = visible == Some(true);
+                        }
                         EffectKind::Bevel => {
                             e.effects.bevel.get_or_insert_default().enabled = visible == Some(true);
                         }
@@ -85,6 +88,7 @@ impl Editor {
             actions = actions.child(self.control("Remove").id("effect-remove").on_click(
                 cx.listener("effect-remove", move |this, cx| {
                     this.change_effect(|e| match kind {
+                        EffectKind::BlendIf => e.blend_if = None,
                         EffectKind::Bevel => e.effects.bevel = None,
                         EffectKind::Gradient => {
                             e.effects.gradient_overlay = None;

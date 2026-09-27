@@ -219,6 +219,7 @@ fn load_native_checked(
             transform: record.transform,
             opacity: record.opacity.unwrap_or(1.),
             blend: record.blend_mode.unwrap_or_default(),
+            blend_if: None,
             clip_source: record.mask_source_id,
             mask: None,
             shape: None,
@@ -389,6 +390,9 @@ pub fn validate_storage_metadata(document: &Document) -> Result<()> {
 
 fn native_metadata(document: &Document) -> Result<Vec<u8>> {
     let records = document.layers.iter().map(|layer| {
+        if layer.blend_if.is_some() {
+            return Err(invalid("Blend If requires the Linux editing snapshot. Save a .comp project to retain its editable ranges."));
+        }
         if layer.effects.as_ref().is_some_and(|e| e.pattern_overlay.is_some() || e.gradient_overlay.is_some() || e.bevel.is_some()) {
             return Err(invalid("Pattern Overlay, Gradient Overlay and Bevel/Emboss require a Linux authoring snapshot."));
         }
