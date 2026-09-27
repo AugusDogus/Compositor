@@ -104,7 +104,7 @@ fn saved_guides_follow_canvas_resize_image_resize_flip_and_crop() {
         [70., 70.]
     );
     image_resize::resize(&mut doc, 100, 80, 72., Sampling::Nearest).unwrap();
-    edits::flip_canvas(&mut doc, true);
+    edits::flip_canvas(&mut doc, true).unwrap();
     edits::crop(&mut doc, [10., 5.], [90., 75.]).unwrap();
     assert_eq!(
         doc.guides.iter().map(|g| g.position).collect::<Vec<_>>(),

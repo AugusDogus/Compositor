@@ -182,6 +182,7 @@ pub(super) fn definitions() -> Vec<Definition> {
         ("Toggle Wand / Object", "Tab"),
         ("Crop", "C"),
         ("Brush", "B"),
+        ("Pen", "P"),
         ("Eraser", "E"),
         ("Clone Stamp", "S"),
         ("Healing", "J"),

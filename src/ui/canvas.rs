@@ -9,6 +9,7 @@ use compositor::{
 use super::canvas_preview::PreviewKey;
 
 pub(super) enum Gesture {
+    Path(Box<paths::Drag>),
     BrushTip(super::brush_tip::Drag),
     PixelTransform(super::floating::PixelDrag),
     HeaderTransform(Box<super::transform_header::HeaderDrag>),
@@ -417,6 +418,10 @@ impl Editor {
         }
         match self.shape_draft_overlay(zoom, offset) {
             Ok(draft) => surface = surface.child(draft),
+            Err(error) => self.status = error.to_string(),
+        }
+        match self.path_overlay(zoom, offset, [width, height]) {
+            Ok(overlay) => surface = surface.child(overlay),
             Err(error) => self.status = error.to_string(),
         }
         let brush_cursor = match self.brush_cursor(zoom, offset) {

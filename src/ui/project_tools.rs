@@ -3,6 +3,7 @@ use super::*;
 
 pub(super) struct ProjectTools {
     pub(super) tool: Tool,
+    pub(super) paths: paths::State,
     pub(super) brush: Brush,
     pub(super) brush_shape: compositor::brush::sampled::Shape,
     pub(super) brush_smoothing: f64,
@@ -56,6 +57,7 @@ impl Default for ProjectTools {
     fn default() -> Self {
         Self {
             tool: Tool::Move,
+            paths: paths::State::default(),
             brush: Brush::default(),
             brush_shape: compositor::brush::sampled::Shape::Round,
             brush_smoothing: 0.,
@@ -109,6 +111,7 @@ impl Default for ProjectTools {
 
 impl ProjectTools {
     fn dismiss_menus(&mut self) {
+        self.paths.picker.dismiss();
         self.gradient_picker.dismiss();
         self.transform_sampling.dismiss();
         self.mask_paint_picker.dismiss();

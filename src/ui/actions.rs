@@ -416,8 +416,7 @@ impl Editor {
                     "Flip Canvas Vertical"
                 };
                 self.session_mut().edit(label, |doc| {
-                    edits::flip_canvas(doc, matches!(action, Action::FlipCanvasX));
-                    Ok(())
+                    edits::flip_canvas(doc, matches!(action, Action::FlipCanvasX))
                 })
             }
             Action::FlipX | Action::FlipY => self.session_mut().edit(
@@ -518,6 +517,7 @@ impl Editor {
             "i" => Some(Tool::Eyedropper),
             "h" => Some(Tool::Hand),
             "z" => Some(Tool::Zoom),
+            "p" => Some(Tool::Pen),
             _ => None,
         };
         if let Some(tool) = tool {
@@ -654,6 +654,9 @@ impl Editor {
         ) && *key != Key::Escape
         {
             cx.prevent_default();
+            return;
+        }
+        if self.path_key(key, modifiers, cx) {
             return;
         }
         let ctrl = modifiers.contains(Modifiers::CONTROL);

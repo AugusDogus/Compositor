@@ -29,6 +29,7 @@ pub fn canvas_size(doc: &mut Document, width: u32, height: u32, anchor: Point) -
         ((width as f64 - doc.width as f64) * anchor[0]).floor(),
         ((height as f64 - doc.height as f64) * anchor[1]).floor(),
     ];
+    let paths = crate::vector_path::mapped(&doc.paths, |[x, y]| [x + delta[0], y + delta[1]])?;
     for layer in &mut doc.layers {
         for (i, d) in delta.into_iter().enumerate() {
             layer.transform.origin[i] += d;
@@ -44,16 +45,24 @@ pub fn canvas_size(doc: &mut Document, width: u32, height: u32, anchor: Point) -
     }
     doc.width = width;
     doc.height = height;
+    doc.paths = paths;
     doc.selection = None;
     Ok(())
 }
 
-pub fn flip_canvas(doc: &mut Document, horizontal: bool) {
+pub fn flip_canvas(doc: &mut Document, horizontal: bool) -> Result<()> {
     let axis = if horizontal {
         doc.width as f64 / 2.
     } else {
         doc.height as f64 / 2.
     };
+    let paths = crate::vector_path::mapped(&doc.paths, |[x, y]| {
+        if horizontal {
+            [2. * axis - x, y]
+        } else {
+            [x, 2. * axis - y]
+        }
+    })?;
     for guide in &mut doc.guides {
         if (guide.axis == crate::guides::Axis::Vertical) == horizontal {
             guide.position = 2. * axis - guide.position;
@@ -68,6 +77,8 @@ pub fn flip_canvas(doc: &mut Document, horizontal: bool) {
     if let Some(selection) = &mut doc.selection {
         selection.mirror(horizontal, axis);
     }
+    doc.paths = paths;
+    Ok(())
 }
 
 pub fn crop(doc: &mut Document, a: Point, b: Point) -> Result<()> {
@@ -76,6 +87,7 @@ pub fn crop(doc: &mut Document, a: Point, b: Point) -> Result<()> {
     let width = (a[0] - b[0]).abs().round() as u32;
     let height = (a[1] - b[1]).abs().round() as u32;
     crate::document::validate_canvas_size(width, height)?;
+    let paths = crate::vector_path::mapped(&doc.paths, |[x, y]| [x - left, y - top])?;
     for layer in &mut doc.layers {
         layer.transform.origin[0] -= left;
         layer.transform.origin[1] -= top;
@@ -89,6 +101,7 @@ pub fn crop(doc: &mut Document, a: Point, b: Point) -> Result<()> {
     }
     doc.width = width;
     doc.height = height;
+    doc.paths = paths;
     doc.selection = None;
     Ok(())
 }
@@ -567,14 +580,14 @@ mod tests {
         // Adding the mask consumes its selection. Draw a new selection for the flip.
         doc.selection = Some(Selection::rectangle(6, 4, [0., 0.], [2., 2.], false));
         let before = render::render(&doc, 6, 4).unwrap();
-        flip_canvas(&mut doc, true);
+        flip_canvas(&mut doc, true).unwrap();
         assert_eq!(
             render::render(&doc, 6, 4).unwrap(),
             image::imageops::flip_horizontal(&before)
         );
         assert_eq!(doc.selection.as_ref().unwrap().coverage([4.5, 0.5]), 1.);
         assert_eq!(doc.selection.as_ref().unwrap().coverage([0.5, 0.5]), 0.);
-        flip_canvas(&mut doc, true);
+        flip_canvas(&mut doc, true).unwrap();
         assert_eq!(render::render(&doc, 6, 4).unwrap(), before);
     }
 

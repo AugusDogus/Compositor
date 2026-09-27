@@ -112,6 +112,10 @@ mod palette_controls;
 mod panel_activation;
 mod panel_layout;
 mod parameter_controls;
+mod path_header;
+mod path_overlay;
+mod path_rename;
+mod paths;
 mod photo_filter_controls;
 mod pixel_clipboard;
 mod pixel_editing;
@@ -204,6 +208,7 @@ pub enum Tool {
     Ellipse,
     Lasso,
     Polygon,
+    Pen,
     Wand,
     Object,
     Crop,
@@ -225,7 +230,7 @@ pub enum Tool {
     Zoom,
 }
 impl Tool {
-    const ALL: [(Self, &'static str); 24] = [
+    const ALL: [(Self, &'static str); 25] = [
         (Self::Move, "V  Move"),
         (Self::Rectangle, "M  Select"),
         (Self::Ellipse, "   Ellipse"),
@@ -250,6 +255,7 @@ impl Tool {
         (Self::Dodge, "   Dodge"),
         (Self::Burn, "   Burn"),
         (Self::Sponge, "   Sponge"),
+        (Self::Pen, "P  Pen"),
     ];
     fn label(self) -> &'static str {
         if self == Self::Idle {
@@ -576,6 +582,7 @@ impl Editor {
         if !self.has_document() {
             return Ok(());
         }
+        self.finish_path_drag(true)?;
         self.finish_opacity_input()?;
         self.finish_visibility_swipe()?;
         self.finish_zoom_input();
@@ -737,6 +744,7 @@ impl View for Editor {
         }
     }
     fn render(&mut self, cx: &mut ViewContext<'_, Self>) -> impl IntoElement {
+        self.sync_paths();
         self.monitor_theme(cx);
         self.sync_native_cursor(cx);
         cx.on_any_child_window_closed(|this, closed, cx| {

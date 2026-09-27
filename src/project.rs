@@ -369,7 +369,7 @@ fn save_checked_for(
 fn write_native(document: &Document, path: &Path) -> Result<()> {
     if authoring::needed(document) {
         return Err(invalid(
-            "Linux authoring layers cannot be written as native layers without a rendered compatibility view.",
+            "Linux editing sources require an authoring snapshot and cannot be written directly as a native project.",
         ));
     }
     fs::create_dir(path.join("images"))?;

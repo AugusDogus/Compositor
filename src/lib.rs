@@ -71,4 +71,6 @@ pub fn invalid(message: impl Into<String>) -> Error {
     Error::Invalid(message.into())
 }
 
+pub mod path_operations;
 pub mod update;
+pub mod vector_path;

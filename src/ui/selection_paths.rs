@@ -50,7 +50,7 @@ fn outline_error() -> compositor::Error {
 }
 
 /// Retain the source distance when clipping, so panning does not reset dash phase.
-fn clip_segment(a: Point, b: Point, size: [f32; 2]) -> Option<(f64, f64)> {
+pub(super) fn clip_segment(a: Point, b: Point, size: [f32; 2]) -> Option<(f64, f64)> {
     let mut range = (0_f64, 1_f64);
     for axis in 0..2 {
         let delta = b[axis] - a[axis];

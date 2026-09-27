@@ -11,6 +11,9 @@ use uuid::Uuid;
 
 pub fn export_report(doc: &Document) -> ConversionReport {
     let mut report = ConversionReport::default();
+    if !doc.paths.is_empty() {
+        report.note("Saved working paths are omitted from PSD output. Save a .comp project to retain editable paths.");
+    }
     if requires_rendered_copy(doc) {
         report.note("Photo Filter or fractional Channel Mixer adjustment layers require a rendered PSD copy. All layers are flattened in this export; save a .comp project to retain editable layers and filter settings.");
         return report;

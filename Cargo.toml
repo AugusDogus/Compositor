@@ -41,6 +41,7 @@ tiff = "0.11.3"
 tiny-skia = { version = "0.11.4", default-features = false, features = ["std", "simd"] }
 resvg = { version = "=0.46.0", default-features = false, features = ["text", "system-fonts", "raster-images"] }
 i_overlay = "=8.1.2"
+kurbo = "=0.13.1"
 ag-psd = "=0.3.0"
 flate2 = "=1.1.10"
 sha2 = "=0.11.0"

@@ -831,6 +831,7 @@ dependencies = [
  "half",
  "i_overlay",
  "image",
+ "kurbo",
  "lcms2",
  "libheif-rs",
  "ort",

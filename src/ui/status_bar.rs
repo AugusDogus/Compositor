@@ -17,6 +17,9 @@ impl Editor {
             Tool::Lasso => {
                 "Drag to select · Drag inside to move · Shift add · Alt subtract · Delete clears · Alt+Backspace/Ctrl+Backspace fill · Ctrl+D deselect"
             }
+            Tool::Pen => {
+                "Click anchors · Drag for curves · Click start to close · Enter finishes · Alt-drag edits handles · Delete removes anchor"
+            }
             Tool::Polygon => {
                 "Click corners · Click start, double-click or Enter to close · Backspace removes corner · Escape cancel"
             }

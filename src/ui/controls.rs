@@ -176,6 +176,7 @@ impl Editor {
                 "Shape (U) · Shift-U cycles Rectangle/Ellipse/Line",
             ),
             (Tool::Text, Icon::Type, "Type (T)"),
+            (Tool::Pen, Icon::Pen, "Pen (P)"),
             (Tool::Eyedropper, Icon::Pipette, "Eyedropper (I)"),
             (Tool::Hand, Icon::Hand, "Hand (H)"),
             (Tool::Zoom, Icon::Zoom, "Zoom (Z)"),
@@ -186,6 +187,8 @@ impl Editor {
                 .unwrap_or(0);
             let id = if tool == Tool::Text {
                 quickgui::ElementId::from("text-tool")
+            } else if tool == Tool::Pen {
+                quickgui::ElementId::from("pen-tool")
             } else if tool == Tool::Object {
                 quickgui::ElementId::from("object-tool")
             } else if tool.is_tonal() {
@@ -240,6 +243,9 @@ impl Editor {
         tools.child(self.palette_controls(cx).mt(8.))
     }
     pub(super) fn tool_options(&self, cx: &mut ViewContext<'_, Self>) -> Element {
+        if self.tools.tool == Tool::Pen {
+            return self.path_header(cx);
+        }
         if matches!(self.tools.tool, Tool::Zoom | Tool::Hand) {
             return self.navigation_header(cx);
         }
@@ -344,7 +350,7 @@ impl Editor {
             )
             .child(self.gradient_controls(cx))
     }
-    fn tool_header_shell(&self) -> Element {
+    pub(super) fn tool_header_shell(&self) -> Element {
         div()
             .h(42.)
             .px(18.)

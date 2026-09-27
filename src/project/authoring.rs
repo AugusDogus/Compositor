@@ -1,4 +1,4 @@
-//! Linux editing sources accompany a native rendered projection. Bindings detect
+//! Linux editing sources accompany a native compatibility document. Bindings detect
 //! stale sidecars and interrupted/manual edits, not a malicious package author.
 use super::*;
 use crate::adjustment::ExtendedAdjustment;
@@ -36,6 +36,8 @@ struct BoundFile {
 struct Settings {
     version: u32,
     layers: Vec<ExtendedLayer>,
+    #[serde(default)]
+    paths: Vec<crate::vector_path::SavedPath>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -56,6 +58,9 @@ pub enum OpenResult {
 }
 
 pub(super) fn needed(document: &Document) -> bool {
+    !document.paths.is_empty() || rendered_projection_needed(document)
+}
+fn rendered_projection_needed(document: &Document) -> bool {
     document
         .layers
         .iter()
@@ -87,6 +92,9 @@ pub fn compatibility_notice(document: &Document) -> Option<String> {
     if !needed(document) {
         return None;
     }
+    if !rendered_projection_needed(document) {
+        return Some("Saved paths remain editable in Linux Compositor. Other Compositor versions open the native editable layers without these paths; saving there discards the saved paths.".into());
+    }
     let size = projection_size(document);
     let resolution = if size == (document.width, document.height) {
         "full resolution".into()
@@ -102,6 +110,7 @@ pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Resul
     let source_path = path.join(SOURCE);
     fs::create_dir(&source_path)?;
     let mut source = document.clone();
+    let paths = std::mem::take(&mut source.paths);
     let mut layers = Vec::new();
     for layer in &mut source.layers {
         if let LayerContent::ExtendedAdjustment(adjustment) = &layer.content {
@@ -115,7 +124,11 @@ pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Resul
     write_native(&source, &source_path)?;
     write_json(
         &source_path.join(SETTINGS),
-        &Settings { version: 1, layers },
+        &Settings {
+            version: 2,
+            layers,
+            paths,
+        },
     )?;
     if purpose == Purpose::Recovery {
         // Deliberately not a native manifest. A damaged recovery snapshot must
@@ -126,7 +139,7 @@ pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Resul
                 "format": "com.compositor.linux-recovery", "version": 1
             }),
         )?;
-    } else {
+    } else if rendered_projection_needed(document) {
         let (width, height) = projection_size(document);
         let pixels = crate::render::render(document, width, height)?;
         let mut projection = Document::new(document.width, document.height)?;
@@ -136,6 +149,8 @@ pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Resul
         projection.layers[0].name = "Rendered Linux project".into();
         projection.layers[0].content = LayerContent::Raster(Some(Arc::new(pixels)));
         write_native(&projection, path)?;
+    } else {
+        write_native(&source, path)?;
     }
     let files = bound_files(path)?;
     write_json(
@@ -189,11 +204,16 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     }
     let source_path = path.join(SOURCE);
     let settings: Settings = read_json(&root, &source_path.join(SETTINGS))?;
-    if settings.version != 1 || settings.layers.is_empty() || settings.layers.len() > 10_000 {
+    if !matches!(settings.version, 1 | 2)
+        || (settings.version == 1 && !settings.paths.is_empty())
+        || (settings.layers.is_empty() && settings.paths.is_empty())
+        || settings.layers.len() > 10_000
+    {
         return Err(invalid(
-            "The Linux adjustment snapshot has an unsupported version or invalid layer count.",
+            "The Linux editing snapshot has an unsupported version or invalid source count.",
         ));
     }
+    crate::vector_path::validate(&settings.paths)?;
     let mut seen = HashSet::new();
     for setting in &settings.layers {
         setting.adjustment.validate()?;
@@ -204,6 +224,7 @@ pub(super) fn load(path: &Path) -> Result<Document> {
     // No compatibility image is decoded: source pixels alone consume the
     // document allocation budget.
     let mut document = load_native(&source_path)?;
+    document.paths = settings.paths;
     for setting in settings.layers {
         let layer = document
             .layers

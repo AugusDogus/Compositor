@@ -30,6 +30,7 @@ pub fn resize(
     validate_size(width, height)?;
     let sx = width as f64 / doc.width as f64;
     let sy = height as f64 / doc.height as f64;
+    let paths = crate::vector_path::mapped(&doc.paths, |[x, y]| [x * sx, y * sy])?;
     // A rotated nonuniform resize can introduce shear, which the editable RAW
     // placement cannot represent. Check before changing any layer.
     for layer in &doc.layers {
@@ -100,6 +101,7 @@ pub fn resize(
     }
     doc.width = width;
     doc.height = height;
+    doc.paths = paths;
     doc.resolution = resolution;
     doc.selection = None;
     Ok(())

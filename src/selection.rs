@@ -502,7 +502,7 @@ mod tests {
             let points = [[10., 10.], [30., 10.], [10., 30.]];
             doc.selection = Some(Selection::polygon(100, 80, &points, true).unwrap());
             let original = doc.selection.clone();
-            crate::edits::flip_canvas(&mut doc, horizontal);
+            crate::edits::flip_canvas(&mut doc, horizontal).unwrap();
             let mirrored = points.map(|[x, y]| {
                 if horizontal {
                     [100. - x, y]
@@ -527,7 +527,7 @@ mod tests {
                 actual.resized(3, 100, 80).unwrap().pixels,
                 expected.resized(3, 100, 80).unwrap().pixels
             );
-            crate::edits::flip_canvas(&mut doc, horizontal);
+            crate::edits::flip_canvas(&mut doc, horizontal).unwrap();
             assert_eq!(doc.selection, original);
         }
     }

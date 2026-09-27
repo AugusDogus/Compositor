@@ -71,6 +71,7 @@ pub fn rotate(document: &mut Document, turn: QuarterTurn) -> Result<()> {
     }
     let size = [f64::from(document.width), f64::from(document.height)];
     let mut rotated = document.clone();
+    rotated.paths = crate::vector_path::mapped(&document.paths, |point| turn.point(point, size))?;
     std::mem::swap(&mut rotated.width, &mut rotated.height);
     for layer in &mut rotated.layers {
         turn.transform(&mut layer.transform, size);

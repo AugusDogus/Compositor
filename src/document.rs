@@ -228,6 +228,7 @@ pub struct Document {
     pub selected: HashSet<Uuid>,
     pub selection: Option<Selection>,
     pub guides: Vec<crate::guides::Guide>,
+    pub paths: Vec<crate::vector_path::SavedPath>,
 }
 
 impl Document {
@@ -244,6 +245,7 @@ impl Document {
             layers: vec![layer],
             selection: None,
             guides: Vec::new(),
+            paths: Vec::new(),
         })
     }
     /// Visibility includes every parent folder, independently of opacity and clipping.
@@ -307,6 +309,7 @@ impl Document {
         }
     }
     pub fn validate(&self) -> Result<()> {
+        crate::vector_path::validate(&self.paths)?;
         crate::guides::validate(&self.guides)?;
         validate_canvas_size(self.width, self.height)?;
         if let Some(selection) = &self.selection {

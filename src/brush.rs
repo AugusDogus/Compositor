@@ -1,6 +1,8 @@
 mod blur;
 mod coverage;
 mod path;
+mod polyline;
+pub use polyline::paint_polyline;
 pub mod sampled;
 mod source;
 mod tablet;

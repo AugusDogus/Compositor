@@ -64,6 +64,9 @@ impl Editor {
         } else {
             point
         };
+        if matches!(self.gesture, Some(Gesture::Path(_))) {
+            return self.path_pointer(event, point);
+        }
         if event.phase == PointerPhase::Cancel {
             self.sample_ring = None;
             if matches!(self.gesture, Some(Gesture::Pan)) {
@@ -117,6 +120,9 @@ impl Editor {
                 return Ok(());
             }
             self.finish_header_transform(true)?;
+            if self.tools.tool == Tool::Pen {
+                return self.path_down(point, zoom, event.modifiers);
+            }
             if self.tools.tool == Tool::Idle {
                 return Ok(());
             }
@@ -510,11 +516,11 @@ impl Editor {
                         moved: false,
                     });
                 }
-                Tool::Idle | Tool::Hand => {}
+                Tool::Idle | Tool::Hand | Tool::Pen => {}
             }
         } else if let Some(mut gesture) = self.gesture.take() {
             match &mut gesture {
-                Gesture::BrushTip(_) => return Ok(()),
+                Gesture::BrushTip(_) | Gesture::Path(_) => return Ok(()),
                 Gesture::Sample => {
                     let original = self.tools.brush.color;
                     self.sample_palette(point)?;
