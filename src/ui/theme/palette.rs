@@ -100,3 +100,54 @@ impl Palette {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn contrast_with_accent(accent: [u8; 3], text: Color) -> f64 {
+        let mut luminance = 0.;
+        for (channel, weight) in accent.into_iter().zip([0.2126, 0.7152, 0.0722]) {
+            let value = f64::from(channel) / 255.;
+            luminance += weight
+                * if value <= 0.04045 {
+                    value / 12.92
+                } else {
+                    ((value + 0.055) / 1.055).powf(2.4)
+                };
+        }
+        if text == Color::BLACK {
+            (luminance + 0.05) / 0.05
+        } else {
+            assert_eq!(text, Color::WHITE);
+            1.05 / (luminance + 0.05)
+        }
+    }
+
+    #[test]
+    fn saturated_green_uses_black_text_and_dark_default_remains_unchanged() {
+        let colors = Palette {
+            accent: [0, 180, 0],
+            ..Palette::LIGHT
+        };
+        assert_eq!(colors.accent_text(), Color::BLACK);
+        assert!(contrast_with_accent(colors.accent, colors.accent_text()) > 7.);
+        assert_eq!(Palette::default().accent_text(), Color::WHITE);
+    }
+
+    #[test]
+    fn custom_accent_foregrounds_meet_normal_text_contrast_across_rgb_cube() {
+        for red in (0..=255).step_by(17) {
+            for green in (0..=255).step_by(17) {
+                for blue in (0..=255).step_by(17) {
+                    let colors = Palette {
+                        accent: [red, green, blue],
+                        ..Palette::LIGHT
+                    };
+                    let contrast = contrast_with_accent(colors.accent, colors.accent_text());
+                    assert!(contrast >= 4.5, "{:?}: contrast {contrast}", colors.accent);
+                }
+            }
+        }
+    }
+}
