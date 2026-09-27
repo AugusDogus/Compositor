@@ -35,11 +35,8 @@ fn pressure_scales_size_and_missing_pressure_keeps_full_mouse_size() {
     assert!(alpha(&firm, 60, 50) > 200);
     assert_eq!(firm.layers[0].raster(), unknown.layers[0].raster());
     assert!(
-        dab(Some(0.), None).layers[0]
-            .raster()
-            .unwrap()
-            .pixels()
-            .all(|p| p[3] == 0)
+        dab(Some(0.), None).layers[0].raster().is_none(),
+        "Zero pressure must leave the blank layer unallocated"
     );
 }
 #[test]

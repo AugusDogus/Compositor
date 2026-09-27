@@ -11,7 +11,7 @@ pub use tablet::{Input, Tip};
 use crate::{
     Result,
     blend::Blend,
-    document::{Document, LayerContent},
+    document::{Document, Layer, LayerContent},
     geometry::Point,
     invalid,
 };
@@ -59,7 +59,10 @@ enum Destination<'a> {
 
 pub struct Stroke {
     original: Document,
+    initial_layer: Layer,
+    changed: bool,
     coverage: coverage::Plane,
+    selection_bounds: [f64; 4],
     samples: Vec<Point>,
     tail: Option<path::Tail>,
     last: Point,
@@ -182,6 +185,7 @@ impl Stroke {
                 "Spot healing needs an existing pixel layer. Switch from the mask to image pixels.",
             ));
         }
+        let initial_layer = layer.clone();
         let (width, height) = if mask {
             // Expand uniform masks once so a brush can edit individual pixels.
             let layer = doc
@@ -233,7 +237,15 @@ impl Stroke {
         let base_brush = brush;
         let brush = input.tip.map_or(brush, |tip| tip.brush(brush));
         let mut stroke = Self {
+            selection_bounds: doc
+                .selection
+                .as_ref()
+                .map_or([0., 0., doc.width as f64, doc.height as f64], |selection| {
+                    selection.bounds().unwrap_or([0.; 4])
+                }),
             original: doc.clone(),
+            initial_layer,
+            changed: false,
             coverage: coverage::Plane::new(width, height),
             samples: vec![point],
             tail: None,
@@ -277,14 +289,26 @@ impl Stroke {
 
     pub fn finish(&mut self, doc: &mut Document) -> Result<()> {
         self.flush(doc)?;
+        if !self.changed && !matches!(self.mode, PaintMode::Heal(_)) {
+            if let Some(layer) = doc
+                .layers
+                .iter_mut()
+                .find(|layer| layer.id == self.initial_layer.id)
+            {
+                *layer = self.initial_layer.clone();
+            }
+            return Ok(());
+        }
         if let PaintMode::Heal(mode) = self.mode {
             let layer = doc
                 .active_layer_mut()
                 .ok_or_else(|| invalid("Healing layer is missing."))?;
-            let image = self
+            let original_layer = self
                 .original
                 .layer(layer.id)
-                .and_then(|l| l.raster())
+                .ok_or_else(|| invalid("Original healing layer is missing."))?;
+            let image = original_layer
+                .raster()
                 .ok_or_else(|| invalid("Original healing pixels are missing."))?;
             let coverage =
                 GrayImage::from_fn(self.coverage.width(), self.coverage.height(), |x, y| {
@@ -304,10 +328,22 @@ impl Stroke {
                             .round() as u8,
                     ])
                 });
+            if coverage.pixels().all(|p| p[0] == 0) {
+                layer.content = original_layer.content.clone();
+                layer.shape = original_layer.shape;
+                layer.text = original_layer.text.clone();
+                return Ok(());
+            }
             let healed = crate::filters::heal(image, &coverage, mode, 1.)?;
-            layer.content = LayerContent::Raster(Some(Arc::new(healed)));
-            layer.shape = None;
-            layer.text = None;
+            if healed != **image {
+                layer.content = LayerContent::Raster(Some(Arc::new(healed)));
+                layer.shape = None;
+                layer.text = None;
+            } else {
+                layer.content = original_layer.content.clone();
+                layer.shape = original_layer.shape;
+                layer.text = original_layer.text.clone();
+            }
         }
         Ok(())
     }
@@ -367,15 +403,46 @@ impl Stroke {
                 self.brush.diameter,
             );
         }
-        self.grow_bounds(
-            doc,
-            [
-                (start[0].min(end[0]) - radius).max(0.),
-                (start[1].min(end[1]) - radius).max(0.),
-                (start[0].max(end[0]) + radius).min(canvas[0]),
-                (start[1].max(end[1]) + radius).min(canvas[1]),
-            ],
-        )?;
+        if self.brush.opacity == 0.
+            || (!self.mask && self.mode == PaintMode::Paint && self.brush.color[3] == 0)
+        {
+            return Ok(());
+        }
+        let layer = doc
+            .active_layer()
+            .ok_or_else(|| invalid("Active layer disappeared during the stroke."))?;
+        let transform = if self.mask {
+            layer
+                .mask
+                .as_ref()
+                .and_then(|mask| mask.placement)
+                .unwrap_or(layer.transform)
+        } else {
+            layer.transform
+        };
+        let support = radius
+            + 0.5
+                * (transform.size[0] / self.coverage.width() as f64)
+                    .min(transform.size[1] / self.coverage.height() as f64)
+                    .max(0.001);
+        let bounds = [
+            (start[0].min(end[0]) - support)
+                .max(0.)
+                .max(self.selection_bounds[0]),
+            (start[1].min(end[1]) - support)
+                .max(0.)
+                .max(self.selection_bounds[1]),
+            (start[0].max(end[0]) + support)
+                .min(canvas[0])
+                .min(self.selection_bounds[2]),
+            (start[1].max(end[1]) + support)
+                .min(canvas[1])
+                .min(self.selection_bounds[3]),
+        ];
+        if bounds[0] >= bounds[2] || bounds[1] >= bounds[3] {
+            return Ok(());
+        }
+        self.grow_bounds(doc, bounds)?;
         let layer = doc
             .active_layer_mut()
             .ok_or_else(|| invalid("Active layer disappeared during the stroke."))?;
@@ -458,6 +525,7 @@ impl Stroke {
                 self.mode,
             )?
         {
+            self.changed |= changed;
             if changed {
                 layer.shape = None;
                 layer.text = None;
@@ -476,8 +544,8 @@ impl Stroke {
             let alpha = coverage as f64 / 255.
                 * self.brush.opacity
                 * selection.as_ref().map_or(1., |s| s.coverage(doc_point));
-            if !matches!(self.mode, PaintMode::Tonal(_)) {
-                changed = true;
+            if alpha == 0. {
+                continue;
             }
             match &mut destination {
                 Destination::Mask { pixels, original } => {
@@ -493,7 +561,9 @@ impl Stroke {
                     } else {
                         self.brush.color[0] as f64
                     };
-                    pixels[(x, y)] = Luma([(before + (target - before) * alpha).round() as u8]);
+                    let result = Luma([(before + (target - before) * alpha).round() as u8]);
+                    changed |= pixels[(x, y)] != result;
+                    pixels[(x, y)] = result;
                 }
                 Destination::Image { pixels, original } => {
                     let before = original
@@ -531,7 +601,11 @@ impl Stroke {
                         result
                     } else {
                         top[3] *= alpha;
-                        Blend::Normal.composite(before, top)
+                        if top[3] == 0. {
+                            before
+                        } else {
+                            Blend::Normal.composite(before, top)
+                        }
                     };
                     let result = Rgba(result.map(|v| (v.clamp(0., 1.) * 255.).round() as u8));
                     changed |= pixels[(x, y)] != result;
@@ -539,6 +613,7 @@ impl Stroke {
                 }
             }
         }
+        self.changed |= changed;
         if changed && !self.mask {
             layer.shape = None;
             layer.text = None;

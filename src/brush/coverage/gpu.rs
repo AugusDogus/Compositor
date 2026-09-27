@@ -346,7 +346,7 @@ impl Engine {
                 let coverage = &mut coverage[changed_start..changed_start + width as usize];
                 for ((density, changed), pixel) in densities
                     .iter_mut()
-                    .zip(coverage)
+                    .zip(coverage.iter_mut())
                     .zip(bytes.chunks_exact(12))
                 {
                     let value = f32::from_ne_bytes([pixel[0], pixel[1], pixel[2], pixel[3]]);
@@ -362,12 +362,17 @@ impl Engine {
                 if let Target::Image { pixels, .. } = target {
                     let start = ((y as usize + row) * pixels.width() as usize + left as usize) * 4;
                     let pixels: &mut [u8] = pixels.as_mut();
-                    for (destination, pixel) in pixels[start..start + width as usize * 4]
+                    for ((destination, pixel), changed) in pixels[start..start + width as usize * 4]
                         .chunks_exact_mut(4)
                         .zip(bytes.chunks_exact(12))
+                        .zip(coverage)
                     {
                         if pixel[4] > 0 {
-                            destination.copy_from_slice(&pixel[8..12]);
+                            if destination == &pixel[8..12] {
+                                *changed = 0;
+                            } else {
+                                destination.copy_from_slice(&pixel[8..12]);
+                            }
                         }
                     }
                 }
