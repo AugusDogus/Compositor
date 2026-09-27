@@ -28,6 +28,22 @@ pub struct Selection {
 }
 
 impl Selection {
+    /// Compare a retained editing snapshot without scanning its coverage pixels.
+    pub(crate) fn same_snapshot(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.pixels, &other.pixels)
+            && self.origin == other.origin
+            && match (&self.geometry, &other.geometry) {
+                (None, None) => true,
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                _ => false,
+            }
+            && match (&self.feather, &other.feather) {
+                (None, None) => true,
+                (Some(a), Some(b)) => a.radius == b.radius && Arc::ptr_eq(&a.source, &b.source),
+                _ => false,
+            }
+    }
+
     pub(crate) fn visit_masks(&self, visit: &mut impl FnMut(&Arc<Coverage>)) {
         visit(&self.pixels);
         if let Some(feather) = &self.feather {

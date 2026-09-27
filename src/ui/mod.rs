@@ -49,6 +49,7 @@ mod dropdown;
 mod duplicate_tests;
 mod external_open;
 mod external_projects;
+mod fade;
 mod file_dialogs;
 mod file_drop;
 mod file_jobs;
@@ -343,6 +344,7 @@ pub enum Action {
     CloseTab,
     Filter(compositor::filters::Filter),
     Dither,
+    Fade,
     RemoveBackground,
     Copy,
     CopyMerged,

@@ -2,6 +2,10 @@ use super::*;
 use compositor::{background::Quality, filters::Filter, invalid};
 
 pub(super) enum Job {
+    Fade {
+        source: Arc<compositor::session::Fade>,
+        amount: f64,
+    },
     Trim(compositor::trim::Options),
     SelectForeground(compositor::object_selection::Settings),
     DeleteLayersBaked,
@@ -60,6 +64,7 @@ impl Completion {
 impl Job {
     pub(super) fn completion(&self) -> Completion {
         match self {
+            Self::Fade { .. } => Completion::Pixels("Fade"),
             Self::Trim(_) => Completion::Pixels("Trim"),
             Self::SelectForeground(settings) => Completion::Pixels(
                 if matches!(
@@ -85,6 +90,7 @@ impl Job {
 
     pub(super) fn run(self, mut document: Document) -> Result<Document> {
         match self {
+            Job::Fade { source, amount } => source.apply(&mut document, amount)?,
             Job::Trim(options) => compositor::trim::apply(&mut document, options)?,
             Job::SelectForeground(settings) => {
                 compositor::object_selection::select(&mut document, settings)?
@@ -206,23 +212,27 @@ impl Editor {
         self.status = "Working…".into();
     }
 
+    pub(super) fn job_source(&self, job: &Job) -> Result<Document> {
+        match self.tabs[self.current].session() {
+            Some(session) => Ok(if self.panel_applying() {
+                session.committed_document().clone()
+            } else {
+                session.document.clone()
+            }),
+            None => match job {
+                Job::CopyLayers { source, .. } => layer_drag::empty_copy_destination(source),
+                _ => Err(invalid("Create a canvas before processing an image.")),
+            },
+        }
+    }
+
     pub(super) fn start_job(&mut self, cx: &ViewContext<'_, Self>) {
         let Some(job) = self.job.take() else {
             return;
         };
         let tab = &self.tabs[self.current];
         let id = tab.id;
-        let initial = match tab.session() {
-            Some(session) => Ok(if self.panel_applying() {
-                session.committed_document().clone()
-            } else {
-                session.document.clone()
-            }),
-            None => match &job {
-                Job::CopyLayers { source, .. } => layer_drag::empty_copy_destination(source),
-                _ => Err(invalid("Create a canvas before processing an image.")),
-            },
-        };
+        let initial = self.job_source(&job);
         let initial = match initial {
             Ok(document) => document,
             Err(error) => {

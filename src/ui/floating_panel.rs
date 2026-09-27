@@ -160,6 +160,7 @@ impl Editor {
                 action: Action::EditAdjustment
                     | Action::CameraRaw
                     | Action::Filter(_)
+                    | Action::Fade
                     | Action::Dither
                     | Action::RemoveBackground,
                 ..

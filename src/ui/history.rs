@@ -12,7 +12,8 @@ impl Editor {
     }
 
     pub(super) fn can_use_history(&self) -> bool {
-        !self.pending
+        !self.editing_fade()
+            && !self.pending
             && self.retained_panel.is_none()
             && self.gesture.is_none()
             && self.rename.is_none()

@@ -75,6 +75,7 @@ impl Editor {
                     Action::CameraRaw
                         | Action::BrightnessContrast
                         | Action::Filter(_)
+                        | Action::Fade
                         | Action::Dither
                         | Action::RemoveBackground
                 )
@@ -133,6 +134,7 @@ impl Editor {
             }
             Action::Filter(filter) => self.open_filter(filter),
             Action::Dither => self.open_dither(),
+            Action::Fade => self.open_fade(),
             Action::CameraRaw => self.open_camera_raw(),
             Action::RemoveBackground => self.open_background(),
             Action::AdjustPixels(kind) => self.open_pixel_adjustment(kind),
@@ -468,6 +470,7 @@ impl Editor {
                 | Action::Adjustment(_)
                 | Action::EditAdjustment
                 | Action::Filter(_)
+                | Action::Fade
                 | Action::Dither
                 | Action::RemoveBackground
         ) && self.floating_panel_kind().is_some()

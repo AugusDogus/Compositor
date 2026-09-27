@@ -13,6 +13,7 @@ enum Work {
 #[derive(Clone, PartialEq)]
 enum Settings {
     Pixels(Filter),
+    Fade(Arc<compositor::session::Fade>, f64),
     Dither(Box<compositor::filters::dither::Settings>),
     CameraRaw(
         Arc<compositor::camera_raw::Settings>,
@@ -45,6 +46,8 @@ pub(super) struct FilterEdit {
     id: Uuid,
     session: Uuid,
     original: Document,
+    // Retain immutable operation sources when an invalid draft clears desired settings.
+    initial: Settings,
     prepared: Option<Prepared>,
     desired: Option<Settings>,
     subject: Option<compositor::background::SubjectMask>,
@@ -69,6 +72,18 @@ impl Editor {
         self.dither_menus.sync(settings);
         self.begin_filter(Settings::Dither(Box::new(settings)))
     }
+    pub(super) fn open_fade(&mut self) -> Result<()> {
+        let source = Arc::new(self.session().fade()?);
+        self.begin_filter(Settings::Fade(source, 1.))
+    }
+
+    pub(super) fn fade_source(&self) -> Result<Arc<compositor::session::Fade>> {
+        match self.filter_edit.as_ref().map(|edit| &edit.initial) {
+            Some(Settings::Fade(source, _)) => Ok(source.clone()),
+            _ => Err(invalid("Reopen Fade to change the last edit's opacity.")),
+        }
+    }
+
     pub(super) fn open_filter(&mut self, filter: Filter) -> Result<()> {
         self.begin_filter(Settings::Pixels(filter))
     }
@@ -224,6 +239,7 @@ impl Editor {
             original: self.session().document.clone(),
             prepared: None,
             desired: Some(settings.clone()),
+            initial: settings.clone(),
             subject: None,
             camera_scope: None,
             revision: 0,
@@ -233,6 +249,7 @@ impl Editor {
         });
         self.open_form(match settings {
             Settings::Pixels(filter) => Action::Filter(filter),
+            Settings::Fade(_, _) => Action::Fade,
             Settings::Dither(_) => Action::Dither,
             Settings::CameraRaw(_, _) => Action::CameraRaw,
             Settings::Background(_) => Action::RemoveBackground,
@@ -333,6 +350,10 @@ impl Editor {
         };
         let values = fields.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
         let result = match action {
+            Action::Fade => super::fade::opacity(&values).and_then(|amount| {
+                self.fade_source()
+                    .map(|source| Settings::Fade(source, amount))
+            }),
             Action::Dither => {
                 super::dither_controls::values(&values).map(|s| Settings::Dither(Box::new(s)))
             }
@@ -409,6 +430,7 @@ impl Editor {
                             compositor::camera_raw::preview(&mut document, &settings, options)?;
                         }
                     }
+                    Settings::Fade(source, amount) => source.apply(&mut document, amount)?,
                     Settings::Dither(settings) => {
                         compositor::filters::apply_dither(&mut document, *settings)?
                     }
@@ -503,3 +525,6 @@ impl Editor {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod fade_tests;

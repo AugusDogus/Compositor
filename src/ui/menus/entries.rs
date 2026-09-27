@@ -32,6 +32,7 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
             command("Undo", "Ctrl+Z", Action::Undo),
             command("Redo", "Ctrl+Shift+Z", Action::Redo),
             command("History…", "", Action::History),
+            command("Fade…", "", Action::Fade),
             Sep,
             command("Cut", "Ctrl+X", Action::Cut),
             command("Copy", "Ctrl+C", Action::Copy),

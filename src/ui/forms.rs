@@ -96,6 +96,7 @@ impl Editor {
             ),
             Action::Filter(filter) => Self::filter_fields(filter),
             Action::Dither => super::dither_controls::fields(Default::default()),
+            Action::Fade => ("Fade", vec![("Opacity", "100".into())]),
             Action::CameraRaw => ("Camera Raw Filter", self.camera_raw.fields()),
             Action::RemoveBackground => (
                 "Remove Background",
@@ -265,6 +266,7 @@ impl Editor {
             Form::Edit {
                 action: Action::CameraRaw
                     | Action::Filter(_)
+                    | Action::Fade
                     | Action::Dither
                     | Action::RemoveBackground,
                 ..
@@ -375,6 +377,7 @@ impl Editor {
                     action,
                     Action::CameraRaw
                         | Action::Filter(_)
+                        | Action::Fade
                         | Action::Dither
                         | Action::RemoveBackground
                 );
@@ -637,6 +640,7 @@ impl Editor {
                     source,
                 });
             }
+            Action::Fade => self.apply_fade(&values)?,
             Action::Dither => {
                 if !self.filter_source_is_current() {
                     self.cancel_filter();

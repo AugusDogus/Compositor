@@ -19,9 +19,11 @@ impl Editor {
                     _ => edit.preview_job.as_ref().is_some_and(|job| job.busy()),
                 }
             }
-            Action::CameraRaw | Action::Filter(_) | Action::Dither | Action::RemoveBackground => {
-                self.filter_busy()
-            }
+            Action::CameraRaw
+            | Action::Filter(_)
+            | Action::Fade
+            | Action::Dither
+            | Action::RemoveBackground => self.filter_busy(),
             _ => return None,
         };
         (applying || busy).then(|| {

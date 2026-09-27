@@ -1,4 +1,6 @@
+mod fade;
 mod history_browser;
+pub use fade::Fade;
 mod history_retention;
 pub use history_browser::HistoryState;
 

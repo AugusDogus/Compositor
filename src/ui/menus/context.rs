@@ -97,6 +97,11 @@ impl Editor {
                     self.tools.selection_contract_amount
                 }
             ),
+            Command::Edit(Action::Fade) if self.can_fade() => self
+                .session()
+                .undo_label()
+                .map(|label| format!("Fade {label}…"))
+                .unwrap_or_else(|| default.into()),
             Command::Edit(Action::Transform) if self.can_float_selection() => {
                 "Transform Selection".into()
             }
@@ -193,6 +198,7 @@ impl Editor {
             Command::Edit(Action::DevelopRaw | Action::RasterizeRaw) => {
                 self.can_edit_layers() && layer.is_some_and(|layer| layer.raw.is_some())
             }
+            Command::Edit(Action::Fade) => self.can_fade(),
             Command::Edit(Action::InvertPixels) => self.can_invert(),
             Command::Edit(Action::Fill | Action::FillBackground) => self.can_edit_pixels(),
             Command::Edit(Action::Clear) => self.can_edit_pixels() && doc.selection.is_some(),
