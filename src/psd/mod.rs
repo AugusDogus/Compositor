@@ -8,6 +8,7 @@ mod effects;
 mod export;
 mod extended;
 mod import;
+mod posterize;
 mod preflight;
 mod resources;
 mod selective_color;

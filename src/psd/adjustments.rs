@@ -22,6 +22,13 @@ const RANGES: [ColorRange; 7] = [
 pub(super) fn import(
     source: &ps::AdjustmentLayer,
 ) -> Result<Option<crate::document::LayerContent>> {
+    if let ps::AdjustmentLayer::Posterize(settings) = source {
+        return super::posterize::import(settings).map(|a| {
+            Some(crate::document::LayerContent::ExtendedAdjustment(Box::new(
+                a,
+            )))
+        });
+    }
     if let ps::AdjustmentLayer::Threshold(settings) = source {
         return super::threshold::import(settings).map(|a| {
             Some(crate::document::LayerContent::ExtendedAdjustment(Box::new(
@@ -305,6 +312,7 @@ pub(super) fn validate_record(key: &[u8], payload: &[u8]) -> Result<()> {
             }
             "mixr"
         }
+        b"post" => "post",
         b"thrs" => "thrs",
         b"levl" => "levl",
         b"curv" => "curv",

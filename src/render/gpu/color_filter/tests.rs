@@ -2,6 +2,23 @@ use super::*;
 
 #[test]
 #[ignore = "Requires a hardware Vulkan adapter"]
+fn posterize_gpu_matches_every_level_byte_and_alpha() {
+    let engine = Engine::new().unwrap();
+    let source = RgbaImage::from_fn(256, 256, |x, y| {
+        image::Rgba([x as u8, 255 - x as u8, (x as u8).wrapping_mul(17), y as u8])
+    });
+    for levels in 2..=256 {
+        let settings = crate::posterize::Posterize::new(levels).unwrap();
+        let gpu = engine
+            .color_filter(&source, Settings::Posterize(settings))
+            .unwrap();
+        let cpu = crate::posterize::reference(&source, settings);
+        assert_eq!(gpu, cpu, "posterize levels{levels}");
+    }
+}
+
+#[test]
+#[ignore = "Requires a hardware Vulkan adapter"]
 fn threshold_gpu_matches_every_gray_boundary_color_and_alpha() {
     let engine = Engine::new().unwrap();
     let source = RgbaImage::from_fn(256, 11, |x, y| {

@@ -211,7 +211,11 @@ fn adjust(layer: &Layer, point: Point, opacity: f64, out: &mut [f64; 4], state: 
             [adjusted[0], adjusted[1], adjusted[2], 1.],
         );
         for i in 0..3 {
-            out[i] += (blended[i] - out[i]) * opacity;
+            out[i] = if opacity == 1. {
+                blended[i]
+            } else {
+                out[i] + (blended[i] - out[i]) * opacity
+            };
         }
     }
 }
@@ -736,3 +740,5 @@ mod tests {
 
 #[cfg(test)]
 mod extended_tests;
+#[cfg(test)]
+mod posterize_tests;

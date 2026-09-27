@@ -129,6 +129,10 @@ pub(super) fn encode_extended(
     values: &mut Vec<f32>,
 ) -> u32 {
     match a {
+        crate::adjustment::ExtendedAdjustment::Posterize(settings) => {
+            values.push(f32::from(settings.levels()));
+            17
+        }
         crate::adjustment::ExtendedAdjustment::Threshold(settings) => {
             values.push(f32::from(settings.level));
             16

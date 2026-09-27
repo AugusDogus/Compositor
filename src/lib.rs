@@ -36,6 +36,7 @@ mod native_pixels;
 pub mod object_selection;
 pub mod palette;
 pub mod pixel_adjustment;
+pub mod posterize;
 pub mod project;
 pub mod psd;
 mod raster_extent;

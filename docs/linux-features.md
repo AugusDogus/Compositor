@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Posterize reduces each color channel to 2–256 levels; 256 leaves colors unchanged. Direct pixel edits and editable adjustment layers support preview, masks and undo. Linux projects and PSD exports retain the settings.
+
 - Threshold converts colors to black or white at a chosen luminance level (0–255). Use it as a pixel edit or an editable adjustment layer, with preview, masks and undo. Linux projects and PSD exports preserve the adjustment; macOS receives a rendered compatibility copy.
 
 - Selective Color adjusts cyan, magenta, yellow and black within nine color ranges, using Relative or Absolute amounts. It supports direct pixel edits and editable adjustment layers with masks, preview and undo. Vulkan accelerates both paths. Linux projects retain all settings; PSD keeps integer amounts editable and uses a rendered copy for fractional amounts.

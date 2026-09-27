@@ -62,6 +62,34 @@ fn threshold_settings_survive_project_and_recovery_with_native_projection() {
     }
 }
 
+#[test]
+fn posterize_settings_survive_project_and_recovery_with_native_projection() {
+    use crate::posterize::Posterize;
+    let directory = tempfile::tempdir().unwrap();
+    for level in [2, 4, 256] {
+        let mut doc = document();
+        let settings = Posterize::new(level).unwrap();
+        doc.layers[1].content =
+            LayerContent::ExtendedAdjustment(Box::new(ExtendedAdjustment::Posterize(settings)));
+        for recovery in [false, true] {
+            let path = directory.path().join(format!("{level}-{recovery}.comp"));
+            if recovery {
+                super::super::save_recovery(&doc, &path).unwrap();
+            } else {
+                super::super::save(&doc, &path).unwrap();
+            }
+            assert_eq!(super::super::load(&path).unwrap(), doc);
+            if !recovery {
+                let projection = load_native(&path).unwrap();
+                assert_eq!(
+                    crate::render::render(&projection, 3, 2).unwrap(),
+                    crate::render::render(&doc, 3, 2).unwrap()
+                );
+            }
+        }
+    }
+}
+
 fn document() -> Document {
     let mut document = Document::new(3, 2).unwrap();
     document.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(

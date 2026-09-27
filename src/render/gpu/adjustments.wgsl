@@ -130,6 +130,7 @@ fn adjust_rgb(rgb:vec3<f32>, kind:u32, offset:u32, point:vec2<f32>) -> vec3<f32>
                 result[i]=rgb.r*settings[row]+rgb.g*settings[row+1u]+rgb.b*settings[row+2u]+settings[row+3u];
             }
         }
+        case 17u: { result=posterize_rgb(rgb,settings[offset]); }
         case 16u: { result=threshold_rgb(rgb,settings[offset]); }
         case 15u: {
             var rows: array<vec4<f32>,9>;

@@ -6,6 +6,7 @@ pub mod luminosity_sharpen;
 pub use gaussian::gaussian_rgba;
 pub(crate) mod motion;
 pub(crate) mod photo_filter;
+mod posterize;
 pub mod radial;
 mod selective_color;
 mod sharpen;
@@ -27,6 +28,7 @@ pub enum Filter {
     ChannelMixer(crate::adjustment::ChannelMixer),
     SelectiveColor(crate::selective_color::SelectiveColor),
     Threshold(crate::threshold::Threshold),
+    Posterize(crate::posterize::Posterize),
     Radial(radial::Radial),
     LuminositySharpen(luminosity_sharpen::Settings),
     HighPass {
@@ -190,6 +192,7 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
             Filter::ChannelMixer(settings) => channel_mixer::apply(&source, settings)?,
             Filter::SelectiveColor(settings) => selective_color::apply(&source, settings)?,
             Filter::Threshold(settings) => threshold::apply(&source, settings)?,
+            Filter::Posterize(settings) => posterize::apply(&source, settings)?,
             Filter::LuminositySharpen(settings) => luminosity_sharpen::apply(&source, settings)?,
             Filter::HighPass { radius } => sharpen::high_pass(&source, radius)?,
             Filter::UnsharpMask {
