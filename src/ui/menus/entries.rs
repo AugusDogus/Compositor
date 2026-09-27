@@ -100,6 +100,19 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
         ],
         5 => vec![
             command(
+                "Gaussian Blur…",
+                "",
+                Action::Filter(compositor::filters::Filter::Gaussian { radius: 1. }),
+            ),
+            command(
+                "Motion Blur…",
+                "",
+                Action::Filter(compositor::filters::Filter::Motion {
+                    distance: 10.,
+                    angle: 0.,
+                }),
+            ),
+            command(
                 "High Pass…",
                 "",
                 Action::Filter(compositor::filters::Filter::HighPass { radius: 2. }),
@@ -111,19 +124,6 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                     amount: 100.,
                     radius: 2.,
                     threshold: 0.,
-                }),
-            ),
-            command(
-                "Gaussian Blur…",
-                "",
-                Action::Filter(compositor::filters::Filter::Gaussian { radius: 1. }),
-            ),
-            command(
-                "Motion Blur…",
-                "",
-                Action::Filter(compositor::filters::Filter::Motion {
-                    distance: 10.,
-                    angle: 0.,
                 }),
             ),
             command(
