@@ -30,7 +30,7 @@ impl Editor {
                                 "Images",
                                 &[
                                     "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp",
-                                    "gif", "psd", "psb", "nef", "nrw", "svg", "svgz",
+                                    "gif", "avif", "psd", "psb", "nef", "nrw", "svg", "svgz",
                                 ],
                             ),
                             file_filter("Camera RAW", compositor::raw::extensions()),
@@ -51,7 +51,7 @@ impl Editor {
                 }
             }
             Action::ExportPsd => self.prepare_psd_export(),
-            Action::ExportTiff | Action::ExportWebp | Action::ExportGif => {
+            Action::ExportTiff | Action::ExportWebp | Action::ExportGif | Action::ExportAvif => {
                 self.prompt_raster_export(action, cx)
             }
             Action::Save if self.session().path.is_some() => {
@@ -144,6 +144,7 @@ impl Editor {
         let (dialog, name) = match action {
             Action::ExportTiff => (SaveDialog::Tiff, "TIFF"),
             Action::ExportWebp => (SaveDialog::Webp, "WebP"),
+            Action::ExportAvif => (SaveDialog::Avif, "AVIF"),
             Action::ExportGif => (SaveDialog::Gif, "GIF"),
             _ => return,
         };

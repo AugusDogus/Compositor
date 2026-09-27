@@ -1,3 +1,4 @@
+mod avif;
 mod svg;
 use crate::{
     Result,
@@ -225,9 +226,10 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
             | ImageFormat::Tiff
             | ImageFormat::WebP
             | ImageFormat::Gif
+            | ImageFormat::Avif
     ) {
         return Err(invalid(
-            "Choose a PNG, JPEG, TIFF, WebP, or GIF filename for export.",
+            "Choose a PNG, JPEG, TIFF, WebP, GIF, or AVIF filename for export.",
         ));
     }
     let pixels = render::render(document, document.width, document.height)?;
@@ -257,6 +259,8 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
                 .map_err(|e| invalid(format!("PNG pixels could not be encoded: {e}")))?;
             png.finish()
                 .map_err(|e| invalid(format!("PNG export could not be finalized: {e}")))?;
+        } else if format == ImageFormat::Avif {
+            writer.write_all(&avif::encode(&pixels, quality)?)?;
         } else if format == ImageFormat::Gif {
             // GIF has one-bit transparency. Quantize alpha explicitly instead of
             // letting the encoder make every nonzero alpha fully opaque.
@@ -288,6 +292,44 @@ pub fn export(document: &Document, path: &Path, quality: u8) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn avif_export_preserves_full_alpha_and_srgb_on_reopen() {
+        let mut doc = Document::new(17, 9).unwrap();
+        let source = RgbaImage::from_fn(17, 9, |x, y| {
+            image::Rgba([80, 160, 240, ((x + y * 17) * 255 / 152) as u8])
+        });
+        doc.layers[0].content = LayerContent::Raster(Some(Arc::new(source.clone())));
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("export.AVIF");
+        export(&doc, &path, 100).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(&bytes[4..12], b"ftypavif");
+        let context = libheif_rs::HeifContext::read_from_bytes(&bytes).unwrap();
+        let handle = context.primary_image_handle().unwrap();
+        assert!(handle.has_alpha_channel());
+        assert!(handle.color_profile_raw().is_some());
+        let reopened = read_image(&path).unwrap();
+        assert_eq!(reopened.dimensions(), source.dimensions());
+        for (actual, expected) in reopened.pixels().zip(source.pixels()) {
+            assert_eq!(actual[3], expected[3]);
+            if expected[3] > 0 {
+                for channel in 0..3 {
+                    assert!(
+                        actual[channel].abs_diff(expected[channel]) <= 3,
+                        "{actual:?} != {expected:?}"
+                    );
+                }
+            }
+        }
+        assert_eq!(
+            doc.layers[0].content,
+            LayerContent::Raster(Some(Arc::new(source)))
+        );
+        std::fs::write(&path, b"previous destination").unwrap();
+        assert!(export(&doc, &path, 101).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"previous destination");
+    }
+
+    #[test]
     fn gif_export_quantizes_alpha_and_reopens_without_changing_the_document() {
         let mut doc = Document::new(5, 1).unwrap();
         let source = RgbaImage::from_fn(5, 1, |x, _| {
@@ -306,7 +348,10 @@ mod tests {
             assert_eq!(reopened[(x, 0)][3], if x < 3 { 0 } else { 255 });
         }
         assert_eq!(reopened[(4, 0)], image::Rgba([240, 40, 10, 255]));
-        assert_eq!(doc.layers[0].content, LayerContent::Raster(Some(Arc::new(source))));
+        assert_eq!(
+            doc.layers[0].content,
+            LayerContent::Raster(Some(Arc::new(source)))
+        );
     }
 
     #[test]

@@ -58,6 +58,7 @@ impl FileJob {
             {
                 Some("tif" | "tiff") => alerts::Operation::ExportTiff,
                 Some("webp") => alerts::Operation::ExportWebp,
+                Some("avif") => alerts::Operation::ExportAvif,
                 Some("gif") => alerts::Operation::ExportGif,
                 _ => alerts::Operation::ExportPng,
             },

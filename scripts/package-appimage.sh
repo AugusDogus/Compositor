@@ -58,11 +58,13 @@ for soname in libwayland-cursor.so.0 libwayland-egl.so.1 libxkbcommon.so.0 libxk
     [[ -n "$library" ]] || { printf 'Install the runtime library %s before packaging.\n' "$soname" >&2; exit 1; }
     libraries+=(--library "$library")
 done
-# libheif discovers its HEIC decoder at runtime, outside the executable dependency tree.
-heif_plugin=/usr/lib/x86_64-linux-gnu/libheif/plugins/libheif-libde265.so
-[[ -f "$heif_plugin" ]] || { printf 'Install libheif-plugin-libde265 before packaging.\n' >&2; exit 1; }
-install -Dm644 "$heif_plugin" "$app_dir/usr/lib/libheif/plugins/libheif-libde265.so"
-libraries+=(--library "$heif_plugin")
+# libheif discovers codec plugins at runtime, outside the dependency tree.
+for plugin in libde265 aomenc aomdec; do
+    heif_plugin="/usr/lib/x86_64-linux-gnu/libheif/plugins/libheif-$plugin.so"
+    [[ -f "$heif_plugin" ]] || { printf 'Install libheif-plugin-%s before packaging.\n' "$plugin" >&2; exit 1; }
+    install -Dm644 "$heif_plugin" "$app_dir/usr/lib/libheif/plugins/libheif-$plugin.so"
+    libraries+=(--library "$heif_plugin")
+done
 export APPIMAGE_EXTRACT_AND_RUN=1
 # Host Mesa/NVIDIA EGL drivers can require newer Wayland symbols than the build
 # baseline provides. Their matching client library must come from the host too.

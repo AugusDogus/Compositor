@@ -37,7 +37,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config zlib1g-dev libwayland-dev libxkbcommon-dev \
             libx11-dev libxcb1-dev libx11-xcb-dev libxcursor-dev libxrandr-dev libxi-dev \
-            libraw-dev libheif-dev libheif-plugin-libde265 liblcms2-dev libvulkan1 mesa-vulkan-drivers \
+            libraw-dev libheif-dev libheif-plugin-libde265 libheif-plugin-aomenc libheif-plugin-aomdec liblcms2-dev libvulkan1 mesa-vulkan-drivers \
             libxkbcommon-x11-0 libegl1 libgl1 fonts-dejavu-core curl jq file unzip python3-venv desktop-file-utils dpkg-dev rpm zstd libarchive-tools
       - name: Install Rust
         run: |
@@ -89,6 +89,7 @@ jobs:
             COMPOSITOR_BACKGROUND_DEVICE=cpu COMPOSITOR_TEST_PHOTO="$RUNNER_TEMP/astronaut.png" \
             COMPOSITOR_INFERENCE_TEST_BINARY="$test_binary" \
             COMPOSITOR_OBJECT_SELECTION_TEST_BINARY="$object_test_binary" \
+            COMPOSITOR_IMAGE_IO_TEST_BINARY="$object_test_binary" \
             scripts/check-appimage.sh dist/*.AppImage
       - name: Build DEB, RPM and Arch packages from validated AppImage
         run: scripts/package-linux-native.sh

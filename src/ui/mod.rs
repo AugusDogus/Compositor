@@ -255,6 +255,7 @@ pub enum Action {
     ExportPng,
     ExportTiff,
     ExportWebp,
+    ExportAvif,
     ExportGif,
     DevelopRaw,
     CameraRaw,

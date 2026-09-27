@@ -13,7 +13,7 @@ if compgen -G "$app_dir/usr/lib/libwayland-client.so*" > /dev/null; then
     printf 'AppImage must use the host Wayland client library required by its graphics drivers.\n' >&2
     exit 1
 fi
-for file in AppRun compositor.desktop compositor.png usr/bin/compositor usr/lib/libheif/plugins/libheif-libde265.so usr/share/licenses/compositor/Rawler-LGPL-2.1.txt usr/share/licenses/compositor/Rawler-NOTICE.txt usr/share/licenses/compositor/LibRaw-LGPL-2.1.txt usr/share/licenses/compositor/LibRaw-NOTICE.txt usr/share/licenses/compositor/Xuan-MIT.txt; do
+for file in AppRun compositor.desktop compositor.png usr/bin/compositor usr/lib/libheif/plugins/libheif-libde265.so usr/lib/libheif/plugins/libheif-aomenc.so usr/lib/libheif/plugins/libheif-aomdec.so usr/share/licenses/compositor/Rawler-LGPL-2.1.txt usr/share/licenses/compositor/Rawler-NOTICE.txt usr/share/licenses/compositor/LibRaw-LGPL-2.1.txt usr/share/licenses/compositor/LibRaw-NOTICE.txt usr/share/licenses/compositor/Xuan-MIT.txt; do
     [[ -s "$app_dir/$file" ]] || { printf 'AppImage is missing %s\n' "$file" >&2; exit 1; }
 done
 compgen -G "$app_dir/usr/lib/libraw.so*" > /dev/null || {
@@ -23,6 +23,7 @@ compgen -G "$app_dir/usr/lib/libraw.so*" > /dev/null || {
 sh -n "$app_dir/AppRun"
 desktop-file-validate "$app_dir/compositor.desktop"
 export COMPOSITOR_INFERENCE_DIR="$app_dir/usr/share/compositor/inference"
+export LIBHEIF_PLUGIN_PATH="$app_dir/usr/lib/libheif/plugins"
 export LD_LIBRARY_PATH="$app_dir/usr/lib:$COMPOSITOR_INFERENCE_DIR/lib"
 for file in birefnet-cpu.onnx birefnet-gpu.onnx licenses/birefnet.txt lib/libonnxruntime.so lib/libonnxruntime_providers_webgpu.so; do
     [[ -s "$COMPOSITOR_INFERENCE_DIR/$file" ]] || { printf 'AppImage is missing inference dependency %s\n' "$file" >&2; exit 1; }
@@ -33,9 +34,19 @@ if [[ -n "$(find "$COMPOSITOR_INFERENCE_DIR" -type f \( -name '*.py' -o -name '*
     exit 1
 fi
 ldd "$app_dir/usr/bin/compositor" > dependencies.txt
+for plugin in "$LIBHEIF_PLUGIN_PATH"/*.so; do
+    ldd "$plugin" >> dependencies.txt
+done
 ldd "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime.so" >> dependencies.txt
 ldd "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime_providers_webgpu.so" >> dependencies.txt
 if grep -q 'not found' dependencies.txt; then cat dependencies.txt >&2; exit 1; fi
+if [[ -n "${COMPOSITOR_IMAGE_IO_TEST_BINARY:-}" ]]; then
+    if ! "$COMPOSITOR_IMAGE_IO_TEST_BINARY" image_io::tests::avif_export --list | grep -q ': test$'; then
+        printf 'Image test binary has no AVIF roundtrip test. Rebuild the library tests.\n' >&2
+        exit 1
+    fi
+    "$COMPOSITOR_IMAGE_IO_TEST_BINARY" image_io::tests::avif_export --nocapture
+fi
 if [[ -n "${COMPOSITOR_INFERENCE_TEST_BINARY:-}" ]]; then
     "$COMPOSITOR_INFERENCE_TEST_BINARY" local_background_removal --ignored --nocapture --test-threads=4
 fi
@@ -57,4 +68,4 @@ if [[ -n "${COMPOSITOR_RAW_TEST_BINARY:-}" ]]; then
     fi
     "$COMPOSITOR_RAW_TEST_BINARY" raw::libraw::tests::real_xtrans --ignored --nocapture
 fi
-printf 'Verified AppImage payload, launcher, icon, HEIC/RAW decoders, inference models and native dependencies.\n'
+printf 'Verified AppImage payload, launcher, icon, HEIC/AVIF/RAW codecs, inference models and native dependencies.\n'

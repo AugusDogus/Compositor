@@ -14,6 +14,7 @@ impl Action {
                 | Self::ExportPng
                 | Self::ExportTiff
                 | Self::ExportWebp
+                | Self::ExportAvif
                 | Self::ExportGif
                 | Self::ExportJpeg
                 | Self::ExportJpegFile
