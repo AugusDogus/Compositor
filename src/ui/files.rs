@@ -30,7 +30,7 @@ impl Editor {
                                 "Images",
                                 &[
                                     "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp",
-                                    "psd", "psb", "nef", "nrw", "svg",
+                                    "psd", "psb", "nef", "nrw", "svg", "svgz",
                                 ],
                             ),
                             file_filter("Camera RAW", compositor::raw::extensions()),

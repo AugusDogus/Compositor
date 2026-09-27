@@ -2,6 +2,7 @@
 use crate::{Result, document::validate_size, invalid, native_pixels};
 use image::RgbaImage;
 use std::{
+    borrow::Cow,
     io::Read,
     path::Path,
     sync::{
@@ -10,8 +11,9 @@ use std::{
     },
 };
 
+const LIMIT: u64 = 16 * 1024 * 1024;
+
 pub(super) fn read(path: &Path) -> Result<RgbaImage> {
-    const LIMIT: u64 = 16 * 1024 * 1024;
     let mut bytes = Vec::new();
     std::fs::File::open(path)?
         .take(LIMIT + 1)
@@ -31,6 +33,27 @@ fn decode(bytes: &[u8]) -> Result<RgbaImage> {
 }
 
 fn decode_with_fonts(bytes: &[u8], mut fonts: resvg::usvg::fontdb::Database) -> Result<RgbaImage> {
+    let bytes = if bytes.starts_with(&[0x1f, 0x8b]) {
+        let mut expanded = Vec::new();
+        flate2::read::MultiGzDecoder::new(bytes)
+            .take(LIMIT + 1)
+            .read_to_end(&mut expanded)
+            .map_err(|error| {
+                invalid(format!(
+                    "Could not decompress SVGZ: {error}. Re-export the source as SVG or PNG."
+                ))
+            })?;
+        Cow::Owned(expanded)
+    } else {
+        Cow::Borrowed(bytes)
+    };
+    if bytes.len() as u64 > LIMIT {
+        return Err(invalid(
+            "Expanded SVG exceeds the 16 MiB import limit. Simplify it or export a PNG.",
+        ));
+    }
+    let source = std::str::from_utf8(&bytes)
+        .map_err(|_| invalid("SVG must contain UTF-8 XML. Re-export the source as SVG or PNG."))?;
     use resvg::usvg::fontdb::{Family, Query};
     fonts.load_font_data(include_bytes!("../../assets/fonts/InterVariable.ttf").to_vec());
     // usvg uses the generic serif family when a requested font is unavailable.
@@ -55,7 +78,8 @@ fn decode_with_fonts(bytes: &[u8], mut fonts: resvg::usvg::fontdb::Database) -> 
         found_external.store(true, Ordering::Relaxed);
         None
     });
-    let tree = resvg::usvg::Tree::from_data(bytes, &options).map_err(|error| {
+    // Decode gzip ourselves with a size limit; from_data would expand without that limit.
+    let tree = resvg::usvg::Tree::from_str(source, &options).map_err(|error| {
         invalid(format!(
             "Could not read SVG: {error}. Repair the file or export a PNG."
         ))
@@ -124,6 +148,48 @@ fn validate_resources(group: &resvg::usvg::Group, remaining: &mut u64, depth: us
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    fn gzip(bytes: &[u8]) -> Vec<u8> {
+        let mut writer = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        writer.write_all(bytes).unwrap();
+        writer.finish().unwrap()
+    }
+
+    #[test]
+    fn compressed_svg_opens_through_image_import_and_preserves_alpha() {
+        let svg = br#"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8"><rect width="6" height="8" fill="red" opacity="0.5"/></svg>"#;
+        let directory = tempfile::tempdir().unwrap();
+        for extension in ["svgz", "SVGZ", "svg"] {
+            let path = directory.path().join(format!("image.{extension}"));
+            std::fs::write(&path, gzip(svg)).unwrap();
+            assert_eq!(
+                crate::image_io::read_image(&path).unwrap(),
+                decode(svg).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn gzip_expansion_is_bounded_and_damaged_streams_are_rejected() {
+        let too_large = gzip(&vec![b' '; LIMIT as usize + 1]);
+        assert!(
+            decode(&too_large)
+                .unwrap_err()
+                .to_string()
+                .contains("16 MiB")
+        );
+        let valid = gzip(b"<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/>");
+        assert!(decode(&valid[..valid.len() - 4]).is_err());
+        assert!(decode(&gzip(&valid)).is_err());
+        let external = gzip(br#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><image href="/tmp/private.png" width="10" height="10"/></svg>"#);
+        assert!(
+            decode(&external)
+                .unwrap_err()
+                .to_string()
+                .contains("external images")
+        );
+    }
     #[test]
     fn import_preserves_intrinsic_dimensions_and_straight_alpha() {
         let image = decode(br#"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8"><rect width="6" height="8" fill="red" opacity="0.5"/></svg>"#).unwrap();

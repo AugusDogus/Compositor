@@ -56,7 +56,7 @@ The development version targets feature parity with **Compositor for macOS 1.3.3
 | Original `.comp` projects | ✅ Read/write | ⚠️ Read/write[^projects] | ⚠️ Import only[^projects] |
 | ICC color conversion | ✅ | ✅ | ❌ |
 | HEIC import | ✅ | ✅ Bundled | ✅ Bundled |
-| SVG import | ✅ Rasterized | ✅ Rasterized | ❌ |
+| SVG import | ✅ Rasterized | ✅ SVG/SVGZ, rasterized | ❌ |
 | PNG/JPEG export | ✅ | ✅ | ✅ |
 | TIFF/WebP export | ❌ | ✅ | ✅ |
 | Editable text | ✅ | ✅ | ✅ |

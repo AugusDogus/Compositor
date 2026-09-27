@@ -21,7 +21,7 @@ pub fn read_image(path: &Path) -> Result<RgbaImage> {
     }
     if path
         .extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("svg"))
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("svg") || ext.eq_ignore_ascii_case("svgz"))
     {
         return svg::read(path);
     }
