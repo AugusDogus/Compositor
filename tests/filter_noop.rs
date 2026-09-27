@@ -55,3 +55,41 @@ fn filters_that_leave_pixels_unchanged_preserve_editable_content() {
         }
     }
 }
+
+#[test]
+fn no_op_filters_with_a_selection_preserve_hidden_rgb_and_editable_text() {
+    let mut doc = Document::new(16, 16).unwrap();
+    doc.add(
+        text::new_layer(
+            text::Text::default(),
+            RgbaImage::from_fn(8, 8, |x, _| {
+                Rgba([100, 120, 140, if x == 0 { 0 } else { 37 }])
+            }),
+            [2., 2.],
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    doc.selection = Some(compositor::selection::Selection::rectangle(
+        16,
+        16,
+        [0., 0.],
+        [12., 12.],
+        false,
+    ));
+    let original = doc.clone();
+    for filter in [
+        Filter::UnsharpMask {
+            amount: 0.,
+            radius: 2.,
+            threshold: 0.,
+        },
+        Filter::Bloom {
+            amount: 0.,
+            radius: 2.,
+        },
+    ] {
+        filters::apply(&mut doc, filter, false).unwrap();
+        assert_eq!(doc, original);
+    }
+}

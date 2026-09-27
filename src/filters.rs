@@ -212,6 +212,10 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
             }
         },
     };
+    // Selection blending must not alter hidden RGB or discard editable metadata for a no-op.
+    if transform == original_transform && result == *original {
+        return Ok(());
+    }
     if let Some(selection) = selection {
         for (x, y, p) in result.enumerate_pixels_mut() {
             let amount = selection.coverage(
