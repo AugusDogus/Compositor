@@ -3,7 +3,10 @@
 set -euo pipefail
 [[ $# == 1 ]] || { printf 'Usage: %s path/to/Compositor.AppImage\n' "$0" >&2; exit 1; }
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/linux-architecture.sh"
+compositor_linux_architecture "$(uname -m)"
 artifact="$(realpath "$1")"
+compositor_check_linux_binary "$artifact"
 stage_dir="$(mktemp -d)"
 trap 'rm -r -- "$stage_dir"' EXIT
 cd "$stage_dir"
@@ -27,6 +30,9 @@ export LIBHEIF_PLUGIN_PATH="$app_dir/usr/lib/libheif/plugins"
 export LD_LIBRARY_PATH="$app_dir/usr/lib:$COMPOSITOR_INFERENCE_DIR/lib"
 for file in birefnet-cpu.onnx birefnet-gpu.onnx licenses/birefnet.txt lib/libonnxruntime.so lib/libonnxruntime_providers_webgpu.so; do
     [[ -s "$COMPOSITOR_INFERENCE_DIR/$file" ]] || { printf 'AppImage is missing inference dependency %s\n' "$file" >&2; exit 1; }
+done
+for binary in "$app_dir/usr/bin/compositor" "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime.so" "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime_providers_webgpu.so"; do
+    compositor_check_linux_binary "$binary"
 done
 "$script_dir/setup-object-selection.sh" --check
 if [[ -n "$(find "$COMPOSITOR_INFERENCE_DIR" -type f \( -name '*.py' -o -name '*.pyc' -o -name '*.whl' \) -print -quit)" ]]; then

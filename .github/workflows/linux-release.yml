@@ -25,8 +25,16 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -51,11 +59,14 @@ jobs:
             target/release
             target/appimage-tools
             ~/.cache/compositor/inference-downloads
-          key: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock', 'vendor/quickgui/**', 'scripts/setup-background.sh', 'scripts/setup-object-selection.sh', 'scripts/object-selection-model.json', 'scripts/object_selection_model.py', 'scripts/requirements-object-model-build.txt', 'scripts/background_model.py', 'scripts/requirements-inference-build.txt') }}
+          key: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock', 'vendor/quickgui/**', 'scripts/setup-background.sh', 'scripts/linux-architecture.sh', 'scripts/setup-object-selection.sh', 'scripts/object-selection-model.json', 'scripts/object_selection_model.py', 'scripts/requirements-object-model-build.txt', 'scripts/background_model.py', 'scripts/requirements-inference-build.txt') }}
           restore-keys: linux-${{ runner.arch }}-${{ env.RUST_VERSION }}-
-      - name: Validate version
+      - name: Validate architecture and version
         id: version
+        env:
+          PACKAGE_ARCH: ${{ matrix.arch }}
         run: |
+          [[ "$(uname -m)" == "$PACKAGE_ARCH" ]] || { echo "The runner architecture does not match the package matrix." >&2; exit 1; }
           version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "compositor") | .version')"
           if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
             echo "Release tag must match Cargo.toml: expected v$version" >&2
@@ -65,6 +76,7 @@ jobs:
       - name: Check and test
         run: |
           export XDG_RUNTIME_DIR="$(mktemp -d)"
+          python3 scripts/test-linux-packaging.py
           cargo fmt --all --check
           cargo clippy --locked --all-targets --no-deps -- -D warnings
           cargo test --locked -- --test-threads=4
@@ -95,8 +107,16 @@ jobs:
         run: scripts/package-linux-native.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: compositor-linux-x86_64
-          path: dist/*
+          name: compositor-linux-${{ matrix.arch }}
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.pkg.tar.zst
+            dist/*.sha256
+            dist/*.bin
+            dist/linux-update-${{ matrix.arch }}.json
+            dist/release-notes.md
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -108,10 +128,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: compositor-linux-x86_64
+          pattern: compositor-linux-*
+          merge-multiple: true
           path: dist
+      - name: Assemble architecture update feed
+        run: scripts/merge-linux-updates.sh dist/linux-update.json dist/linux-update-x86_64.json dist/linux-update-aarch64.json
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

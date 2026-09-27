@@ -28,7 +28,7 @@ Automatic update checks run on launch by default. Disable them in **Help > Check
 
 ## Build an AppImage locally
 
-Use Ubuntu 24.04 or the corresponding build container to retain the supported library baseline. Install the [source-build dependencies](linux-building.md), then:
+Use Ubuntu 24.04 on x86_64 or ARM64 (aarch64) to retain the supported library baseline. Packaging targets the build host architecture. ARM64 builds are configured but have not yet been validated on ARM hardware; v0.6.1 remains x86_64-only. Install the [source-build dependencies](linux-building.md), then:
 
 ```sh
 sudo apt-get install curl jq file unzip python3-venv desktop-file-utils
@@ -76,7 +76,7 @@ On NixOS, enable graphics drivers and a desktop portal through your system confi
 
 ## Publish a release
 
-The [Linux workflow](../.github/workflows/linux-release.yml) runs on pull requests, pushes to `main`, version tags and manual dispatch. It checks formatting, Clippy and tests, builds the AppImage, and checks the payload with CPU inference and a real X-Trans RAW fixture. It then packages that payload as DEB, RPM and Arch files. Ordinary runs upload a `compositor-linux-x86_64` Actions artifact; version tags publish a GitHub release in this repository.
+The [Linux workflow](../.github/workflows/linux-release.yml) runs on pull requests, pushes to `main`, version tags and manual dispatch. It checks formatting, Clippy and tests, builds the AppImage, and checks the payload with CPU inference and a real X-Trans RAW fixture. It then packages that payload as DEB, RPM and Arch files. The matrix builds on native x86_64 and ARM64 runners. Ordinary runs upload `compositor-linux-x86_64` and `compositor-linux-aarch64` Actions artifacts; version tags publish a GitHub release in this repository.
 
 New pushes do not cancel running `main` or release-tag builds. Pull-request builds can be superseded by newer commits.
 
@@ -89,9 +89,9 @@ Publish corrections under a new version. Existing release tags and artifacts are
 
 | Release asset | Purpose |
 | --- | --- |
-| `Compositor-<VERSION>-x86_64.AppImage` | Complete desktop application with bundled models and licenses |
+| `Compositor-<VERSION>-<ARCH>.AppImage` | Complete desktop application with bundled models and licenses |
 | `.deb`, `.rpm`, `.pkg.tar.zst` files | Complete bundle installed with a system package manager (development builds) |
-| `Compositor-<VERSION>-linux-x86_64.bin` | Update binary for standalone installations; requires compatible system libraries |
+| `Compositor-<VERSION>-linux-<ARCH>.bin` | Update binary for standalone installations; requires compatible system libraries |
 | `.sha256` files | Checksums for executable and package assets |
 | `linux-update.json` | Version feed used by the update dialog |
 
@@ -110,3 +110,5 @@ Contributors can create a `.tar.gz` installation archive with `scripts/package-l
 Extract the archive and run `./install.sh` inside it. The default prefix is `~/.local`; pass another writable prefix as the first argument. The installer adds the executable, desktop launcher and icon. Ensure the prefix's `bin` directory is on `PATH`. Run the archive's `./setup-background.sh` to prepare inference libraries and models, following the build-time requirements in [source setup](linux-building.md#inference-in-source-builds).
 
 Standalone installations use the [HTTPS version feed](https://github.com/AugusDogus/Compositor/releases/latest/download/linux-update.json) with explicit download and installation steps in the Updates dialog. Updates validate the binary and atomically replace the executable; they do not update system libraries. Save your projects and restart after installation. Stable versions do not offer prereleases or downgrades. `COMPOSITOR_UPDATE_URL` changes the feed at build time.
+
+For development builds, `<ARCH>` is `x86_64` or `aarch64` (`amd64` or `arm64` in DEB filenames). Tagged releases require both architecture jobs to pass.

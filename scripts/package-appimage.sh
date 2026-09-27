@@ -3,15 +3,17 @@
 set -euo pipefail
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
-[[ "$(uname -m)" == x86_64 ]] || { printf 'AppImage packaging currently supports x86_64.\n' >&2; exit 1; }
-for command in curl sha256sum jq cargo file; do
+source "$project_root/scripts/linux-architecture.sh"
+compositor_linux_architecture "$(uname -m)"
+for command in curl sha256sum jq cargo file python3; do
     command -v "$command" >/dev/null || { printf 'Install %s and retry.\n' "$command" >&2; exit 1; }
 done
 package_binary="${COMPOSITOR_LINUX_BINARY:-target/release/compositor}"
 if [[ -z "${COMPOSITOR_LINUX_BINARY:-}" ]]; then cargo build --locked --release; fi
 [[ -x "$package_binary" ]] || { printf 'Build the release executable before packaging.\n' >&2; exit 1; }
+compositor_check_linux_binary "$package_binary"
 version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "compositor") | .version')"
-tool_dir="${COMPOSITOR_APPIMAGE_TOOLS:-$project_root/target/appimage-tools}"
+tool_dir="${COMPOSITOR_APPIMAGE_TOOLS:-$project_root/target/appimage-tools}/$linux_arch"
 mkdir -p "$tool_dir" dist
 stage_dir="$(mktemp -d)"
 trap 'rm -r -- "$stage_dir"' EXIT
@@ -26,14 +28,14 @@ download() {
     chmod +x "$tool_dir/$name"
 }
 download linuxdeploy.AppImage \
-    https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage \
-    c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d
+    "https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-$linux_arch.AppImage" \
+    "$linux_deploy_sha256"
 download appimagetool.AppImage \
-    https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage \
-    ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
-download runtime-x86_64 \
-    https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64 \
-    2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+    "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-$linux_arch.AppImage" \
+    "$linux_appimagetool_sha256"
+download "runtime-$linux_arch" \
+    "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-$linux_arch" \
+    "$linux_runtime_sha256"
 
 install -Dm755 "$package_binary" "$app_dir/usr/bin/compositor"
 install -Dm755 packaging/linux/AppRun "$app_dir/AppRun"
@@ -54,13 +56,13 @@ done
 # Winit and wgpu load these libraries dynamically; ldd alone cannot discover them.
 libraries=()
 for soname in libwayland-cursor.so.0 libwayland-egl.so.1 libxkbcommon.so.0 libxkbcommon-x11.so.0 libX11.so.6 libXcursor.so.1 libXrandr.so.2 libXi.so.6 libvulkan.so.1 libEGL.so.1 libGL.so.1; do
-    library="$(ldconfig -p | awk -v name="$soname" '$1 == name && /x86-64/ && !found { print $NF; found=1 }')"
+    library="$(ldconfig -p | awk -v name="$soname" -v arch="$linux_ldconfig_tag" '$1 == name && index($0, arch) && !found { print $NF; found=1 }')"
     [[ -n "$library" ]] || { printf 'Install the runtime library %s before packaging.\n' "$soname" >&2; exit 1; }
     libraries+=(--library "$library")
 done
 # libheif discovers codec plugins at runtime, outside the dependency tree.
 for plugin in libde265 aomenc aomdec; do
-    heif_plugin="/usr/lib/x86_64-linux-gnu/libheif/plugins/libheif-$plugin.so"
+    heif_plugin="/usr/lib/$linux_multiarch/libheif/plugins/libheif-$plugin.so"
     [[ -f "$heif_plugin" ]] || { printf 'Install libheif-plugin-%s before packaging.\n' "$plugin" >&2; exit 1; }
     install -Dm644 "$heif_plugin" "$app_dir/usr/lib/libheif/plugins/libheif-$plugin.so"
     libraries+=(--library "$heif_plugin")
@@ -82,12 +84,12 @@ done < <(find /usr/share/doc -maxdepth 2 -name copyright -type f)
 # Install checksum-pinned native inference dependencies into the image at build time.
 # Keep these separate from linuxdeploy's library rewriting and preserve SONAME links.
 COMPOSITOR_INFERENCE_DIR="$app_dir/usr/share/compositor/inference" scripts/setup-background.sh
-artifact="$project_root/dist/Compositor-$version-x86_64.AppImage"
-ARCH=x86_64 VERSION="$version" "$tool_dir/appimagetool.AppImage" \
+artifact="$project_root/dist/Compositor-$version-$linux_arch.AppImage"
+ARCH="$linux_arch" VERSION="$version" "$tool_dir/appimagetool.AppImage" \
     --comp zstd --mksquashfs-opt -Xcompression-level --mksquashfs-opt 19 \
     --mksquashfs-opt -b --mksquashfs-opt 1M \
     --mksquashfs-opt -processors --mksquashfs-opt 2 \
-    --runtime-file "$tool_dir/runtime-x86_64" "$app_dir" "$artifact"
+    --runtime-file "$tool_dir/runtime-$linux_arch" "$app_dir" "$artifact"
 if (( $(stat -c %s "$artifact") >= 2147483648 )); then
     printf 'AppImage exceeds GitHub\047s 2 GiB release asset limit. Packaging must be reduced before publishing.\n' >&2
     exit 1

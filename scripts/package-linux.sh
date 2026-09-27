@@ -2,19 +2,22 @@
 set -euo pipefail
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
+source "$project_root/scripts/linux-architecture.sh"
+compositor_linux_architecture "$(uname -m)"
 package_binary="${COMPOSITOR_LINUX_BINARY:-target/release/compositor}"
 if [[ -z "${COMPOSITOR_LINUX_BINARY:-}" ]]; then
     cargo build --locked --release
 fi
 [[ -f "$package_binary" && -x "$package_binary" ]] || { printf 'No executable found at %s. Build the release first.\n' "$package_binary" >&2; exit 1; }
+compositor_check_linux_binary "$package_binary"
 package_version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')"
-package_name="Compositor-$package_version-linux-$(uname -m)"
+package_name="Compositor-$package_version-linux-$linux_arch"
 stage_dir="$(mktemp -d)"
 trap 'rm -rf -- "$stage_dir"' EXIT
 bundle_dir="$stage_dir/$package_name"
 install -Dm755 "$package_binary" "$bundle_dir/bin/compositor"
 install -Dm755 packaging/linux/install.sh "$bundle_dir/install.sh"
-for script in setup-background.sh setup-object-selection.sh; do
+for script in setup-background.sh setup-object-selection.sh linux-architecture.sh; do
     install -Dm755 "scripts/$script" "$bundle_dir/$script"
 done
 for file in background_model.py test_background_model.py requirements-inference-build.txt object-selection-model.json object_selection_model.py requirements-object-model-build.txt; do

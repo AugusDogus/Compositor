@@ -3,18 +3,23 @@
 set -euo pipefail
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
+source "$project_root/scripts/linux-architecture.sh"
+compositor_linux_architecture "$(uname -m)"
 version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "compositor") | .version')"
-[[ -f "dist/Compositor-$version-x86_64.AppImage" ]] || { printf 'Build the AppImage first.\n' >&2; exit 1; }
-executable="Compositor-$version-linux-x86_64.bin"
-install -m755 "${COMPOSITOR_LINUX_BINARY:-target/release/compositor}" "dist/$executable"
+[[ -f "dist/Compositor-$version-$linux_arch.AppImage" ]] || { printf 'Build the AppImage first.\n' >&2; exit 1; }
+executable="Compositor-$version-linux-$linux_arch.bin"
+package_binary="${COMPOSITOR_LINUX_BINARY:-target/release/compositor}"
+compositor_check_linux_binary "$package_binary"
+install -m755 "$package_binary" "dist/$executable"
 (cd dist && sha256sum "$executable" > "$executable.sha256")
-jq -n --arg version "$version" --arg date "$(date -u +%FT%TZ)" \
+jq -n --arg platform "linux-$linux_arch" --arg version "$version" --arg date "$(date -u +%FT%TZ)" \
     --arg url "https://github.com/AugusDogus/Compositor/releases/download/v$version/$executable" \
-    '{version:$version,pub_date:$date,notes:("Compositor "+$version+" for Linux."),platforms:{"linux-x86_64":{url:$url}}}' > dist/linux-update.json
+    '{version:$version,pub_date:$date,notes:("Compositor "+$version+" for Linux."),platforms:{($platform):{url:$url}}}' > "dist/linux-update-$linux_arch.json"
+cp "dist/linux-update-$linux_arch.json" dist/linux-update.json
 cat > dist/release-notes.md <<'NOTES'
 A Linux fork of Compositor built with Rust and QuickGUI.
 
-Download the **x86_64 AppImage**, make it executable, and run it. Requires glibc 2.39 or newer, a graphical desktop with XDG portals, and a working Vulkan or OpenGL driver. If FUSE is unavailable, run with `--appimage-extract-and-run`.
+Download the **AppImage matching your Linux architecture** (`x86_64` or `aarch64`), make it executable, and run it. Requires glibc 2.39 or newer, a graphical desktop with XDG portals, and a working Vulkan or OpenGL driver. If FUSE is unavailable, run with `--appimage-extract-and-run`.
 
 Alternatively, install the **DEB or RPM** with your package manager. Both contain the same offline models and codecs as the AppImage. Close the editor before updating through your package manager.
 

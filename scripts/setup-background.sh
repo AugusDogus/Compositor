@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Prepare bundled native Vulkan/CPU inference. Python is used only to build the model.
 set -euo pipefail
-[[ "$(uname -sm)" == 'Linux x86_64' ]] || { printf 'Native inference setup currently supports Linux x86_64.\n' >&2; exit 1; }
+[[ "$(uname -s)" == Linux ]] || { printf 'Native inference setup requires Linux.\n' >&2; exit 1; }
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/linux-architecture.sh"
+compositor_linux_architecture "$(uname -m)"
 for command in curl tar unzip sha256sum python3; do
     command -v "$command" >/dev/null || { printf 'Install %s and retry.\n' "$command" >&2; exit 1; }
 done
@@ -25,20 +27,22 @@ download() {
 
 # Native CPU core plus the vendor-independent Vulkan plugin. The wheel is only a
 # distribution archive: extract its native library and licenses, never Python code.
-runtime=onnxruntime-linux-x64-1.30.0
+runtime="onnxruntime-linux-$linux_ort_arch-1.30.0"
 download "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/$runtime.tgz" \
-    a5ed5a3cac51fbb2e90da632ae43d19212faaa20e76484e62bcb7c23ddb3b3fd "$cache_dir/$runtime.tgz"
+    "$linux_ort_sha256" "$cache_dir/$runtime.tgz"
 tar -xzf "$cache_dir/$runtime.tgz" -C "$stage_dir"
 cp -a "$stage_dir/$runtime/lib/"*.so* "$stage_dir/lib/"
 cp "$stage_dir/$runtime/LICENSE" "$inference_dir/licenses/onnxruntime.txt"
 cp "$stage_dir/$runtime/ThirdPartyNotices.txt" "$inference_dir/licenses/onnxruntime-third-party.txt"
-plugin=onnxruntime_ep_webgpu-0.3.0.whl
-download https://files.pythonhosted.org/packages/97/9c/d37bc05c56c3d91d44585db7bebbf0f068ece5d01df5b3898449771d4bf2/onnxruntime_ep_webgpu-0.3.0-py3-none-manylinux_2_28_x86_64.whl \
-    865ce82d80319d7f259a4a65e66e32834f0f117db55ae4377868b4f28016e7bf "$cache_dir/$plugin"
+plugin="onnxruntime_ep_webgpu-$linux_webgpu_version-$linux_arch.whl"
+download "$linux_webgpu_url" "$linux_webgpu_sha256" "$cache_dir/$plugin"
 unzip -p "$cache_dir/$plugin" onnxruntime_ep_webgpu/libonnxruntime_providers_webgpu.so > "$stage_dir/lib/libonnxruntime_providers_webgpu.so"
 chmod 755 "$stage_dir/lib/libonnxruntime_providers_webgpu.so"
-unzip -p "$cache_dir/$plugin" onnxruntime_ep_webgpu-0.3.0.dist-info/licenses/LICENSE > "$inference_dir/licenses/webgpu.txt"
-unzip -p "$cache_dir/$plugin" onnxruntime_ep_webgpu-0.3.0.dist-info/licenses/ThirdPartyNotices.txt > "$inference_dir/licenses/webgpu-third-party.txt"
+unzip -p "$cache_dir/$plugin" "onnxruntime_ep_webgpu-$linux_webgpu_version.dist-info/licenses/LICENSE" > "$inference_dir/licenses/webgpu.txt"
+unzip -p "$cache_dir/$plugin" "onnxruntime_ep_webgpu-$linux_webgpu_version.dist-info/licenses/ThirdPartyNotices.txt" > "$inference_dir/licenses/webgpu-third-party.txt"
+
+compositor_check_linux_binary "$stage_dir/lib/libonnxruntime.so"
+compositor_check_linux_binary "$stage_dir/lib/libonnxruntime_providers_webgpu.so"
 
 # Full BiRefNet Dynamic, fixed 1024 px input. The CUDA export uses native DeformConv
 # and half precision. Lower DeformConv to equivalent Vulkan-supported operations.
@@ -54,7 +58,7 @@ download https://raw.githubusercontent.com/ZhengPeng7/BiRefNet/ebcc0bc8ec7fe919c
 gpu_hash=30b670d9a05f0c8da5faa689ba9ea061696883c2a30559cbc75fbba30e2ba592
 gpu_model="$cache_dir/birefnet-gpu-$gpu_hash.onnx"
 if ! { [[ -f "$gpu_model" ]] && printf '%s  %s\n' "$gpu_hash" "$gpu_model" | sha256sum --check --status; }; then
-    build_env="$cache_dir/model-build-env"
+    build_env="$cache_dir/model-build-env-$linux_arch"
     if [[ ! -x "$build_env/bin/python" ]]; then python3 -m venv "$build_env"; fi
     "$build_env/bin/python" -m pip install --disable-pip-version-check -r "$script_dir/requirements-inference-build.txt"
     "$build_env/bin/python" -B "$script_dir/test_background_model.py"

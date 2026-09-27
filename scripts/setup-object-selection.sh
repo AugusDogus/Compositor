@@ -3,6 +3,8 @@
 set -euo pipefail
 [[ $# == 0 || ( $# == 1 && "$1" == --check ) ]] || { printf 'Usage: %s [--check]\n' "$0" >&2; exit 1; }
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/linux-architecture.sh"
+compositor_linux_architecture "$(uname -m)"
 manifest="$script_dir/object-selection-model.json"
 inference_dir="${COMPOSITOR_INFERENCE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/compositor/inference}"
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/compositor/inference-downloads"
@@ -117,7 +119,7 @@ if [[ "$needs_build" == true ]]; then
     requirements="$script_dir/requirements-object-model-build.txt"
     requirements_hash="$(sha256sum "$requirements" | cut -c1-16)"
     python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-    build_env="$cache_dir/object-model-build-py$python_version-$requirements_hash"
+    build_env="$cache_dir/object-model-build-$linux_arch-py$python_version-$requirements_hash"
     # Cached virtualenvs can come from another host/container interpreter. Recreate
     # incompatible environments rather than importing packages from that machine.
     base_prefix="$(python3 -c 'import sys; print(sys.base_prefix)')"
