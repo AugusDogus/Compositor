@@ -49,13 +49,32 @@ impl Draft {
 #[derive(Clone)]
 enum Purpose {
     Palette,
-    LayerEffect { form: Box<Form> },
-    LayerText { form: Box<Form> },
-    ForegroundText { form: Box<Form> },
-    GradientMap { original: GradientMap },
-    CanvasExtension { form: Box<Form> },
-    JpegBackground { form: Box<Form> },
-    Dither { form: Box<Form>, index: usize },
+    LayerEffect {
+        form: Box<Form>,
+    },
+    LayerText {
+        form: Box<Form>,
+    },
+    ForegroundText {
+        form: Box<Form>,
+    },
+    GradientMap {
+        original: GradientMap,
+    },
+    GradientStop {
+        draft: Box<super::gradient_stops::Draft>,
+        original: [u8; 4],
+    },
+    CanvasExtension {
+        form: Box<Form>,
+    },
+    JpegBackground {
+        form: Box<Form>,
+    },
+    Dither {
+        form: Box<Form>,
+        index: usize,
+    },
 }
 
 #[derive(Clone)]
@@ -228,6 +247,21 @@ impl Editor {
         }
     }
 
+    pub(super) fn open_gradient_stop_picker(&mut self) {
+        let Some(Form::GradientStops(draft)) = &self.modal else {
+            return;
+        };
+        let Some(stop) = self.tools.gradient.stops.as_slice().get(draft.selected) else {
+            return;
+        };
+        let mut picker = Picker::new(stop.color, [255; 4]);
+        picker.purpose = Purpose::GradientStop {
+            draft: draft.clone(),
+            original: stop.color,
+        };
+        self.modal = Some(Form::Color(Box::new(picker)));
+    }
+
     pub(super) fn open_gradient_map_picker(&mut self) -> Result<()> {
         self.preview_adjustment()?;
         let Some(edit) = &self.adjustment_edit else {
@@ -255,6 +289,11 @@ impl Editor {
         let Some(Form::Color(picker)) = &self.modal else {
             return Ok(());
         };
+        if let Purpose::GradientStop { draft, original } = &picker.purpose {
+            let mut color = picker.colors[0].hsb.rgb();
+            color[3] = original[3];
+            return self.set_gradient_stop_color(draft.selected, color);
+        }
         if let Purpose::LayerText { form } | Purpose::ForegroundText { form } = &picker.purpose {
             let Form::Text(draft) = form.as_ref() else {
                 return Ok(());
@@ -376,6 +415,13 @@ impl Editor {
                 if apply {
                     self.refresh_gradient()?;
                 }
+            }
+            Purpose::GradientStop { draft, original } => {
+                let mut color = if apply { chosen } else { original };
+                color[3] = original[3];
+                let index = draft.selected;
+                self.modal = Some(Form::GradientStops(draft));
+                self.set_gradient_stop_color(index, color)?;
             }
             Purpose::GradientMap { original } => {
                 if apply {

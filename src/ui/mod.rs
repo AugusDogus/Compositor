@@ -63,6 +63,7 @@ mod gradient;
 mod gradient_controls;
 mod gradient_map_controls;
 mod gradient_overlay;
+mod gradient_stops;
 mod guide_grid;
 mod history;
 mod history_browser;

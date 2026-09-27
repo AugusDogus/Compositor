@@ -7,6 +7,7 @@ pub(super) enum Form {
     Effects(Box<super::layer_effects::EffectsEditor>),
     Updates,
     History,
+    GradientStops(Box<super::gradient_stops::Draft>),
     Trim(compositor::trim::Options),
     Shortcuts(Box<super::shortcut_editor::Draft>),
     Text(Box<super::text_editor::Draft>),
@@ -231,6 +232,7 @@ impl Editor {
             Form::Effects(_) => "Layer Effects",
             Form::Updates => "Updates",
             Form::History => "History",
+            Form::GradientStops(_) => "Gradient Stops",
             Form::Trim(_) => "Trim",
             Form::Text(_) => "Text",
             Form::Shortcuts(_) => "Keyboard Shortcuts",
@@ -342,6 +344,9 @@ impl Editor {
                 contents = contents
                     .child(self.update_controls(cx))
                     .child(Self::control("Close").on_click(cancel));
+            }
+            Form::GradientStops(draft) => {
+                contents = contents.child(self.gradient_stops_controls(cx, &draft));
             }
             Form::History => {
                 contents = contents

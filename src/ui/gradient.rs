@@ -16,15 +16,25 @@ pub(super) struct PendingGradient {
 
 impl Editor {
     pub(super) fn gradient_preview_colors(&self) -> [[u8; 4]; 2] {
-        let mut colors = self.palette_colors(self.tools.mask_target);
-        if self.tools.gradient.style == compositor::gradient::Style::ForegroundToTransparent {
-            colors[1] = colors[0];
-            colors[1][3] = 0;
-        }
+        let ramp = self.gradient_preview_ramp();
+        let mut colors = [0., 1.].map(|position| {
+            let color = ramp.sample(position);
+            let color = if self.tools.mask_target {
+                compositor::gradient::mask_color(color)
+            } else {
+                color
+            };
+            color.map(|v| (v * 255.).round() as u8)
+        });
         if self.tools.gradient.reversed {
             colors.swap(0, 1);
         }
         colors
+    }
+
+    pub(super) fn gradient_preview_ramp(&self) -> compositor::gradient::stops::Stops {
+        let [foreground, background] = self.palette_colors(self.tools.mask_target);
+        self.tools.gradient.ramp(foreground, background)
     }
 
     pub(super) fn begin_gradient(&mut self, point: Point) -> Result<()> {

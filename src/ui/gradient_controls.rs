@@ -8,6 +8,7 @@ fn label(style: Style) -> &'static str {
     match style {
         Style::ForegroundToBackground => "Foreground to Background",
         Style::ForegroundToTransparent => "Foreground to Transparent",
+        Style::Custom => "Custom stops",
     }
 }
 pub(super) fn new() -> Dropdown<Style> {
@@ -15,6 +16,7 @@ pub(super) fn new() -> Dropdown<Style> {
         [
             Style::ForegroundToBackground,
             Style::ForegroundToTransparent,
+            Style::Custom,
         ]
         .map(|style| PickerItem::new(label(style), style).id(label(style))),
     )
@@ -43,8 +45,12 @@ impl Editor {
                 .child(div().flex_1())
                 .child(Icon::PopupChevron.element(14.)),
             |this, style, cx| {
-                this.tools.gradient.style = style;
-                let result = this.refresh_gradient();
+                let result = if style == Style::Custom {
+                    this.open_gradient_stops()
+                } else {
+                    this.tools.gradient.style = style;
+                    this.refresh_gradient()
+                };
                 this.operation_result(alerts::Operation::Paint, result, cx);
             },
         )
@@ -70,7 +76,8 @@ impl Editor {
                     ),
             );
         }
-        let colors = self.gradient_preview_colors();
+        let ramp = self.gradient_preview_ramp();
+        let reversed = self.tools.gradient.reversed;
         let swatch = div()
             .id("gradient-swatch")
             .w(56.)
@@ -96,10 +103,11 @@ impl Editor {
                 .absolute()
                 .size_full(),
             )
-            .child(div().absolute().size_full().bg_linear_gradient(
-                quickgui::GradientDirection::ToRight,
-                colors.map(|[r, g, b, a]| Color::rgba8(r, g, b, a)),
-            ))
+            .child(
+                super::gradient_stops::ramp_view(ramp, reversed, self.tools.mask_target)
+                    .absolute()
+                    .size_full(),
+            )
             .child(
                 div()
                     .absolute()
@@ -107,7 +115,12 @@ impl Editor {
                     .rounded(3.)
                     .border(1., Color::rgba8(0, 0, 0, 128)),
             )
-            .accessibility_hidden(true);
+            .tooltip("Edit gradient color stops")
+            .accessibility_label("Edit gradient color stops")
+            .on_click(cx.listener("gradient-swatch", |this, cx| {
+                let result = this.edit_displayed_gradient_stops();
+                this.result(result, cx);
+            }));
         let mut row = div()
             .flex_row()
             .items_center()

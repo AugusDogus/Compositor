@@ -8,6 +8,9 @@ use crate::{
 use image::{GrayImage, Luma, Rgba, RgbaImage};
 use std::sync::Arc;
 
+pub mod stops;
+use stops::Stops;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Shape {
     #[default]
@@ -20,14 +23,16 @@ pub enum Style {
     ForegroundToBackground,
     #[default]
     ForegroundToTransparent,
+    Custom,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Gradient {
     pub shape: Shape,
     pub style: Style,
     pub reversed: bool,
     pub opacity: f64,
+    pub stops: Stops,
 }
 
 impl Default for Gradient {
@@ -37,13 +42,30 @@ impl Default for Gradient {
             style: Style::ForegroundToTransparent,
             reversed: false,
             opacity: 1.,
+            stops: Stops::endpoints([0, 0, 0, 255], [0; 4]),
         }
     }
 }
 
+/// Mask painting uses the luminance of RGB stops and preserves their opacity.
+pub fn mask_color(color: [f64; 4]) -> [f64; 4] {
+    let gray = color[0] * 0.2126 + color[1] * 0.7152 + color[2] * 0.0722;
+    [gray, gray, gray, color[3]]
+}
+
 impl Gradient {
+    pub fn ramp(&self, foreground: [u8; 4], background: [u8; 4]) -> Stops {
+        match self.style {
+            Style::ForegroundToBackground => Stops::endpoints(foreground, background),
+            Style::ForegroundToTransparent => {
+                Stops::endpoints(foreground, [foreground[0], foreground[1], foreground[2], 0])
+            }
+            Style::Custom => self.stops.clone(),
+        }
+    }
+
     pub fn apply(
-        self,
+        &self,
         doc: &mut Document,
         start: Point,
         end: Point,
@@ -63,6 +85,7 @@ impl Gradient {
         if !(0. ..=1.).contains(&self.opacity) {
             return Err(invalid("Gradient opacity must be between 0 and 100%."));
         }
+        let ramp = self.ramp(foreground, background);
         let selection = doc.selection.clone();
         let canvas = [doc.width as f64, doc.height as f64];
         let layer = doc
@@ -94,12 +117,7 @@ impl Gradient {
             } else {
                 distance
             };
-            let a = foreground.map(|v| v as f64 / 255.);
-            let b = match self.style {
-                Style::ForegroundToBackground => background.map(|v| v as f64 / 255.),
-                Style::ForegroundToTransparent => [a[0], a[1], a[2], 0.],
-            };
-            let mut result: [f64; 4] = std::array::from_fn(|i| a[i] + (b[i] - a[i]) * t);
+            let mut result = ramp.sample(t);
             let inside =
                 point[0] >= 0. && point[1] >= 0. && point[0] < canvas[0] && point[1] < canvas[1];
             result[3] *= if inside {
@@ -126,7 +144,8 @@ impl Gradient {
                     transform.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
                 );
                 let before = pixel[0] as f64 / 255.;
-                *pixel = Luma([((before + (top[0] - before) * top[3]) * 255.).round() as u8]);
+                let gray = mask_color(top)[0];
+                *pixel = Luma([((before + (gray - before) * top[3]) * 255.).round() as u8]);
             }
         } else {
             let LayerContent::Raster(pixels) = &mut layer.content else {
@@ -213,6 +232,58 @@ mod tests {
         assert_eq!(mask[(1, 2)][0], 191);
         assert_eq!(mask[(3, 2)][0], 255);
         assert_eq!(mask[(2, 0)][0], 255);
+    }
+
+    #[test]
+    fn custom_stops_paint_selection_reverse_and_grayscale_masks() {
+        let stops = Stops::new(vec![
+            stops::Stop {
+                position: 0.,
+                color: [255, 0, 0, 255],
+            },
+            stops::Stop {
+                position: 0.5,
+                color: [0, 255, 0, 128],
+            },
+            stops::Stop {
+                position: 1.,
+                color: [0, 0, 255, 255],
+            },
+        ])
+        .unwrap();
+        let mut gradient = Gradient {
+            style: Style::Custom,
+            stops,
+            ..Gradient::default()
+        };
+        let mut doc = Document::new(5, 1).unwrap();
+        doc.selection = Some(Selection::rectangle(5, 1, [1., 0.], [5., 1.], false));
+        gradient
+            .apply(&mut doc, [0.5, 0.5], [4.5, 0.5], [0; 4], [0; 4], false)
+            .unwrap();
+        let pixels = doc.layers[0].raster().unwrap();
+        assert_eq!(pixels[(0, 0)][3], 0);
+        assert_eq!(pixels[(2, 0)], Rgba([0, 255, 0, 128]));
+        assert_eq!(pixels[(4, 0)], Rgba([0, 0, 255, 255]));
+        let mut reversed = Document::new(5, 1).unwrap();
+        gradient.reversed = true;
+        gradient
+            .apply(&mut reversed, [0.5, 0.5], [4.5, 0.5], [0; 4], [0; 4], false)
+            .unwrap();
+        assert_eq!(
+            reversed.layers[0].raster().unwrap()[(0, 0)],
+            Rgba([0, 0, 255, 255])
+        );
+        let mut mask = Document::new(5, 1).unwrap();
+        edits::add_mask(&mut mask, false).unwrap();
+        gradient.reversed = false;
+        gradient
+            .apply(&mut mask, [0.5, 0.5], [4.5, 0.5], [0; 4], [0; 4], true)
+            .unwrap();
+        let pixels = &mask.layers[0].mask.as_ref().unwrap().pixels;
+        assert_eq!(pixels[(0, 0)][0], 54);
+        assert_eq!(pixels[(2, 0)][0], 219);
+        assert_eq!(pixels[(4, 0)][0], 18);
     }
 
     #[test]

@@ -86,6 +86,11 @@ impl Editor {
             self.result(result, cx);
             return;
         }
+        if matches!(self.modal, Some(Form::GradientStops(_))) {
+            let result = self.finish_gradient_stops(false);
+            self.result(result, cx);
+            return;
+        }
         self.size_menus.close(cx);
         self.jpeg_export = None;
         if self.retained_panel.is_none() {
