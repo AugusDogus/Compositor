@@ -25,7 +25,7 @@ Move, rotation, scaling, convex perspective, masks, blending, groups and duplica
 
 `.comp` packages embed source bytes in `raw/` and development metadata in `linux-raw.json`. The upstream manifest saves as version 10 with ordinary cached PNGs. RAW editability is a Linux extension: the upstream Mac writer preserves developed pixels but drops the embedded RAW source and settings when saving. Keep the original Linux package for redevelopment. See [cross-device tests](macos-compatibility.md).
 
-Development builds check that saved RAW sources and settings match their cached pixels. A mismatch stops loading and leaves the files intact. Restore a matching backup, or remove `linux-raw.json` from a copy of the package to open its cached pixels without RAW editing. Older Linux RAW packages remain readable; saving upgrades their RAW metadata, which requires a current Linux build to reopen.
+Compositor checks that saved RAW sources and settings match their cached pixels. A mismatch stops loading and leaves the files intact. Restore a matching backup, or remove `linux-raw.json` from a copy of the package to open its cached pixels without RAW editing. Older Linux RAW packages remain readable; saving upgrades their RAW metadata, which requires a current Linux build to reopen.
 
 Camera support follows Rawler 0.7.2 and the bundled LibRaw camera decoders. Foveon X3F color development is not supported. Sources are limited to 512 MiB per project and decoded images to 200 megapixels. Processing uses Vulkan where supported, with CPU processing when hardware is unavailable or its limits are too small. Full-resolution previews display tiles without reducing their pixel detail. GPU execution failures are reported.
 

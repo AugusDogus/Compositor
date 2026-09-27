@@ -9,18 +9,18 @@ A layered image editor for Linux, built with Rust and [QuickGUI](https://github.
 
 ## Download
 
-**[Download AppImage (x86_64)](https://github.com/AugusDogus/Compositor/releases/latest)**
+**[Download Compositor](https://github.com/AugusDogus/Compositor/releases/latest)**
 
 ```sh
-chmod +x Compositor-0.6.1-x86_64.AppImage
-./Compositor-0.6.1-x86_64.AppImage
+chmod +x Compositor-0.7.0-x86_64.AppImage
+./Compositor-0.7.0-x86_64.AppImage
 ```
 
 ## Requirements
 
 | Component | Requirement |
 | --- | --- |
-| Platform | x86_64 Linux, glibc 2.39+ |
+| Platform | x86_64 or ARM64 Linux, glibc 2.39+ |
 | Desktop | Wayland or X11; XDG portals for file dialogs |
 | Graphics | Working Vulkan or OpenGL driver |
 | GPU background removal and object selection | NVIDIA/AMD Vulkan GPU with FP16 support; CPU used if unavailable[^background] |
@@ -29,11 +29,11 @@ chmod +x Compositor-0.6.1-x86_64.AppImage
 
 ## Features and parity
 
-The development version targets feature parity with **Compositor for macOS 1.3.3**. The table compares it with Xuan 0.2.2. [Latest release: v0.6.1](docs/releases/v0.6.1.md) · [Unreleased changes](docs/linux-features.md#unreleased).
+Compositor for Linux targets feature parity with **Compositor for macOS 1.3.3**. The table compares it with Xuan 0.2.2. [New in v0.7.0](docs/releases/v0.7.0.md).
 
 ✅ Supported · ⚠️ Partial or limited · ❌ Not supported
 
-| Feature | [Compositor<br>(macOS&nbsp;1.3.3)](https://github.com/robbietilton/Compositor) | This fork (development) | [Xuan](https://github.com/silverling/xuan) |
+| Feature | [Compositor<br>(macOS&nbsp;1.3.3)](https://github.com/robbietilton/Compositor) | This fork (v0.7.0) | [Xuan](https://github.com/silverling/xuan) |
 | --- | :---: | :---: | :---: |
 | Layers, groups and masks | ✅ | ✅ | ✅ |
 | Blend modes and adjustment layers | ✅ 24 modes | ✅ 24 modes | ✅ 13 modes |

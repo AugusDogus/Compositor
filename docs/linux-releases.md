@@ -7,15 +7,15 @@
 Make the downloaded file executable, then run it. Substitute its filename below:
 
 ```sh
-chmod +x Compositor-0.6.1-x86_64.AppImage
-./Compositor-0.6.1-x86_64.AppImage
+chmod +x Compositor-0.7.0-x86_64.AppImage
+./Compositor-0.7.0-x86_64.AppImage
 ```
 
 If FUSE is unavailable, add `--appimage-extract-and-run`. [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and icon to your application menu.
 
 | Requirement | Supported configuration |
 | --- | --- |
-| Architecture | x86_64 |
+| Architecture | x86_64 or ARM64 (aarch64) |
 | System libraries | glibc 2.39 or newer |
 | Desktop | Wayland or X11, with XDG portals for file dialogs |
 | Editor graphics | Working Vulkan or OpenGL driver |
@@ -28,7 +28,7 @@ Automatic update checks run on launch by default. Disable them in **Help > Check
 
 ## Build an AppImage locally
 
-Use Ubuntu 24.04 on x86_64 or ARM64 (aarch64) to retain the supported library baseline. Packaging targets the build host architecture. ARM64 builds are configured but have not yet been validated on ARM hardware; v0.6.1 remains x86_64-only. Install the [source-build dependencies](linux-building.md), then:
+Use Ubuntu 24.04 on x86_64 or ARM64 (aarch64) to retain the supported library baseline. Packaging targets the build host architecture. ARM64 desktop use remains unverified. Install the [source-build dependencies](linux-building.md), then:
 
 ```sh
 sudo apt-get install curl jq file unzip python3-venv desktop-file-utils
@@ -41,7 +41,7 @@ Packaging prepares the models and native inference libraries automatically. Pyth
 
 ## DEB, RPM and Arch packages
 
-Development builds also produce DEB, RPM and Arch packages. They are not available in v0.6.1. All install the complete bundle, including offline models, under `/opt/compositor`, with a desktop launcher and `/usr/bin/compositor`. Host requirements match the AppImage; the package manager checks the declared system dependencies.
+v0.7.0 includes DEB, RPM and Arch packages for x86_64 and ARM64. All install the complete bundle, including offline models, under `/opt/compositor`, with a desktop launcher and `/usr/bin/compositor`. Host requirements match the AppImage; the package manager checks the declared system dependencies.
 
 | Distribution | Install or update a downloaded package |
 | --- | --- |
@@ -55,7 +55,7 @@ To build all three packages from an existing, validated AppImage on Ubuntu 24.04
 
 ```sh
 sudo apt-get install dpkg-dev rpm zstd libarchive-tools
-scripts/package-linux-native.sh dist/Compositor-0.6.1-x86_64.AppImage
+scripts/package-linux-native.sh dist/Compositor-0.7.0-x86_64.AppImage
 ```
 
 Substitute the current version. DEB/RPM versions use `~` before prerelease identifiers; Arch versions use `pre.` (for example, `0.7.0pre.rc.1`). Each sorts before the corresponding stable version.
@@ -90,7 +90,7 @@ Publish corrections under a new version. Existing release tags and artifacts are
 | Release asset | Purpose |
 | --- | --- |
 | `Compositor-<VERSION>-<ARCH>.AppImage` | Complete desktop application with bundled models and licenses |
-| `.deb`, `.rpm`, `.pkg.tar.zst` files | Complete bundle installed with a system package manager (development builds) |
+| `.deb`, `.rpm`, `.pkg.tar.zst` files | Complete bundle installed with a system package manager |
 | `Compositor-<VERSION>-linux-<ARCH>.bin` | Update binary for standalone installations; requires compatible system libraries |
 | `.sha256` files | Checksums for executable and package assets |
 | `linux-update.json` | Version feed used by the update dialog |
@@ -111,4 +111,4 @@ Extract the archive and run `./install.sh` inside it. The default prefix is `~/.
 
 Standalone installations use the [HTTPS version feed](https://github.com/AugusDogus/Compositor/releases/latest/download/linux-update.json) with explicit download and installation steps in the Updates dialog. Updates validate the binary and atomically replace the executable; they do not update system libraries. Save your projects and restart after installation. Stable versions do not offer prereleases or downgrades. `COMPOSITOR_UPDATE_URL` changes the feed at build time.
 
-For development builds, `<ARCH>` is `x86_64` or `aarch64` (`amd64` or `arm64` in DEB filenames). Tagged releases require both architecture jobs to pass.
+`<ARCH>` is `x86_64` or `aarch64` (`amd64` or `arm64` in DEB filenames). Tagged releases require both architecture jobs to pass.

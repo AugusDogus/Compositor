@@ -21,7 +21,7 @@ A Linux fork of Compositor built with Rust and QuickGUI.
 
 Download the **AppImage matching your Linux architecture** (`x86_64` or `aarch64`), make it executable, and run it. Requires glibc 2.39 or newer, a graphical desktop with XDG portals, and a working Vulkan or OpenGL driver. If FUSE is unavailable, run with `--appimage-extract-and-run`.
 
-Alternatively, install the **DEB or RPM** with your package manager. Both contain the same offline models and codecs as the AppImage. Close the editor before updating through your package manager.
+Alternatively, install the **DEB, RPM or Arch package** with your package manager. All contain the same offline models and codecs as the AppImage. Close the editor before updating through your package manager.
 
 Background removal works offline immediately: native ONNX Runtime, its Vulkan/WebGPU plugin and both full BiRefNet Dynamic models are bundled. No Python or dependency installation is required. One AppImage supports NVIDIA and AMD Vulkan GPUs with FP16 shader support, with CPU inference when no compatible hardware adapter is available. Graphics drivers come from your system.
 
