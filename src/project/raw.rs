@@ -29,6 +29,8 @@ struct Record {
 /// Bind authoring data to the cached raster it can replace. Placement, masks and
 /// layer effects deliberately stay outside this digest: they do not change the
 /// developed source. This detects stale/corrupt sidecars, not malicious authors.
+/// RawAsset's serialized schema is part of v2's digest format. Changes to its
+/// serialized fields/defaults require a versioned migration before loading v2.
 fn binding(
     document: Uuid,
     layer: &Layer,
