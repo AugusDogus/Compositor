@@ -139,6 +139,29 @@ pub(super) fn load(doc: &mut Document, path: &Path, root: &Path) -> Result<()> {
     Ok(())
 }
 
+pub(super) fn validate_metadata(doc: &Document) -> Result<()> {
+    // UUIDs have fixed length. A maximal digest bounds JSON bytes without
+    // hashing every embedded source and pixel cache just to estimate storage.
+    let layers = doc
+        .layers
+        .iter()
+        .filter_map(|layer| {
+            Some(Record {
+                layer: layer.id,
+                source: layer.id,
+                asset: layer.raw.as_ref()?.as_ref().clone(),
+                binding: Some([255; 32]),
+            })
+        })
+        .collect();
+    if serde_json::to_vec(&Sources { version: 2, layers })?.len() as u64 > MANIFEST_LIMIT {
+        return Err(invalid(
+            "The project's RAW settings would exceed 4 MiB. Choose fewer size variants or simplify the embedded RAW metadata; the document is unchanged.",
+        ));
+    }
+    Ok(())
+}
+
 pub(super) fn save(doc: &Document, path: &Path) -> Result<()> {
     let mut sources = HashMap::new();
     let mut digests: HashMap<Uuid, [u8; 32]> = HashMap::new();

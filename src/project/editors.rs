@@ -67,7 +67,7 @@ pub(super) fn load(doc: &mut Document, path: &Path, root: &Path) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn save(doc: &Document, path: &Path) -> Result<()> {
+pub(super) fn metadata(doc: &Document) -> Result<Vec<u8>> {
     let layers: Vec<_> = doc
         .layers
         .iter()
@@ -82,13 +82,21 @@ pub(super) fn save(doc: &Document, path: &Path) -> Result<()> {
         })
         .collect();
     if layers.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
     let bytes = serde_json::to_vec_pretty(&Editors { version: 1, layers })?;
     if bytes.len() as u64 > MANIFEST_LIMIT {
         return Err(invalid(
             "The project's Linux editor hints exceed 4 MiB. The previous save is preserved.",
         ));
+    }
+    Ok(bytes)
+}
+
+pub(super) fn save(doc: &Document, path: &Path) -> Result<()> {
+    let bytes = metadata(doc)?;
+    if bytes.is_empty() {
+        return Ok(());
     }
     let mut file = File::create(path.join(NAME))?;
     file.write_all(&bytes)?;

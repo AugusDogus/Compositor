@@ -116,9 +116,7 @@ pub fn compatibility_notice(document: &Document) -> Option<String> {
     ))
 }
 
-pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Result<()> {
-    let source_path = path.join(SOURCE);
-    fs::create_dir(&source_path)?;
+fn sources(document: &Document) -> (Document, Settings) {
     let mut source = document.clone();
     let paths = std::mem::take(&mut source.paths);
     let mut layers = Vec::new();
@@ -139,16 +137,78 @@ pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Resul
             layer.content = LayerContent::Raster(None);
         }
     }
-    write_native(&source, &source_path)?;
-    write_json(
-        &source_path.join(SETTINGS),
-        &Settings {
+    (
+        source,
+        Settings {
             version: 3,
             layers,
             paths,
             artboards,
         },
-    )?;
+    )
+}
+
+pub(super) fn validate_metadata(document: &Document) -> Result<()> {
+    let (source, settings) = sources(document);
+    native_metadata(&source)?;
+    if serde_json::to_vec(&settings)?.len() as u64 > MANIFEST_LIMIT {
+        return Err(invalid(
+            "Linux editing metadata exceeds 4 MiB. Choose fewer size variants; the document is unchanged.",
+        ));
+    }
+    // Fixed namespace entries are bounded without encoding images or hashing
+    // source files. Use the largest possible stored size and digest bytes.
+    let mut names = vec![
+        "manifest.json".to_owned(),
+        format!("{SOURCE}/manifest.json"),
+        format!("{SOURCE}/{SETTINGS}"),
+        format!("images/{}", asset_name(document.id, false)),
+    ];
+    let mut raw_sources = HashSet::new();
+    for layer in &source.layers {
+        if layer.raster().is_some() {
+            names.push(format!("{SOURCE}/images/{}", asset_name(layer.id, false)));
+        }
+        if layer.mask.is_some() {
+            names.push(format!("{SOURCE}/images/{}", asset_name(layer.id, true)));
+        }
+        if let Some(raw) = &layer.raw
+            && raw_sources.insert(Arc::as_ptr(&raw.bytes))
+        {
+            names.push(format!("{SOURCE}/raw/{}.raw", layer.id));
+        }
+    }
+    names.extend([
+        format!("{SOURCE}/linux-raw.json"),
+        format!("{SOURCE}/linux-editors.json"),
+    ]);
+    let index = Index {
+        version: 1,
+        purpose: Purpose::Project,
+        files: names
+            .into_iter()
+            .map(|name| BoundFile {
+                name,
+                length: ASSET_LIMIT,
+                sha256: [255; 32],
+            })
+            .collect(),
+    };
+    if index.files.len() > ENTRY_LIMIT || serde_json::to_vec(&index)?.len() as u64 > MANIFEST_LIMIT
+    {
+        return Err(invalid(
+            "The Linux editing asset index would exceed its storage limit. Choose fewer size variants; the document is unchanged.",
+        ));
+    }
+    Ok(())
+}
+
+pub(super) fn write(document: &Document, path: &Path, purpose: Purpose) -> Result<()> {
+    let source_path = path.join(SOURCE);
+    fs::create_dir(&source_path)?;
+    let (source, settings) = sources(document);
+    write_native(&source, &source_path)?;
+    write_json(&source_path.join(SETTINGS), &settings)?;
     if purpose == Purpose::Recovery {
         // Deliberately not a native manifest. A damaged recovery snapshot must
         // never be offered as an apparently successful blank rendered copy.

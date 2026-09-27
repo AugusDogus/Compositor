@@ -8,11 +8,8 @@ pub(super) enum Target {
     Board(Uuid),
     Mixed,
 }
-impl Editor {
-    pub(super) fn artboard_target(&self) -> Target {
-        let Some(doc) = self.current_document().filter(|_| !self.tools.mask_target) else {
-            return Target::None;
-        };
+impl Target {
+    pub(super) fn from_document(doc: &Document) -> Self {
         let Some(board) = doc
             .layers
             .iter()
@@ -29,6 +26,13 @@ impl Editor {
         } else {
             Target::Mixed
         }
+    }
+}
+impl Editor {
+    pub(super) fn artboard_target(&self) -> Target {
+        self.current_document()
+            .filter(|_| !self.tools.mask_target)
+            .map_or(Target::None, Target::from_document)
     }
     pub(super) fn transforms_artboard(&self) -> bool {
         !matches!(self.artboard_target(), Target::None)

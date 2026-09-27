@@ -5,6 +5,21 @@ use compositor::{
 };
 use quickgui::PathPromptOptions;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Output {
+    Files,
+    Artboards,
+}
+fn output(fields: &[(&str, String)]) -> Result<Output> {
+    match fields.get(4).map(|(_, value)| value.as_str()) {
+        Some("files") => Ok(Output::Files),
+        Some("artboards") => Ok(Output::Artboards),
+        _ => Err(invalid(
+            "Choose image files or editable artboards as the output.",
+        )),
+    }
+}
+
 fn batch(fields: &[(&str, String)]) -> Result<Batch> {
     let value = |index: usize| {
         fields.get(index).map(|(_, value)| value.as_str())
@@ -15,7 +30,11 @@ fn batch(fields: &[(&str, String)]) -> Result<Batch> {
         "fill" => Fit::Cover,
         _ => return Err(invalid("Choose Fit or Fill for export framing.")),
     };
-    let format = match value(2)? {
+    let format = match if output(fields)? == Output::Artboards {
+        "png"
+    } else {
+        value(2)?
+    } {
         "png" => Format::Png,
         "jpeg" => Format::Jpeg {
             quality: value(3)?
@@ -40,6 +59,7 @@ impl Editor {
                 ("Framing", "fit".into()),
                 ("Format", "png".into()),
                 ("Quality", "85".into()),
+                ("Output", "files".into()),
             ],
             error: String::new(),
         });
@@ -51,6 +71,17 @@ impl Editor {
         fields: &[(&'static str, String)],
     ) -> Element {
         let mut contents = div().flex_col().gap(14.);
+        if let Some((_, choice)) = fields.get(4) {
+            contents = contents.child(self.field_choices(
+                cx,
+                4,
+                choice,
+                &[
+                    ("Image files", "files"),
+                    ("Editable artboards", "artboards"),
+                ],
+            ));
+        }
         if let Some((_, sizes)) = fields.first() {
             contents = contents
                 .child(text("Sizes in pixels, separated by commas").text_size(13.))
@@ -78,7 +109,9 @@ impl Editor {
             contents =
                 contents.child(self.field_choices(cx, 1, fit, &[("Fit", "fit"), ("Fill", "fill")]));
         }
-        if let Some((_, format)) = fields.get(2) {
+        if output(fields).is_ok_and(|output| output == Output::Files)
+            && let Some((_, format)) = fields.get(2)
+        {
             contents = contents.child(self.field_choices(
                 cx,
                 2,
@@ -101,8 +134,51 @@ impl Editor {
                 );
             }
         }
-        contents.child(text("Fit keeps the whole canvas with padding. Fill crops centrally. PNG preserves transparency; JPEG uses white. A new export folder is created in your chosen destination. Your project stays unchanged.")
-            .text_size(12.).line_height(16.).wrap())
+        let description = if output(fields).is_ok_and(|output| output == Output::Artboards) {
+            "Create editable copies of the canvas, or the selected artboard, at each size. Fit adds transparent padding; Fill crops centrally. Original layers stay in place. For a project with artboards, select one board as the source."
+        } else {
+            "Fit keeps the whole canvas with padding. Fill crops centrally. PNG preserves transparency; JPEG uses white. A new export folder is created in your chosen destination. Your project stays unchanged."
+        };
+        contents.child(text(description).text_size(12.).line_height(16.).wrap())
+    }
+
+    pub(super) fn export_sizes_creates_artboards(&self) -> bool {
+        matches!(&self.modal, Some(Form::Edit {action: Action::ExportSizes, fields, ..})
+            if output(fields).is_ok_and(|output| output == Output::Artboards))
+    }
+
+    fn create_export_artboards(&mut self, batch: Batch, cx: &mut EventContext) {
+        let result = self
+            .session_mut()
+            .edit_committed("Create Artboard Sizes", |doc| {
+                let source = match super::artboards::Target::from_document(doc) {
+                    super::artboards::Target::None => compositor::export_sizes::Source::Canvas,
+                    super::artboards::Target::Board(id) => {
+                        compositor::export_sizes::Source::Artboard(id)
+                    }
+                    super::artboards::Target::Mixed => {
+                        return Err(invalid(
+                            "Select one artboard as the source before creating editable sizes.",
+                        ));
+                    }
+                };
+                batch.add_artboards(doc, source).map(|_| ())
+            });
+        match result {
+            Ok(()) => {
+                self.session_mut().fit = true;
+                self.refresh_adjustment_document();
+                self.refresh_filter_document();
+                self.finish_form();
+                self.status = "Created editable artboards. Original layers are unchanged.".into();
+            }
+            Err(failure) => {
+                if let Some(Form::Edit { error, .. }) = &mut self.modal {
+                    *error = failure.to_string();
+                }
+            }
+        }
+        self.changed(cx);
     }
 
     pub(super) fn finish_export_sizes(&mut self, cx: &mut EventContext) {
@@ -124,6 +200,10 @@ impl Editor {
                 return;
             }
         };
+        if output(fields).is_ok_and(|output| output == Output::Artboards) {
+            self.create_export_artboards(batch, cx);
+            return;
+        }
         let document = self.session().committed_document().clone();
         let title = self.session().title();
         let operation = alerts::Operation::ExportSizes;

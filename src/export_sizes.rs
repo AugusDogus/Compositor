@@ -5,6 +5,8 @@ use std::{
     collections::HashSet,
     path::{Path, PathBuf},
 };
+mod artboards;
+pub use artboards::Source;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Fit {

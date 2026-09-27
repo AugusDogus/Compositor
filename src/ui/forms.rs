@@ -566,7 +566,9 @@ impl Editor {
     // constructs adjustment fields and sliders on the default test-thread stack.
     fn form_apply_button(&self, action: Action, unavailable: bool) -> Element {
         self.control(
-            if matches!(action, Action::ExportJpeg | Action::ExportSizes) {
+            if matches!(action, Action::ExportSizes) && self.export_sizes_creates_artboards() {
+                "Create Artboards"
+            } else if matches!(action, Action::ExportJpeg | Action::ExportSizes) {
                 "Export…"
             } else if matches!(action, Action::ImageSize) {
                 "Resize"
