@@ -15,7 +15,7 @@ pub(super) enum Conversion {
         report: ConversionReport,
     },
     Export {
-        document: Document,
+        document: Box<Document>,
         report: ConversionReport,
     },
 }
@@ -49,7 +49,10 @@ impl Editor {
     pub(super) fn prepare_psd_export(&mut self) {
         let document = self.session().committed_document().clone();
         let report = compositor::psd::export_report(&document);
-        self.psd_conversion = Some(Conversion::Export { document, report });
+        self.psd_conversion = Some(Conversion::Export {
+            document: Box::new(document),
+            report,
+        });
     }
     fn cancel_psd_conversion(&mut self, cx: &mut EventContext) {
         self.psd_conversion = None;
@@ -65,7 +68,7 @@ impl Editor {
                 let result = self.finish_approved_file_job(*completed, cx);
                 self.operation_result(alerts::Operation::Import, result, cx);
             }
-            Conversion::Export { document, .. } => self.prompt_psd_path(document, cx),
+            Conversion::Export { document, .. } => self.prompt_psd_path(*document, cx),
         }
     }
     pub(super) fn psd_conversion_view(

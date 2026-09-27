@@ -19,7 +19,7 @@ use compositor::{
 };
 
 enum TransformSource {
-    Layers(Document),
+    Layers(Box<Document>),
     Floating,
 }
 
@@ -123,7 +123,7 @@ impl Editor {
             let source = if self.pending_pixels.is_some() {
                 TransformSource::Floating
             } else {
-                TransformSource::Layers(doc.clone())
+                TransformSource::Layers(Box::new(doc.clone()))
             };
             let bounds = self
                 .header_transform_bounds()
@@ -214,7 +214,7 @@ impl Editor {
         };
         let preview = match &edit.source {
             TransformSource::Layers(original) => {
-                let mut preview = original.clone();
+                let mut preview = original.as_ref().clone();
                 compositor::transform::apply(&mut preview, edit.bounds, next, self.tools.mask_target)?;
                 preview
             }
