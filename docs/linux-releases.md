@@ -60,6 +60,20 @@ scripts/package-linux-native.sh dist/Compositor-0.6.1-x86_64.AppImage
 
 Substitute the current version. DEB/RPM versions use `~` before prerelease identifiers; Arch versions use `pre.` (for example, `0.7.0pre.rc.1`). Each sorts before the corresponding stable version.
 
+## Nix
+
+The flake pins the published v0.6.1 AppImage, including its offline models, for x86_64 Linux.
+
+From this checkout:
+
+```sh
+nix run .#compositor-bin
+# Or install it in your profile:
+nix profile install .#compositor-bin
+```
+
+On NixOS, enable graphics drivers and a desktop portal through your system configuration. Other distributions may need [nixGL](https://github.com/nix-community/nixGL) for hardware graphics. The package was built and launched with software rendering; hardware graphics through Nix remain unverified. Update this package through Nix.
+
 ## Publish a release
 
 The [Linux workflow](../.github/workflows/linux-release.yml) runs on pull requests, pushes to `main`, version tags and manual dispatch. It checks formatting, Clippy and tests, builds the AppImage, and checks the payload with CPU inference and a real X-Trans RAW fixture. It then packages that payload as DEB, RPM and Arch files. Ordinary runs upload a `compositor-linux-x86_64` Actions artifact; version tags publish a GitHub release in this repository.
