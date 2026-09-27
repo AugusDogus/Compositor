@@ -1,5 +1,7 @@
 pub mod dither;
 pub mod finishing;
+mod gaussian;
+pub use gaussian::gaussian_rgba;
 pub(crate) mod motion;
 pub use finishing::Vignette;
 
@@ -253,19 +255,15 @@ fn pad(image: &RgbaImage, transform: Transform, margin: u32) -> Result<(RgbaImag
     Ok((pixels, expanded))
 }
 
-/// Gaussian blur in premultiplied color, accelerated by Vulkan when available.
-pub fn gaussian_rgba(image: &RgbaImage, radius: f32) -> Result<RgbaImage> {
-    finishing::range(f64::from(radius), 0.1, 250.)?;
-    Ok(native_pixels::unpremultiply(finishing::blur(
-        &native_pixels::premultiply(image),
-        radius,
-    )?))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use image::Rgba;
+    #[test]
+    fn gaussian_preserves_translucent_flat_colors() {
+        let image = RgbaImage::from_pixel(7, 7, Rgba([71, 83, 111, 37]));
+        assert_eq!(gaussian_rgba(&image, 2.).unwrap(), image);
+    }
     #[test]
     fn vignette_rejects_oversized_sparse_canvas_before_allocating_pixels() {
         let mut doc = Document::new(30_000, 30_000).unwrap();

@@ -514,6 +514,13 @@ pub(crate) fn gpu_coverage_blur(
     gpu::gaussian::blur(image, sigma)
 }
 
+pub(crate) fn gpu_float_blur(
+    image: &image::ImageBuffer<image::Luma<f32>, Vec<f32>>,
+    sigma: f32,
+) -> crate::Result<Option<image::ImageBuffer<image::Luma<f32>, Vec<f32>>>> {
+    gpu::gaussian::blur_float(image, sigma)
+}
+
 pub(crate) fn gpu_camera_geometry(
     image: &image::RgbaImage,
     matrix: [f32; 9],

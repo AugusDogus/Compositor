@@ -1,10 +1,24 @@
 //! Reuse the effect blur kernels for canvas-aligned grayscale coverage.
 use super::Engine;
 use crate::{Result, invalid};
-use image::GrayImage;
+use image::{GrayImage, ImageBuffer, Luma};
+
+pub(crate) type FloatPlane = ImageBuffer<Luma<f32>, Vec<f32>>;
 use wgpu::util::DeviceExt;
 
 pub(in crate::render) fn blur(image: &GrayImage, sigma: f32) -> Result<Option<GrayImage>> {
+    let plane = FloatPlane::from_fn(image.width(), image.height(), |x, y| {
+        Luma([f32::from(image[(x, y)][0]) / 255.])
+    });
+    Ok(blur_float(&plane, sigma)?.map(|blurred| {
+        GrayImage::from_fn(image.width(), image.height(), |x, y| {
+            Luma([(blurred[(x, y)][0].clamp(0., 1.) * 255.).round() as u8])
+        })
+    }))
+}
+
+pub(in crate::render) fn blur_float(image: &FloatPlane, sigma: f32) -> Result<Option<FloatPlane>> {
+    crate::document::validate_size(image.width(), image.height())?;
     let Ok(engine) = super::engine() else {
         return Ok(None);
     };
@@ -14,7 +28,7 @@ pub(in crate::render) fn blur(image: &GrayImage, sigma: f32) -> Result<Option<Gr
     engine.blur_coverage(image, sigma)
 }
 impl Engine {
-    fn blur_coverage(&mut self, image: &GrayImage, sigma: f32) -> Result<Option<GrayImage>> {
+    fn blur_coverage(&mut self, image: &FloatPlane, sigma: f32) -> Result<Option<FloatPlane>> {
         let bytes = image.len() as u64 * 4;
         if bytes > self.device.limits().max_storage_buffer_binding_size {
             return Ok(None);
@@ -29,16 +43,11 @@ impl Engine {
                 mapped_at_creation: false,
             })
         };
-        let values: Vec<f32> = image
-            .as_raw()
-            .iter()
-            .map(|v| f32::from(*v) / 255.)
-            .collect();
         let input = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Coverage input"),
-                contents: bytemuck::cast_slice(&values),
+                contents: bytemuck::cast_slice(image.as_raw()),
                 usage: storage,
             });
         let rows = allocate("Blur rows", bytes, storage);
@@ -104,16 +113,13 @@ impl Engine {
             |bytes| {
                 bytes
                     .chunks_exact(4)
-                    .map(|b| {
-                        (f32::from_le_bytes([b[0], b[1], b[2], b[3]]).clamp(0., 1.) * 255.).round()
-                            as u8
-                    })
+                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
                     .collect()
             },
         );
         result
             .and_then(|pixels| {
-                GrayImage::from_raw(image.width(), image.height(), pixels)
+                FloatPlane::from_raw(image.width(), image.height(), pixels)
                     .ok_or_else(|| invalid("Coverage blur returned the wrong pixel count."))
             })
             .map(Some)
@@ -126,15 +132,14 @@ mod tests {
     #[ignore = "Requires a hardware Vulkan adapter"]
     fn grayscale_gpu_blur_matches_cpu_and_clamps_canvas_edges() {
         let mut engine = Engine::new().unwrap();
-        let mask = GrayImage::from_fn(39, 29, |x, y| {
-            image::Luma([if x < 15 && y < 11 { 255 } else { 0 }])
+        let mask = FloatPlane::from_fn(39, 29, |x, y| {
+            image::Luma([if x < 15 && y < 11 { 0.371 } else { 0.003 }])
         });
         let gpu = engine.blur_coverage(&mask, 3.7).unwrap().unwrap();
-        let values: Vec<_> = mask.as_raw().iter().map(|v| f32::from(*v) / 255.).collect();
-        let expected = crate::effects::cpu::gaussian(&values, 39, 29, 3.7);
+        let expected = crate::effects::cpu::gaussian(mask.as_raw(), 39, 29, 3.7);
         for (a, b) in gpu.as_raw().iter().zip(expected) {
-            assert!(a.abs_diff((b * 255.).round() as u8) <= 1);
+            assert!((a - b).abs() < 0.00001);
         }
-        assert!(gpu[(0, 0)][0] > 250);
+        assert!(gpu[(0, 0)][0] > 0.36);
     }
 }
