@@ -13,6 +13,7 @@ pub enum ExtendedAdjustment {
     Threshold(crate::threshold::Threshold),
     Posterize(crate::posterize::Posterize),
     Vibrance(crate::vibrance::Vibrance),
+    ShadowsHighlights(crate::shadows_highlights::Settings),
 }
 impl ExtendedAdjustment {
     pub fn label(self) -> &'static str {
@@ -23,6 +24,7 @@ impl ExtendedAdjustment {
             Self::Threshold(_) => "Threshold",
             Self::Posterize(_) => "Posterize",
             Self::Vibrance(_) => "Vibrance",
+            Self::ShadowsHighlights(_) => "Shadows/Highlights",
         }
     }
     pub fn validate(self) -> Result<()> {
@@ -30,12 +32,17 @@ impl ExtendedAdjustment {
             Self::PhotoFilter(settings) => settings.validate(),
             Self::ChannelMixer(settings) => settings.validate(),
             Self::SelectiveColor(settings) => settings.validate(),
-            Self::Threshold(_) | Self::Posterize(_) | Self::Vibrance(_) => Ok(()),
+            Self::Threshold(_)
+            | Self::Posterize(_)
+            | Self::Vibrance(_)
+            | Self::ShadowsHighlights(_) => Ok(()),
         }
     }
     /// Evaluate continuous backdrop RGB. Quantization belongs to the final output.
     pub fn apply_rgba(self, rgba: [f64; 4]) -> [f64; 4] {
-        if rgba[3] == 0.
+        // Spatial adjustments are evaluated against a prepared backdrop surface.
+        if matches!(self, Self::ShadowsHighlights(_))
+            || rgba[3] == 0.
             || matches!(self, Self::Posterize(settings) if settings.levels() == 256)
             || matches!(self, Self::Vibrance(settings) if settings.identity())
         {
@@ -49,6 +56,7 @@ impl ExtendedAdjustment {
             Self::Threshold(settings) => settings.apply_rgb(input),
             Self::Posterize(settings) => settings.apply_rgb(input),
             Self::Vibrance(settings) => settings.apply_rgb(input),
+            Self::ShadowsHighlights(_) => unreachable!("spatial adjustments use backdrop surfaces"),
         };
         [
             f64::from(rgb[0]),

@@ -15,7 +15,25 @@ pub fn export_report(doc: &Document) -> ConversionReport {
         report.note("Saved working paths are omitted from PSD output. Save a .comp project to retain editable paths.");
     }
     if requires_rendered_copy(doc) {
-        report.note("Artboards, Photo Filter or fractional Channel Mixer/Selective Color adjustment layers require a rendered PSD copy. All layers are flattened in this export; save a .comp project to retain editable layers and filter settings.");
+        for layer in &doc.layers {
+            match &layer.content {
+                LayerContent::Artboard(_) => report.note(format!(
+                    "{}: Artboards require a rendered PSD copy.",
+                    layer.name
+                )),
+                LayerContent::ExtendedAdjustment(settings)
+                    if super::extended::export(settings).is_none() =>
+                {
+                    report.note(format!(
+                        "{}: these {} settings require a rendered PSD copy.",
+                        layer.name,
+                        settings.label()
+                    ));
+                }
+                _ => {}
+            }
+        }
+        report.note("All layers are flattened in this export; save a .comp project to retain editable layers and filter settings.");
         return report;
     }
     if doc.selection.is_some() {

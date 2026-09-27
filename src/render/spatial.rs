@@ -1,7 +1,11 @@
 //! Backdrop surfaces for spatial adjustment layers. Each surface captures the
 //! stack immediately before its adjustment, including prior spatial adjustments.
 use super::*;
-use crate::{Result, adjustment::Kind, geometry::Transform};
+use crate::{
+    Result,
+    adjustment::{ExtendedAdjustment, Kind},
+    geometry::Transform,
+};
 use std::sync::Arc;
 
 pub(super) struct Surface {
@@ -9,6 +13,71 @@ pub(super) struct Surface {
     pub transform: Transform,
 }
 pub(super) type Surfaces = HashMap<Uuid, Surface>;
+
+// The same operation determines traversal, halo size and surface evaluation.
+enum Spatial {
+    Gaussian(f64),
+    Motion { distance: f64, angle: f64 },
+    ShadowsHighlights(crate::shadows_highlights::Settings),
+}
+impl Spatial {
+    fn from(layer: &Layer) -> Option<Self> {
+        match &layer.content {
+            LayerContent::Adjustment(a) => match a.kind {
+                Kind::GaussianBlur => Some(Self::Gaussian(a.blur_radius.unwrap_or(10.))),
+                Kind::MotionBlur => Some(Self::Motion {
+                    distance: a.motion_distance.unwrap_or(10.),
+                    angle: a.motion_angle.unwrap_or(0.),
+                }),
+                _ => None,
+            },
+            LayerContent::ExtendedAdjustment(a) => match **a {
+                ExtendedAdjustment::ShadowsHighlights(settings) if !settings.identity() => {
+                    Some(Self::ShadowsHighlights(settings))
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+    fn margin(&self) -> f64 {
+        match self {
+            Self::Gaussian(radius) => radius * 3. + 2.,
+            Self::Motion { distance, .. } => distance * 0.5 + 2.,
+            Self::ShadowsHighlights(settings) => settings.radius() * 1.5 + 2.,
+        }
+    }
+    fn apply(self, input: RgbaImage, spacing: f64, accelerated: bool) -> Result<RgbaImage> {
+        match self {
+            Self::Gaussian(radius) => {
+                let radius = (radius / spacing) as f32;
+                // Below this scale adjacent Gaussian weights cannot affect 8-bit output.
+                if radius <= 0.1 {
+                    Ok(input)
+                } else if accelerated {
+                    crate::filters::gaussian_rgba(&input, radius)
+                } else {
+                    Ok(crate::native_pixels::unpremultiply(image::imageops::blur(
+                        &crate::native_pixels::premultiply(&input),
+                        radius,
+                    )))
+                }
+            }
+            Self::Motion { distance, angle } => {
+                let distance = distance / spacing;
+                let gpu = if accelerated {
+                    gpu::motion::blur(&input, distance, angle)?
+                } else {
+                    None
+                };
+                Ok(gpu.unwrap_or_else(|| crate::filters::motion::apply(&input, distance, angle)))
+            }
+            Self::ShadowsHighlights(settings) => {
+                crate::shadows_highlights::apply(&input, settings, 1. / spacing, accelerated)
+            }
+        }
+    }
+}
 
 pub(super) fn prepare(
     doc: &Document,
@@ -31,13 +100,11 @@ pub(super) fn prepare(
             } else if let Some(children) = state.stacks.get(&layer.id) {
                 for index in children {
                     let child = &doc.layers[*index];
-                    if matches!(&child.content, LayerContent::Adjustment(a) if matches!(a.kind, Kind::GaussianBlur | Kind::MotionBlur))
-                    {
+                    if Spatial::from(child).is_some() {
                         out.push(child.id);
                     }
                 }
-            } else if matches!(&layer.content,LayerContent::Adjustment(a) if matches!(a.kind,Kind::GaussianBlur|Kind::MotionBlur))
-            {
+            } else if Spatial::from(layer).is_some() {
                 out.push(layer.id);
             }
         }
@@ -62,13 +129,7 @@ pub(super) fn prepare(
     // chains only need their largest halo, not the sum of neighboring boards.
     let mut margins: HashMap<Option<Uuid>, f64> = HashMap::new();
     for layer in ids.iter().filter_map(|id| doc.layer(*id)) {
-        let margin = match &layer.content {
-            LayerContent::Adjustment(a) if a.kind == Kind::GaussianBlur => {
-                a.blur_radius.unwrap_or(10.) * 3. + 2.
-            }
-            LayerContent::Adjustment(a) => a.motion_distance.unwrap_or(10.) * 0.5 + 2.,
-            _ => 0.,
-        };
+        let margin = Spatial::from(layer).map_or(0., |op| op.margin());
         *margins
             .entry(crate::artboard::owner(doc, layer.id))
             .or_default() += margin;
@@ -78,13 +139,22 @@ pub(super) fn prepare(
         (margin / step[0]).ceil() as u32,
         (margin / step[1]).ceil() as u32,
     ];
-    let width=size[0].checked_add(pad[0].saturating_mul(2)).ok_or_else(||crate::invalid("Blur preview exceeds the supported image size. Reduce the blur radius or zoom out."))?;
-    let height=size[1].checked_add(pad[1].saturating_mul(2)).ok_or_else(||crate::invalid("Blur preview exceeds the supported image size. Reduce the blur radius or zoom out."))?;
+    let width=size[0].checked_add(pad[0].saturating_mul(2)).ok_or_else(||crate::invalid("Adjustment preview exceeds the supported image size. Reduce the radius or distance, or zoom out."))?;
+    let height=size[1].checked_add(pad[1].saturating_mul(2)).ok_or_else(||crate::invalid("Adjustment preview exceeds the supported image size. Reduce the radius or distance, or zoom out."))?;
     crate::document::validate_size(width, height)?;
     // Retained surfaces plus the input and blur scratch allocations share the
     // document's memory budget rather than multiplying it for each adjustment.
+    let scratch = if ids
+        .iter()
+        .filter_map(|id| doc.layer(*id))
+        .any(|layer| matches!(Spatial::from(layer), Some(Spatial::ShadowsHighlights(_))))
+    {
+        7
+    } else {
+        3
+    };
     crate::document::validate_pixel_budget(
-        u64::from(width) * u64::from(height) * (ids.len() as u64 + 3),
+        u64::from(width) * u64::from(height) * (ids.len() as u64 + scratch),
     )?;
     let origin = [
         origin[0] - f64::from(pad[0]) * step[0],
@@ -98,7 +168,7 @@ pub(super) fn prepare(
     };
     for id in ids {
         let Some(layer) = doc.layer(id) else { continue };
-        let LayerContent::Adjustment(a) = &layer.content else {
+        let Some(operation) = Spatial::from(layer) else {
             continue;
         };
         // Disconnected clipping layers do not contribute to the renderer.
@@ -140,35 +210,7 @@ pub(super) fn prepare(
                 Rgba(pixel.map(|v| (v.clamp(0., 1.) * 255.).round() as u8))
             })
         });
-        let image = match a.kind {
-            Kind::GaussianBlur => {
-                let radius = (a.blur_radius.unwrap_or(10.) / step[0]) as f32;
-                // At this scale adjacent weights are at most exp(-50), below
-                // 8-bit precision. Preserve the input instead of evaluating an
-                // underflowing kernel or rejecting a valid zoomed-out radius.
-                if radius <= 0.1 {
-                    input
-                } else if accelerated {
-                    crate::filters::gaussian_rgba(&input, radius)?
-                } else {
-                    crate::native_pixels::unpremultiply(image::imageops::blur(
-                        &crate::native_pixels::premultiply(&input),
-                        radius,
-                    ))
-                }
-            }
-            Kind::MotionBlur => {
-                let distance = a.motion_distance.unwrap_or(10.) / step[0];
-                let angle = a.motion_angle.unwrap_or(0.);
-                let gpu = if accelerated {
-                    gpu::motion::blur(&input, distance, angle)?
-                } else {
-                    None
-                };
-                gpu.unwrap_or_else(|| crate::filters::motion::apply(&input, distance, angle))
-            }
-            _ => unreachable!("spatial adjustment list contains only blur layers"),
-        };
+        let image = operation.apply(input, spacing, accelerated)?;
         state.surfaces.insert(
             id,
             Surface {
@@ -353,3 +395,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod shadows_tests;

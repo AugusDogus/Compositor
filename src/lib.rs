@@ -89,3 +89,4 @@ pub mod layer_export;
 pub mod artboard;
 
 pub mod artboard_export;
+pub mod shadows_highlights;

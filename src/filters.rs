@@ -31,6 +31,7 @@ pub enum Filter {
     Threshold(crate::threshold::Threshold),
     Posterize(crate::posterize::Posterize),
     Vibrance(crate::vibrance::Vibrance),
+    ShadowsHighlights(crate::shadows_highlights::Settings),
     Radial(radial::Radial),
     LuminositySharpen(luminosity_sharpen::Settings),
     HighPass {
@@ -196,6 +197,9 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
             Filter::Threshold(settings) => threshold::apply(&source, settings)?,
             Filter::Posterize(settings) => posterize::apply(&source, settings)?,
             Filter::Vibrance(settings) => vibrance::apply(&source, settings)?,
+            Filter::ShadowsHighlights(settings) => {
+                crate::shadows_highlights::apply(&source, settings, 1., true)?
+            }
             Filter::LuminositySharpen(settings) => luminosity_sharpen::apply(&source, settings)?,
             Filter::HighPass { radius } => sharpen::high_pass(&source, radius)?,
             Filter::UnsharpMask {

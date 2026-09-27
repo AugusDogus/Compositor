@@ -4,6 +4,8 @@ The Linux development version targets feature parity with **Compositor for macOS
 
 ## Unreleased
 
+- Shadows/Highlights lifts dark areas and reduces bright areas using a configurable neighborhood radius. Direct pixel edits and editable adjustment layers support preview, masks and undo. Vulkan accelerates the neighborhood blur. Linux projects retain the settings; macOS and PSD receive a rendered composite.
+
 - Vibrance adjusts color intensity with protection for skin tones, alongside a separate Saturation control. Use it as a pixel edit or an editable adjustment layer, with preview and undo. Linux projects retain the settings; PSD keeps whole-number slider values editable and renders fractional values.
 
 - Bevel/Emboss adds editable Inner Bevel, Outer Bevel and Emboss lighting, with size, depth, direction, altitude and highlight/shadow opacity. Preview, copy and undo preserve source pixels. Linux projects retain the settings; macOS and PSD receive rendered layers.

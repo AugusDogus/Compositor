@@ -129,6 +129,9 @@ pub(super) fn encode_extended(
     values: &mut Vec<f32>,
 ) -> u32 {
     match a {
+        crate::adjustment::ExtendedAdjustment::ShadowsHighlights(settings) => {
+            if settings.identity() { 0 } else { 19 }
+        }
         crate::adjustment::ExtendedAdjustment::Vibrance(settings) => {
             values.extend([settings.vibrance(), settings.saturation()]);
             18

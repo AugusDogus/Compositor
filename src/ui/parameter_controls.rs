@@ -49,6 +49,12 @@ impl Parameter {
     fn for_field(action: Action, kind: Option<Kind>, index: usize) -> Option<Self> {
         use Scale::{Linear, Logarithmic};
         let (label, range, unit, scale) = match (action, kind, index) {
+            (Action::Filter(Filter::ShadowsHighlights(_)), _, i @ 0..=1) => {
+                (["Shadows", "Highlights"][i], (0., 100.), "%", Linear(1))
+            }
+            (Action::Filter(Filter::ShadowsHighlights(_)), _, 2) => {
+                ("Radius", (1., 500.), "px", Logarithmic(1))
+            }
             (Action::Filter(Filter::Posterize(_)), _, 0) => ("Levels", (2., 256.), "", Linear(0)),
             (Action::Filter(Filter::Vibrance(_)), _, i @ 0..=1) => {
                 (["Vibrance", "Saturation"][i], (-100., 100.), "%", Linear(1))

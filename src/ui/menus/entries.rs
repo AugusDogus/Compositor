@@ -117,6 +117,13 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 "",
                 Action::Filter(compositor::filters::Filter::Vibrance(Default::default())),
             ),
+            command(
+                "Shadows/Highlights…",
+                "",
+                Action::Filter(compositor::filters::Filter::ShadowsHighlights(
+                    Default::default(),
+                )),
+            ),
             command("Invert", "Ctrl+I", Action::InvertPixels),
             Sep,
             command("Canvas Size…", "Ctrl+Alt+C", Action::CanvasSize),
@@ -352,6 +359,15 @@ pub(super) fn entries(index: usize) -> Vec<Entry> {
                 Action::ExtendedAdjustment(compositor::adjustment::ExtendedAdjustment::Vibrance(
                     Default::default(),
                 )),
+            ),
+            command(
+                "Shadows/Highlights…",
+                "",
+                Action::ExtendedAdjustment(
+                    compositor::adjustment::ExtendedAdjustment::ShadowsHighlights(
+                        Default::default(),
+                    ),
+                ),
             ),
             command("Invert", "", Action::Adjustment(Kind::Invert)),
             command("Gaussian Blur…", "", Action::Adjustment(Kind::GaussianBlur)),

@@ -5,6 +5,7 @@ fn spatial_filter_previews_apply_once_and_support_undo_redo_and_cancel() {
     for filter in [
         Filter::Posterize(Default::default()),
         Filter::Vibrance(compositor::vibrance::Vibrance::new(60., -20.).unwrap()),
+        Filter::ShadowsHighlights(Default::default()),
         Filter::Threshold(Default::default()),
         Filter::PhotoFilter(Default::default()),
         Filter::ChannelMixer(compositor::adjustment::ChannelMixer {

@@ -43,6 +43,9 @@ impl Editor {
             preview: true,
         });
         let fields = match settings {
+            ExtendedAdjustment::ShadowsHighlights(s) => {
+                super::filter_controls::shadows_highlights::fields(s)
+            }
             ExtendedAdjustment::Posterize(s) => super::filter_controls::posterize::fields(s),
             ExtendedAdjustment::Vibrance(s) => super::filter_controls::vibrance::fields(s),
             ExtendedAdjustment::Threshold(s) => super::filter_controls::threshold::fields(s),
@@ -63,6 +66,9 @@ impl Editor {
             return action;
         }
         match self.extended_edit.as_ref().map(|draft| draft.original) {
+            Some(ExtendedAdjustment::ShadowsHighlights(settings)) => {
+                Action::Filter(compositor::filters::Filter::ShadowsHighlights(settings))
+            }
             Some(ExtendedAdjustment::Vibrance(settings)) => {
                 Action::Filter(compositor::filters::Filter::Vibrance(settings))
             }
@@ -101,6 +107,10 @@ impl Editor {
         };
         let values: Vec<_> = fields.iter().map(|(_, value)| value.clone()).collect();
         match draft.original {
+            ExtendedAdjustment::ShadowsHighlights(_) => {
+                super::filter_controls::shadows_highlights::parse(&values)
+                    .map(ExtendedAdjustment::ShadowsHighlights)
+            }
             ExtendedAdjustment::Vibrance(_) => {
                 super::filter_controls::vibrance::parse(&values).map(ExtendedAdjustment::Vibrance)
             }
