@@ -232,6 +232,9 @@ fn apply_operation(doc: &mut Document, operation: Operation, mask_target: bool) 
             p[3] = (alpha * 255.).round() as u8;
         }
     }
+    if transform == original_transform && result == *original {
+        return Ok(());
+    }
     layer.mask = expanded.mask;
     if transform != original_transform {
         // Keep a normalized mask at its original document placement when the source grows.
