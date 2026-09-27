@@ -3,7 +3,6 @@ use crate::{Result, document::Document, image_io, invalid, render};
 use image::RgbaImage;
 use std::{
     collections::HashSet,
-    fs::File,
     path::{Path, PathBuf},
 };
 
@@ -85,71 +84,19 @@ impl Batch {
     /// All files are staged first. Existing folders, files and symlinks are never replaced.
     pub fn export(&self, document: &Document, parent: &Path, title: &str) -> Result<PathBuf> {
         document.validate()?;
-        let staged = tempfile::Builder::new()
-            .prefix(".compositor-export-")
-            .tempdir_in(parent)?;
-        let stem = safe_stem(title);
-        let mut cache = render::DownsampleCache::default();
-        for &[width, height] in &self.sizes {
-            let pixels = render_frame(document, [width, height], self.fit, &mut cache)?;
-            let path = staged.path().join(format!(
-                "{stem}-{width}x{height}.{}",
-                self.format.extension()
-            ));
-            image_io::export_pixels(pixels, document.resolution, &path, self.format.quality())?;
-        }
-        File::open(staged.path())?.sync_all()?;
-        for suffix in 0..1000 {
-            let name = if suffix == 0 {
-                format!("{stem}-exports")
-            } else {
-                format!("{stem}-exports-{}", suffix + 1)
-            };
-            let destination = parent.join(name);
-            match rustix::fs::renameat_with(
-                rustix::fs::CWD,
-                staged.path(),
-                rustix::fs::CWD,
-                &destination,
-                rustix::fs::RenameFlags::NOREPLACE,
-            ) {
-                Ok(()) => {
-                    File::open(parent)?.sync_all().map_err(|error| invalid(format!(
-                        "Exported to {}, but could not sync the containing folder: {error}. Verify these files before removing the source project.", destination.display()
-                    )))?;
-                    return Ok(destination);
-                }
-                Err(rustix::io::Errno::EXIST) => continue,
-                Err(error) => return Err(std::io::Error::from(error).into()),
+        let stem = crate::export_batch::safe_stem(title);
+        crate::export_batch::publish(parent, &format!("{stem}-exports"), |directory| {
+            let mut cache = render::DownsampleCache::default();
+            for &[width, height] in &self.sizes {
+                let pixels = render_frame(document, [width, height], self.fit, &mut cache)?;
+                let path = directory.join(format!(
+                    "{stem}-{width}x{height}.{}",
+                    self.format.extension()
+                ));
+                image_io::export_pixels(pixels, document.resolution, &path, self.format.quality())?;
             }
-        }
-        Err(invalid(
-            "No unused export folder name was available. Choose another destination folder. Existing files and your project are unchanged.",
-        ))
-    }
-}
-
-fn safe_stem(title: &str) -> String {
-    let mut bytes = 0;
-    let stem: String = title
-        .chars()
-        .map(|ch| {
-            if ch.is_alphanumeric() || matches!(ch, '-' | '_' | ' ') {
-                ch
-            } else {
-                '_'
-            }
+            Ok(())
         })
-        .take_while(|ch| {
-            bytes += ch.len_utf8();
-            bytes <= 128
-        })
-        .collect();
-    let stem = stem.trim();
-    if stem.is_empty() {
-        "Untitled".into()
-    } else {
-        stem.into()
     }
 }
 

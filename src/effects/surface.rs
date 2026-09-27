@@ -103,6 +103,31 @@ fn surface(
     }
     Ok(rendered)
 }
+/// Placement of the padded effect surface, shared by rendering and export bounds.
+pub(crate) fn rendered_transform(layer: &Layer) -> Transform {
+    let Some(source) = layer.raster() else {
+        return layer.transform;
+    };
+    let Some(effects) = layer
+        .effects
+        .as_ref()
+        .map(LayerEffects::visible)
+        .filter(|effects| !effects.is_empty())
+    else {
+        return layer.transform;
+    };
+    let margin = f64::from(effects.margin());
+    let mut transform = layer.transform;
+    let center = transform.point([0.5, 0.5]);
+    transform.size[0] *= (f64::from(source.width()) + 2. * margin) / f64::from(source.width());
+    transform.size[1] *= (f64::from(source.height()) + 2. * margin) / f64::from(source.height());
+    transform.origin = [
+        center[0] - transform.size[0] / 2.,
+        center[1] - transform.size[1] / 2.,
+    ];
+    transform
+}
+
 /// Temporary surfaces include the enabled raster mask, then follow the original
 /// transform. Clipping, folder masks, opacity and blend stay in the compositor.
 pub(crate) fn prepare(doc: &Document, accelerated: bool) -> Result<Document> {
@@ -132,13 +157,7 @@ pub(crate) fn prepare(doc: &Document, accelerated: bool) -> Result<Document> {
             ));
         }
         let rendered = surface(layer, &source, &effects, accelerated)?;
-        let center = layer.transform.point([0.5, 0.5]);
-        layer.transform.size[0] *= rendered.width() as f64 / source.width() as f64;
-        layer.transform.size[1] *= rendered.height() as f64 / source.height() as f64;
-        layer.transform.origin = [
-            center[0] - layer.transform.size[0] / 2.,
-            center[1] - layer.transform.size[1] / 2.,
-        ];
+        layer.transform = rendered_transform(layer);
         layer.content = LayerContent::Raster(Some(rendered));
         layer.mask = None;
         layer.effects = None;

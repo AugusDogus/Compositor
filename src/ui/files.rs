@@ -50,6 +50,7 @@ impl Editor {
                     Err(error) => self.show_error(operation, format!("Could not open a file dialog: {error}. Drop files onto the canvas instead.")),
                 }
             }
+            Action::ExportLayers => self.prompt_export_layers(cx),
             Action::ExportPsd => self.prepare_psd_export(),
             Action::ExportTiff | Action::ExportWebp | Action::ExportGif | Action::ExportAvif => {
                 self.prompt_raster_export(action, cx)

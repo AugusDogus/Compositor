@@ -16,6 +16,11 @@ pub(super) enum FileJob {
         paths: Vec<PathBuf>,
         center: Option<compositor::geometry::Point>,
     },
+    ExportLayers {
+        document: Document,
+        parent: PathBuf,
+        title: String,
+    },
     ExportSizes {
         document: Document,
         batch: compositor::export_sizes::Batch,
@@ -79,6 +84,7 @@ impl FileJob {
                 Some("gif") => alerts::Operation::ExportGif,
                 _ => alerts::Operation::ExportPng,
             },
+            Self::ExportLayers { .. } => alerts::Operation::ExportLayers,
             Self::ExportSizes { .. } => alerts::Operation::ExportSizes,
             Self::ExportPsd { .. } => alerts::Operation::ExportPsd,
             Self::ExportJpeg { .. } => alerts::Operation::ExportJpeg,
@@ -116,6 +122,17 @@ impl FileJob {
                 }
             }
             Self::BrushTips { pack, selected } => pack.decode(&selected).map(Completed::BrushTips),
+            Self::ExportLayers {
+                document,
+                parent,
+                title,
+            } => {
+                let path = compositor::layer_export::export(&document, &parent, &title)?;
+                Ok(Completed::Exported {
+                    path,
+                    jpeg_quality: None,
+                })
+            }
             Self::ExportSizes {
                 document,
                 batch,

@@ -2,7 +2,7 @@
 pub(crate) mod cpu;
 mod surface;
 use serde::{Deserialize, Serialize};
-pub(crate) use surface::prepare;
+pub(crate) use surface::{prepare, rendered_transform};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -11,6 +11,7 @@ impl Action {
                 | Self::Save
                 | Self::SaveAs
                 | Self::ExportPsd
+                | Self::ExportLayers
                 | Self::ExportSizes
                 | Self::ExportPng
                 | Self::ExportTiff
@@ -71,6 +72,11 @@ impl Editor {
                     | Action::CloseTab
                     | Action::Color
             )
+        {
+            return false;
+        }
+        if matches!(action, Action::ExportLayers)
+            && !compositor::layer_export::has_exportable_layers(self.session().committed_document())
         {
             return false;
         }

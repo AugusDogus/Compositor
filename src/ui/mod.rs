@@ -48,6 +48,7 @@ mod dither_controls;
 mod dropdown;
 #[cfg(test)]
 mod duplicate_tests;
+mod export_layers;
 mod export_sizes;
 mod extended_adjustments;
 mod external_open;
@@ -278,6 +279,7 @@ pub enum Action {
     SaveAs,
     ExportPng,
     ExportSizes,
+    ExportLayers,
     ExportTiff,
     ExportWebp,
     ExportAvif,

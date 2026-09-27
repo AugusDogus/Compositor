@@ -114,7 +114,7 @@ fn occupied_symlink_is_preserved_and_invalid_document_leaves_no_outputs() {
     bad.resolution = f64::NAN;
     assert!(batch.export(&bad, root.path(), "Invalid").is_err());
     assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 3);
-    assert!(!safe_stem("../../escape/🎨").contains('/'));
+    assert!(!crate::export_batch::safe_stem("../../escape/🎨").contains('/'));
 }
 
 #[test]

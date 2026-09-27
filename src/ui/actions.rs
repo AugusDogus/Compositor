@@ -161,7 +161,8 @@ impl Editor {
             | Action::ExportWebp
             | Action::ExportAvif
             | Action::ExportGif
-            | Action::ExportPsd => {
+            | Action::ExportPsd
+            | Action::ExportLayers => {
                 self.file_action(action, cx);
                 Ok(())
             }
