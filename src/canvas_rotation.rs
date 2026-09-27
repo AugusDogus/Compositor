@@ -4,6 +4,7 @@ use crate::{
     document::{Document, LayerContent},
     geometry::{Point, Transform},
     guides::Axis,
+    invalid,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -46,6 +47,28 @@ impl QuarterTurn {
 
 /// Rotate placements rather than resampling layers; validate before replacing the document.
 pub fn rotate(document: &mut Document, turn: QuarterTurn) -> Result<()> {
+    // The upstream schema fixes procedural noise to document coordinates. It has
+    // no saved mapping that can rotate the pattern while retaining the adjustment.
+    if document.layers.iter().any(|layer| {
+        let LayerContent::Adjustment(adjustment) = &layer.content else {
+            return false;
+        };
+        let generates_noise = match adjustment.kind {
+            Kind::Grain => adjustment.grain_settings.unwrap_or_default().amount > 0.,
+            Kind::AddNoise => true,
+            _ => false,
+        };
+        generates_noise
+            && std::iter::successors(Some(layer), |layer| {
+                layer.parent.and_then(|id| document.layer(id))
+            })
+            .take(document.layers.len() + 1)
+            .all(|layer| layer.visible && layer.opacity > 0.)
+    }) {
+        return Err(invalid(
+            "Cannot rotate the canvas without changing visible Grain or Add Noise patterns. Merge those adjustments with their underlying layers first, then retry. The document is unchanged.",
+        ));
+    }
     let size = [f64::from(document.width), f64::from(document.height)];
     let mut rotated = document.clone();
     std::mem::swap(&mut rotated.width, &mut rotated.height);

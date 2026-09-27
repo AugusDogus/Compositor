@@ -109,3 +109,85 @@ fn rotation_keeps_motion_blur_direction_and_rejects_invalid_guide_placement_atom
     assert!(rotate(&mut doc, QuarterTurn::Clockwise).is_err());
     assert_eq!(doc, before);
 }
+
+#[test]
+fn rotation_rejects_generated_noise_without_changes_even_after_reopening() {
+    use compositor::{
+        adjustment::{Adjustment, Kind},
+        document::Layer,
+        project,
+    };
+    for kind in [Kind::Grain, Kind::AddNoise] {
+        let mut doc = Document::new(8, 6).unwrap();
+        doc.layers[0].content = LayerContent::Raster(Some(Arc::new(RgbaImage::from_pixel(
+            8,
+            6,
+            Rgba([127, 127, 127, 255]),
+        ))));
+        let mut layer = Layer::blank("Noise", 8, 6);
+        layer.content = LayerContent::Adjustment(Box::new(Adjustment::new(kind)));
+        doc.add(layer).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("noise.comp");
+        project::save(&doc, &path).unwrap();
+        let reopened = project::load(&path).unwrap();
+        for mut document in [doc, reopened] {
+            let before = document.clone();
+            let pixels = render::render(&document, 8, 6).unwrap();
+            for turn in [QuarterTurn::Clockwise, QuarterTurn::CounterClockwise] {
+                let error = rotate(&mut document, turn).unwrap_err().to_string();
+                assert!(error.contains("Merge those adjustments"));
+                assert_eq!(document, before);
+                assert_eq!(render::render(&document, 8, 6).unwrap(), pixels);
+            }
+            compositor::layer_ops::merge(&mut document, true).unwrap();
+            rotate(&mut document, QuarterTurn::Clockwise).unwrap();
+            assert_eq!(
+                render::render(&document, 6, 8).unwrap(),
+                image::imageops::rotate90(&pixels)
+            );
+        }
+    }
+}
+
+#[test]
+fn inactive_noise_does_not_prevent_canvas_rotation() {
+    use compositor::{
+        adjustment::{Adjustment, Grain, Kind},
+        document::Layer,
+    };
+    for kind in [Kind::Grain, Kind::AddNoise] {
+        for hidden_parent in [false, true] {
+            for invisible in [false, true] {
+                let mut doc = Document::new(8, 6).unwrap();
+                let mut group = Layer::blank("Folder", 8, 6);
+                group.content = LayerContent::Group;
+                let mut noise = Layer::blank("Noise", 8, 6);
+                noise.parent = Some(group.id);
+                noise.content = LayerContent::Adjustment(Box::new(Adjustment::new(kind)));
+                let inactive = if hidden_parent {
+                    &mut group
+                } else {
+                    &mut noise
+                };
+                if invisible {
+                    inactive.visible = false;
+                } else {
+                    inactive.opacity = 0.;
+                }
+                doc.add(group).unwrap();
+                doc.add(noise).unwrap();
+                rotate(&mut doc, QuarterTurn::Clockwise).unwrap();
+                assert_eq!([doc.width, doc.height], [6, 8]);
+            }
+        }
+    }
+    let mut doc = Document::new(8, 6).unwrap();
+    let mut adjustment = Adjustment::new(Kind::Grain);
+    adjustment.grain_settings = Some(Grain {
+        amount: 0.,
+        ..Grain::default()
+    });
+    doc.layers[0].content = LayerContent::Adjustment(Box::new(adjustment));
+    rotate(&mut doc, QuarterTurn::Clockwise).unwrap();
+}
