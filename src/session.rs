@@ -1,4 +1,6 @@
+mod history_browser;
 mod history_retention;
+pub use history_browser::HistoryState;
 
 use crate::{Result, document::Document, geometry::Point, invalid};
 use std::{collections::HashSet, path::PathBuf};

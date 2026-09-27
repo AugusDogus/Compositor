@@ -65,6 +65,7 @@ mod gradient_map_controls;
 mod gradient_overlay;
 mod guide_grid;
 mod history;
+mod history_browser;
 mod hue_controls;
 mod hue_sampling;
 mod icons;
@@ -267,6 +268,7 @@ pub enum Action {
     ExportJpeg,
     Undo,
     Redo,
+    History,
     AddLayer,
     Duplicate,
     DeleteLayer,

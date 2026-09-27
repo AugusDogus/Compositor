@@ -77,6 +77,7 @@ impl Editor {
             Action::OpenClipboard => self.can_switch_projects(),
             Action::Undo => self.can_undo(),
             Action::Redo => self.can_redo(),
+            Action::History => self.modal.is_none() && self.can_browse_history(),
             Action::Duplicate => self.can_duplicate_layer(),
             Action::DevelopRaw | Action::RasterizeRaw => {
                 self.can_edit_layers()

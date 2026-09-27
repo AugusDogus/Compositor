@@ -6,6 +6,7 @@ use quickgui::Dialog;
 pub(super) enum Form {
     Effects(Box<super::layer_effects::EffectsEditor>),
     Updates,
+    History,
     Trim(compositor::trim::Options),
     Shortcuts(Box<super::shortcut_editor::Draft>),
     Text(Box<super::text_editor::Draft>),
@@ -229,6 +230,7 @@ impl Editor {
             Form::Edit { title, .. } => *title,
             Form::Effects(_) => "Layer Effects",
             Form::Updates => "Updates",
+            Form::History => "History",
             Form::Trim(_) => "Trim",
             Form::Text(_) => "Text",
             Form::Shortcuts(_) => "Keyboard Shortcuts",
@@ -339,6 +341,11 @@ impl Editor {
             Form::Updates => {
                 contents = contents
                     .child(self.update_controls(cx))
+                    .child(Self::control("Close").on_click(cancel));
+            }
+            Form::History => {
+                contents = contents
+                    .child(self.history_controls(cx))
                     .child(Self::control("Close").on_click(cancel));
             }
             Form::Close | Form::DeleteLayers => return self.confirmation_view(cx, &form),

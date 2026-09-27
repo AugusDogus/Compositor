@@ -174,6 +174,10 @@ impl Editor {
                 self.undo_document();
                 Ok(())
             }
+            Action::History => {
+                self.modal = Some(Form::History);
+                Ok(())
+            }
             Action::Copy | Action::CopyMerged | Action::Cut | Action::Paste => {
                 self.clipboard_action(action, cx)
             }
