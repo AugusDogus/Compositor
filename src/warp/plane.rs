@@ -51,9 +51,9 @@ impl Plane {
 
     pub fn set(&mut self, x: usize, y: usize, pixel: [f32; 4]) -> Result<()> {
         let key = (x / SIDE, y / SIDE);
-        if !self.tiles.contains_key(&key)
-            && (self.tiles.len() as u64 + 1) * (SIDE * SIDE) as u64
-                > crate::document::MAX_SURFACE_PIXELS
+        if (self.tiles.len() as u64 + 1) * (SIDE * SIDE) as u64
+            > crate::document::MAX_SURFACE_PIXELS
+            && !self.tiles.contains_key(&key)
         {
             return Err(invalid(
                 "This warp stroke exceeds 200 million working pixels. Use a shorter stroke or smaller brush. Cancel the stroke to preserve the original layer.",
@@ -85,6 +85,21 @@ impl Plane {
     }
 
     pub fn sample(&self, x: f64, y: f64) -> [f32; 4] {
+        let (ix, iy) = (x.floor() as usize, y.floor() as usize);
+        let (jx, jy) = (
+            (ix + 1).min(self.size[0] - 1),
+            (iy + 1).min(self.size[1] - 1),
+        );
+        // Most bilinear neighborhoods lie inside one edited tile. Resolve that
+        // tile once instead of hashing its key for each of the four samples.
+        if ix / SIDE == jx / SIDE
+            && iy / SIDE == jy / SIDE
+            && let Some(tile) = self.tiles.get(&(ix / SIDE, iy / SIDE))
+        {
+            return interpolate(self.size[0], self.size[1], x, y, |x, y| {
+                tile.pixels[(y % SIDE) * SIDE + x % SIDE]
+            });
+        }
         interpolate(self.size[0], self.size[1], x, y, |x, y| self.get(x, y))
     }
 }
@@ -129,5 +144,28 @@ mod tests {
         plane.set(128, 128, [0.; 4]).unwrap();
         assert_eq!(plane.sample(127.5, 128.), [0.5; 4]);
         assert_eq!(plane.tiles.len(), 2);
+    }
+
+    #[test]
+    fn cached_tile_sampling_matches_four_independent_pixel_reads() {
+        let image = Arc::new(RgbaImage::from_fn(300, 260, |x, y| {
+            image::Rgba([(x % 251) as u8, (y % 239) as u8, 55, 120])
+        }));
+        let mut plane = Plane::new(image, Transform::new(300, 260), [300, 260]);
+        plane.set(120, 119, [0.1, 0.2, 0.3, 0.4]).unwrap();
+        plane.set(127, 127, [0.7, 0.2, 0.1, 0.8]).unwrap();
+        plane.set(299, 259, [0.5; 4]).unwrap();
+        for [x, y] in [
+            [120., 119.],
+            [120.25, 119.75],
+            [127.5, 127.5],
+            [128.25, 128.75],
+            [299., 259.],
+        ] {
+            assert_eq!(
+                plane.sample(x, y),
+                interpolate(300, 260, x, y, |x, y| plane.get(x, y))
+            );
+        }
     }
 }

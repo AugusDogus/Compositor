@@ -1,4 +1,6 @@
 mod plane;
+#[cfg(test)]
+mod writeback_tests;
 
 use crate::{
     Result,
@@ -7,7 +9,9 @@ use crate::{
     geometry::Point,
     invalid,
 };
-use image::{Rgba, RgbaImage};
+use image::Rgba;
+#[cfg(test)]
+use image::RgbaImage;
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -251,36 +255,43 @@ impl WarpStroke {
             .ok_or_else(|| invalid("Original warp pixels are missing."))?;
         let t = expanded.transform;
         let selection = doc.selection.clone();
-        let result = RgbaImage::from_fn(source.width(), source.height(), |x, y| {
-            let point = t.point([
-                (x as f64 + 0.5) / source.width() as f64,
-                (y as f64 + 0.5) / source.height() as f64,
-            ]);
-            let before = source[(x, y)];
-            if point[0] < 0.
-                || point[1] < 0.
-                || point[0] >= self.width as f64
-                || point[1] >= self.height as f64
-                || !self.pixels.touched(point[0] as usize, point[1] as usize)
-            {
-                return before;
-            }
-            let coverage = selection.as_ref().map_or(1., |s| s.coverage(point)) as f32;
-            let top = self.pixels.sample(
-                (point[0] - 0.5).clamp(0., (self.width - 1) as f64),
-                (point[1] - 0.5).clamp(0., (self.height - 1) as f64),
-            );
-            let alpha = before[3] as f32 / 255.;
-            let out_alpha = alpha + (top[3] - alpha) * coverage;
-            let mut out = [0, 0, 0, (out_alpha * 255.).round() as u8];
-            if out_alpha > 0. {
-                for k in 0..3 {
-                    let base = before[k] as f32 / 255. * alpha;
-                    out[k] = ((base + (top[k] - base) * coverage) / out_alpha * 255.).round() as u8;
+        let [left, top, right, bottom] = write_region(t, source.dimensions(), self.touched_bounds);
+        // Copy unchanged pixels in bulk. Transforming and sampling the complete
+        // layer on every pointer event made a small stroke scale with canvas size.
+        let mut result = source.as_ref().clone();
+        for y in top..bottom {
+            for x in left..right {
+                let point = t.point([
+                    (x as f64 + 0.5) / source.width() as f64,
+                    (y as f64 + 0.5) / source.height() as f64,
+                ]);
+                let before = source[(x, y)];
+                if point[0] < 0.
+                    || point[1] < 0.
+                    || point[0] >= self.width as f64
+                    || point[1] >= self.height as f64
+                    || !self.pixels.touched(point[0] as usize, point[1] as usize)
+                {
+                    continue;
                 }
+                let coverage = selection.as_ref().map_or(1., |s| s.coverage(point)) as f32;
+                let top = self.pixels.sample(
+                    (point[0] - 0.5).clamp(0., (self.width - 1) as f64),
+                    (point[1] - 0.5).clamp(0., (self.height - 1) as f64),
+                );
+                let alpha = before[3] as f32 / 255.;
+                let out_alpha = alpha + (top[3] - alpha) * coverage;
+                let mut out = [0, 0, 0, (out_alpha * 255.).round() as u8];
+                if out_alpha > 0. {
+                    for k in 0..3 {
+                        let base = before[k] as f32 / 255. * alpha;
+                        out[k] =
+                            ((base + (top[k] - base) * coverage) / out_alpha * 255.).round() as u8;
+                    }
+                }
+                result[(x, y)] = Rgba(out);
             }
-            Rgba(out)
-        });
+        }
         let layer = doc
             .layers
             .iter_mut()
@@ -293,6 +304,40 @@ impl WarpStroke {
         layer.text = None;
         Ok(())
     }
+}
+
+fn write_region(
+    transform: crate::geometry::Transform,
+    (width, height): (u32, u32),
+    bounds: [f64; 4],
+) -> [u32; 4] {
+    let Ok(corners) = transform
+        .inverse_mapping()
+        .and_then(|mapping| mapping.map_rectangle(bounds))
+    else {
+        // A document-space rectangle can cross a perspective horizon even when
+        // the layer's visible quad is valid. Retain the full scan in that case.
+        return [0, 0, width, height];
+    };
+    let mut region = [
+        f64::INFINITY,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NEG_INFINITY,
+    ];
+    for [x, y] in corners {
+        region[0] = region[0].min(x * width as f64);
+        region[1] = region[1].min(y * height as f64);
+        region[2] = region[2].max(x * width as f64);
+        region[3] = region[3].max(y * height as f64);
+    }
+    // Include a pixel of margin for rounding at transformed footprint edges.
+    [
+        (region[0].floor() - 1.).clamp(0., width as f64) as u32,
+        (region[1].floor() - 1.).clamp(0., height as f64) as u32,
+        (region[2].ceil() + 1.).clamp(0., width as f64) as u32,
+        (region[3].ceil() + 1.).clamp(0., height as f64) as u32,
+    ]
 }
 
 fn validate_point(point: Point) -> Result<()> {
