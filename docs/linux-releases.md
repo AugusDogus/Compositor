@@ -7,8 +7,8 @@
 Make the downloaded file executable, then run it. Substitute its filename below:
 
 ```sh
-chmod +x Compositor-0.7.0-x86_64.AppImage
-./Compositor-0.7.0-x86_64.AppImage
+chmod +x Compositor-0.7.1-x86_64.AppImage
+./Compositor-0.7.1-x86_64.AppImage
 ```
 
 If FUSE is unavailable, add `--appimage-extract-and-run`. [Gear Lever](https://github.com/mijorus/gearlever) can add the AppImage and icon to your application menu.
@@ -41,7 +41,7 @@ Packaging prepares the models and native inference libraries automatically. Pyth
 
 ## DEB, RPM and Arch packages
 
-v0.7.0 includes DEB, RPM and Arch packages for x86_64 and ARM64. All install the complete bundle, including offline models, under `/opt/compositor`, with a desktop launcher and `/usr/bin/compositor`. Host requirements match the AppImage; the package manager checks the declared system dependencies.
+v0.7.1 includes DEB, RPM and Arch packages for x86_64 and ARM64. All install the complete bundle, including offline models, under `/opt/compositor`, with a desktop launcher and `/usr/bin/compositor`. Host requirements match the AppImage; the package manager checks the declared system dependencies.
 
 | Distribution | Install or update a downloaded package |
 | --- | --- |
@@ -55,7 +55,7 @@ To build all three packages from an existing, validated AppImage on Ubuntu 24.04
 
 ```sh
 sudo apt-get install dpkg-dev rpm zstd libarchive-tools
-scripts/package-linux-native.sh dist/Compositor-0.7.0-x86_64.AppImage
+scripts/package-linux-native.sh dist/Compositor-0.7.1-x86_64.AppImage
 ```
 
 Substitute the current version. DEB/RPM versions use `~` before prerelease identifiers; Arch versions use `pre.` (for example, `0.7.0pre.rc.1`). Each sorts before the corresponding stable version.
