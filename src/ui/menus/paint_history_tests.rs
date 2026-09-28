@@ -114,6 +114,7 @@ fn gradient_history_names_the_captured_pixel_or_mask_target() {
         e.move_gradient([48., 40.], gradient::Endpoint::End, false)
             .unwrap();
         assert!(e.session().undo_label().is_none());
+        e.finish_gradient_preview_for_test().unwrap();
         e.commit_gradient().unwrap();
         history(&mut e, label, before);
     }

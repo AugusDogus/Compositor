@@ -102,6 +102,7 @@ impl Gradient {
             return Err(invalid("Add a mask before drawing a mask gradient."));
         }
         if self.opacity == 0.
+            || ramp.as_slice().iter().all(|stop| stop.color[3] == 0)
             || selection
                 .as_ref()
                 .is_some_and(|selection| selection.bounds().is_none())
@@ -121,6 +122,15 @@ impl Gradient {
             mask.placement.unwrap_or(layer.transform)
         } else {
             layer.transform
+        };
+        let paint = crate::render::gpu::gradient::Paint {
+            gradient: self,
+            ramp: &ramp,
+            start,
+            end,
+            transform,
+            canvas,
+            selection: selection.as_ref(),
         };
         let color = |point: Point| {
             let distance = match self.shape {
@@ -157,15 +167,34 @@ impl Gradient {
                 mask.pixels = Arc::new(GrayImage::from_pixel(w, h, mask.pixels[(0, 0)]));
             }
             let (w, h) = mask.pixels.dimensions();
-            for (x, y, pixel) in Arc::make_mut(&mut mask.pixels).enumerate_pixels_mut() {
-                let top = color(
-                    transform.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
-                );
-                let before = pixel[0] as f64 / 255.;
-                let gray = mask_color(top)[0];
-                let result = Luma([((before + (gray - before) * top[3]) * 255.).round() as u8]);
-                changed |= *pixel != result;
-                *pixel = result;
+            let gpu = crate::render::gpu::gradient::apply(
+                crate::render::gpu::gradient::Pixels::Mask(&mask.pixels),
+                &paint,
+            );
+            let gpu = match gpu {
+                Ok(result) => result,
+                Err(error) => {
+                    *layer = original_layer;
+                    return Err(error);
+                }
+            };
+            if let Some(bytes) = gpu {
+                changed = bytes != *mask.pixels.as_raw();
+                if changed {
+                    let target: &mut [u8] = Arc::make_mut(&mut mask.pixels).as_mut();
+                    target.copy_from_slice(&bytes);
+                }
+            } else {
+                for (x, y, pixel) in Arc::make_mut(&mut mask.pixels).enumerate_pixels_mut() {
+                    let top = color(
+                        transform.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
+                    );
+                    let before = pixel[0] as f64 / 255.;
+                    let gray = mask_color(top)[0];
+                    let result = Luma([((before + (gray - before) * top[3]) * 255.).round() as u8]);
+                    changed |= *pixel != result;
+                    *pixel = result;
+                }
             }
         } else {
             let LayerContent::Raster(pixels) = &mut layer.content else {
@@ -181,20 +210,40 @@ impl Gradient {
             }
             if let Some(pixels) = pixels {
                 let (w, h) = pixels.dimensions();
-                for (x, y, pixel) in Arc::make_mut(pixels).enumerate_pixels_mut() {
-                    let top = color(
-                        transform.point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
-                    );
-                    if top[3] == 0. {
-                        continue;
+                let gpu = crate::render::gpu::gradient::apply(
+                    crate::render::gpu::gradient::Pixels::Color(pixels),
+                    &paint,
+                );
+                let gpu = match gpu {
+                    Ok(result) => result,
+                    Err(error) => {
+                        *layer = original_layer;
+                        return Err(error);
                     }
-                    let result = Rgba(
-                        Blend::Normal
-                            .composite(pixel.0.map(|v| v as f64 / 255.), top)
-                            .map(|v| (v * 255.).round() as u8),
-                    );
-                    changed |= *pixel != result;
-                    *pixel = result;
+                };
+                if let Some(bytes) = gpu {
+                    changed = bytes != *pixels.as_raw();
+                    if changed {
+                        let target: &mut [u8] = Arc::make_mut(pixels).as_mut();
+                        target.copy_from_slice(&bytes);
+                    }
+                } else {
+                    for (x, y, pixel) in Arc::make_mut(pixels).enumerate_pixels_mut() {
+                        let top = color(
+                            transform
+                                .point([(x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64]),
+                        );
+                        if top[3] == 0. {
+                            continue;
+                        }
+                        let result = Rgba(
+                            Blend::Normal
+                                .composite(pixel.0.map(|v| v as f64 / 255.), top)
+                                .map(|v| (v * 255.).round() as u8),
+                        );
+                        changed |= *pixel != result;
+                        *pixel = result;
+                    }
                 }
             }
             if changed {

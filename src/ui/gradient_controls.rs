@@ -188,7 +188,8 @@ impl Editor {
                 )))
                 .child(
                     self.tool_header_control("Apply")
-                        .disabled(!edit)
+                        .disabled(self.gradient_busy())
+                        .tooltip("Apply the completed gradient preview")
                         .on_click(cx.listener("gradient-apply", |this, cx| {
                             let result = this.commit_gradient();
                             this.operation_result(alerts::Operation::Paint, result, cx);

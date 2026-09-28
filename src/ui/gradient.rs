@@ -1,5 +1,15 @@
 use super::*;
 use compositor::geometry::Point;
+use uuid::Uuid;
+
+mod preview;
+
+#[derive(Clone, Copy, PartialEq)]
+enum Preview {
+    Queued,
+    Ready,
+    Failed,
+}
 
 #[derive(Clone, Copy)]
 pub(super) enum Endpoint {
@@ -8,6 +18,10 @@ pub(super) enum Endpoint {
 }
 
 pub(super) struct PendingGradient {
+    id: Uuid,
+    session: Uuid,
+    revision: u64,
+    preview: Preview,
     original: Document,
     pub start: Point,
     pub end: Point,
@@ -49,6 +63,10 @@ impl Editor {
             };
             self.session_mut().begin(label)?;
             self.pending_gradient = Some(PendingGradient {
+                id: Uuid::new_v4(),
+                session: self.session().id,
+                revision: 0,
+                preview: Preview::Ready,
                 original: self.session().document.clone(),
                 start: point,
                 end: point,
@@ -85,30 +103,45 @@ impl Editor {
     }
 
     pub(super) fn refresh_gradient(&mut self) -> Result<()> {
-        let Some(edit) = &self.pending_gradient else {
+        let Some(edit) = &mut self.pending_gradient else {
             return Ok(());
         };
-        let mut doc = edit.original.clone();
-        if (edit.end[0] - edit.start[0]).hypot(edit.end[1] - edit.start[1]) >= 0.5 {
-            let result = self.tools.gradient.apply(
-                &mut doc,
-                edit.start,
-                edit.end,
-                self.palette_colors(edit.mask)[0],
-                self.palette_colors(edit.mask)[1],
-                edit.mask,
-            );
-            if let Err(error) = result {
-                self.pending_gradient = None;
-                self.session_mut().cancel();
-                return Err(error);
-            }
+        edit.revision = edit.revision.wrapping_add(1);
+        if (edit.end[0] - edit.start[0]).hypot(edit.end[1] - edit.start[1]) < 0.5 {
+            edit.preview = Preview::Ready;
+            let doc = edit.original.clone();
+            self.session_mut().document = doc;
+        } else {
+            edit.preview = Preview::Queued;
         }
-        self.session_mut().document = doc;
         Ok(())
     }
 
+    pub(super) fn gradient_busy(&self) -> bool {
+        self.pending_gradient
+            .as_ref()
+            .is_some_and(|edit| edit.preview != Preview::Ready)
+    }
+
+    pub(super) fn gradient_preview_id(&self) -> Option<Uuid> {
+        self.pending_gradient.as_ref().map(|edit| edit.id)
+    }
+
     pub(super) fn commit_gradient(&mut self) -> Result<()> {
+        if self
+            .pending_gradient
+            .as_ref()
+            .is_some_and(|edit| edit.preview == Preview::Failed)
+        {
+            return Err(compositor::invalid(
+                "The gradient preview could not start. Draw the gradient again to retry, or press Escape to cancel. Your original pixels are preserved.",
+            ));
+        }
+        if self.gradient_busy() {
+            return Err(compositor::invalid(
+                "The gradient preview is still updating. Wait for Apply to become available, or press Escape to cancel. Your original pixels are preserved.",
+            ));
+        }
         if self.pending_gradient.take().is_some() {
             self.session_mut().commit()?;
         }
@@ -271,9 +304,11 @@ mod tests {
         editor
             .move_gradient([8., 8.], Endpoint::End, false)
             .unwrap();
+        editor.finish_gradient_preview_for_test().unwrap();
         assert_ne!(editor.session().document, original);
         editor.tools.gradient.opacity = 2.;
-        assert!(editor.refresh_gradient().is_err());
+        editor.refresh_gradient().unwrap();
+        assert!(editor.finish_gradient_preview_for_test().is_err());
         assert_eq!(editor.session().document, original);
         assert!(editor.pending_gradient.is_none());
         assert!(!editor.session().has_pending_edit());

@@ -631,6 +631,11 @@ mod tests {
                         .unwrap();
                 }
             }
+            cx.update(view, |e, cx| {
+                let result = e.finish_gradient_preview_for_test();
+                e.operation_result(alerts::Operation::Paint, result, cx);
+            })
+            .unwrap();
             cx.read(view, |e| {
                 assert_eq!(e.errors.len(), 1, "{input}: {}", e.status);
                 assert_eq!(

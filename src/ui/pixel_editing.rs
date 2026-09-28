@@ -265,6 +265,7 @@ mod tests {
             e.begin_gradient([0., 0.]).unwrap();
             e.move_gradient([19., 19.], gradient::Endpoint::End, false)
                 .unwrap();
+            e.finish_gradient_preview_for_test().unwrap();
             let gradient = e.session().document.clone();
             let (mut cx, view) = Application::new()
                 .into_test_context(

@@ -5,6 +5,7 @@ pub(super) mod camera_geometry;
 pub(crate) mod color_filter;
 pub(super) mod effects;
 pub(super) mod gaussian;
+pub(crate) mod gradient;
 pub(crate) mod luminosity_sharpen;
 pub(super) mod motion;
 pub(crate) mod radial;
@@ -74,6 +75,7 @@ pub(super) struct Engine {
     luminosity_sharpen: luminosity_sharpen::Pipelines,
     camera_geometry_pipeline: wgpu::ComputePipeline,
     effects_pipeline: wgpu::ComputePipeline,
+    gradient_pipeline: wgpu::ComputePipeline,
     output: wgpu::Buffer,
     readback: wgpu::Buffer,
 }
@@ -144,6 +146,7 @@ impl Engine {
             compilation_options: Default::default(),
             cache: None,
         });
+        let gradient_pipeline = gradient::pipeline(&device);
         let radial = radial::Pipelines::new(&device);
         let color_filter = color_filter::Pipelines::new(&device);
         let luminosity_sharpen = luminosity_sharpen::Pipelines::new(&device);
@@ -196,6 +199,7 @@ impl Engine {
             luminosity_sharpen,
             camera_geometry_pipeline,
             effects_pipeline,
+            gradient_pipeline,
             output,
             readback,
         })

@@ -228,6 +228,7 @@ mod tests {
         e.begin_gradient([0., 0.]).unwrap();
         e.move_gradient([3., 3.], gradient::Endpoint::End, false)
             .unwrap();
+        e.finish_gradient_preview_for_test().unwrap();
         let gradient = e.session().document.clone();
         e.invert().unwrap();
         assert!(e.pending_gradient.is_none());

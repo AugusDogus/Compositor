@@ -1092,11 +1092,17 @@ fn pending_gradient_settings_replace_preview_and_commit_as_one_undo_step() {
     view.begin_gradient([0.5, 0.5]).unwrap();
     view.pending_gradient.as_mut().unwrap().end = [4.5, 0.5];
     view.refresh_gradient().unwrap();
+    view.finish_gradient_preview_for_test().unwrap();
     let (mut cx, editor) = Application::new()
         .into_test_context(WindowOptions::new("Gradient test").size(1280., 850.), view)
         .unwrap();
     let window = editor.window_handle();
     cx.click(window, "gradient-reverse").unwrap();
+    cx.update(editor, |e, cx| {
+        e.finish_gradient_preview_for_test().unwrap();
+        cx.invalidate();
+    })
+    .unwrap();
     assert_eq!(
         cx.read(editor, |e| e.session().document.layers[0].raster().unwrap()
             [(0, 0)][3])
@@ -1105,6 +1111,11 @@ fn pending_gradient_settings_replace_preview_and_commit_as_one_undo_step() {
     );
     cx.click(window, "gradient-style").unwrap();
     cx.simulate_keystrokes(window, "home enter").unwrap();
+    cx.update(editor, |e, cx| {
+        e.finish_gradient_preview_for_test().unwrap();
+        cx.invalidate();
+    })
+    .unwrap();
     assert_eq!(
         cx.read(editor, |e| e.session().document.layers[0].raster().unwrap()
             [(0, 0)][3])
@@ -1139,6 +1150,7 @@ fn cancel_gradient_restores_original_and_repeated_drags_replace_preview() {
         view.begin_gradient([0.5, 0.5]).unwrap();
         view.pending_gradient.as_mut().unwrap().end = [4.5, 0.5];
         view.refresh_gradient().unwrap();
+        view.finish_gradient_preview_for_test().unwrap();
         assert_eq!(
             view.session().document.layers[0].raster().unwrap()[(2, 0)][3],
             128

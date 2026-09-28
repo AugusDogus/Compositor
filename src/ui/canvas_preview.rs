@@ -98,7 +98,7 @@ impl Editor {
     pub(super) fn live_canvas_edit(&self) -> Option<Uuid> {
         match &self.gesture {
             Some(Gesture::Paint { id, .. } | Gesture::Warp { id, .. }) => Some(*id),
-            _ => None,
+            _ => self.gradient_preview_id(),
         }
     }
 

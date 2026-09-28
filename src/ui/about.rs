@@ -195,6 +195,7 @@ mod tests {
         editor
             .move_gradient([80., 90.], gradient::Endpoint::End, false)
             .unwrap();
+        editor.finish_gradient_preview_for_test().unwrap();
         let preview = editor.session().document.clone();
         let (mut cx, view) = Application::new()
             .into_test_context(WindowOptions::new("About draft").size(1280., 900.), editor)

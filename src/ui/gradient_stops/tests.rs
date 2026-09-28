@@ -12,6 +12,7 @@ fn editor() -> Editor {
     editor
         .move_gradient([8.5, 0.5], super::super::gradient::Endpoint::End, false)
         .unwrap();
+    editor.finish_gradient_preview_for_test().unwrap();
     editor
 }
 
@@ -37,6 +38,11 @@ fn stop_editor_previews_colors_and_alpha_then_applies_as_one_undo_step() {
     cx.focus(window, "gradient-stop-opacity").unwrap();
     cx.simulate_keystrokes(window, "ctrl-a").unwrap();
     cx.simulate_input(window, "50").unwrap();
+    cx.update(view, |e, cx| {
+        e.finish_gradient_preview_for_test().unwrap();
+        cx.invalidate();
+    })
+    .unwrap();
     cx.read(view, |e| {
         assert_eq!(e.tools.gradient.stops.as_slice().len(), 3);
         assert_eq!(
@@ -48,6 +54,11 @@ fn stop_editor_previews_colors_and_alpha_then_applies_as_one_undo_step() {
     })
     .unwrap();
     cx.click(window, "gradient-stops-apply").unwrap();
+    cx.update(view, |e, cx| {
+        e.finish_gradient_preview_for_test().unwrap();
+        cx.invalidate();
+    })
+    .unwrap();
     cx.click(window, "gradient-apply").unwrap();
     cx.update(view, |e, _| {
         assert_eq!(e.session().undo_label(), Some("Gradient"));
@@ -69,11 +80,13 @@ fn stop_cancel_restores_settings_and_preview_and_invalid_input_does_not_apply() 
     e.add_gradient_stop().unwrap();
     e.gradient_stop_input(true, "25").unwrap();
     e.set_gradient_stop_color(1, [0, 255, 0, 255]).unwrap();
+    e.finish_gradient_preview_for_test().unwrap();
     let last_valid = e.session().document.clone();
     e.gradient_stop_input(true, "NaN").unwrap();
     assert!(e.finish_gradient_stops(true).is_err());
     assert_eq!(e.session().document, last_valid);
     e.finish_gradient_stops(false).unwrap();
+    e.finish_gradient_preview_for_test().unwrap();
     assert_eq!(e.tools.gradient, settings);
     assert_eq!(e.session().document, initial);
     assert!(e.session().has_pending_edit());

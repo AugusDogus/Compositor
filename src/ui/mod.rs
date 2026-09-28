@@ -397,6 +397,7 @@ pub struct Editor {
     launch_queue: crate::launch::LaunchQueue,
     space_pan: bool,
     pending_gradient: Option<gradient::PendingGradient>,
+    gradient_worker: Option<uuid::Uuid>,
     pending_pixels: Option<floating::PendingPixels>,
     canvas_pointer: Option<compositor::geometry::Point>,
     sample_ring: Option<sample_ring::SampleRing>,
@@ -509,6 +510,7 @@ impl Editor {
             launch_queue,
             space_pan: false,
             pending_gradient: None,
+            gradient_worker: None,
             pending_pixels: None,
             canvas_pointer: None,
             sample_ring: None,
@@ -920,6 +922,7 @@ impl Editor {
     }
 
     fn workspace_view(&mut self, cx: &mut ViewContext<'_, Self>) -> Element {
+        self.start_gradient_preview(cx);
         self.start_camera_balance(cx);
         self.start_filter_preview(cx);
         self.start_adjustment_preview(cx);
