@@ -817,6 +817,19 @@ impl Editor {
                     self.status = "Gradient preview. Enter applies, Escape cancels. Drag again to replace the line.".into();
                     return Ok(());
                 }
+                gesture = match gesture {
+                    Gesture::Paint { stroke, .. } if stroke.needs_background_finish() => {
+                        let source = Box::new(self.session().document.clone());
+                        self.session_mut().cancel();
+                        self.queue(jobs::Job::Heal {
+                            stroke,
+                            source,
+                            point,
+                        });
+                        return Ok(());
+                    }
+                    gesture => gesture,
+                };
                 if let Gesture::Paint { stroke, .. } = &mut gesture
                     && let Err(error) = stroke.finish(&mut self.session_mut().document)
                 {

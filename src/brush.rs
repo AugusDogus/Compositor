@@ -290,6 +290,11 @@ impl Stroke {
         Ok(())
     }
 
+    /// Healing solves the painted region after release and should run off the UI thread.
+    pub fn needs_background_finish(&self) -> bool {
+        matches!(self.mode, PaintMode::Heal(_))
+    }
+
     pub fn finish(&mut self, doc: &mut Document) -> Result<()> {
         self.flush(doc)?;
         if let Some(state) = &self.sampled {

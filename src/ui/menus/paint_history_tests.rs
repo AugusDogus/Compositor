@@ -74,6 +74,13 @@ fn brush_history_names_the_tool_and_mask_target_and_round_trips_pixels() {
         let before = e.session().document.clone();
         stroke(&mut e, PointerPhase::Down).unwrap();
         stroke(&mut e, PointerPhase::Up).unwrap();
+        if let Some(job) = e.job.take() {
+            let initial = e.job_source(&job).unwrap();
+            let completion = job.completion();
+            let result = job.run(initial.clone());
+            e.complete_job(e.session().id, initial, result, completion)
+                .unwrap();
+        }
         history(&mut e, label, before);
     }
 }

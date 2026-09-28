@@ -2,6 +2,11 @@ use super::*;
 use compositor::{background::Quality, filters::Filter, invalid};
 
 pub(super) enum Job {
+    Heal {
+        stroke: Box<compositor::brush::Stroke>,
+        source: Box<Document>,
+        point: compositor::geometry::Point,
+    },
     Path {
         path: super::path_target::Target,
         operation: compositor::path_operations::Operation,
@@ -51,6 +56,7 @@ pub(super) enum Job {
 
 #[derive(Clone, Copy)]
 pub(super) enum Completion {
+    Heal { point: compositor::geometry::Point },
     DeleteLayers,
     CopyLayers,
     Pixels(&'static str),
@@ -61,6 +67,7 @@ pub(super) enum Completion {
 impl Completion {
     fn label(self, original: &Document) -> &'static str {
         match self {
+            Self::Heal { .. } => "Spot Healing",
             Self::DeleteLayers => compositor::clipping::deletion_label(original),
             Self::CopyLayers => "Copy Layers from Project",
             Self::Pixels(label) => label,
@@ -73,6 +80,7 @@ impl Completion {
 impl Job {
     pub(super) fn completion(&self) -> Completion {
         match self {
+            Self::Heal { point, .. } => Completion::Heal { point: *point },
             Self::Path { operation, .. } => Completion::Pixels(operation.label()),
             Self::Fade { .. } => Completion::Pixels("Fade"),
             Self::Trim(_) => Completion::Pixels("Trim"),
@@ -101,6 +109,14 @@ impl Job {
 
     pub(super) fn run(self, mut document: Document) -> Result<Document> {
         match self {
+            Job::Heal {
+                mut stroke,
+                mut source,
+                ..
+            } => {
+                stroke.finish(&mut source)?;
+                document = *source;
+            }
             Job::Path { path, operation } => {
                 let geometry = path.snapshot(&document)?.geometry;
                 operation.apply_geometry(&mut document, &geometry)?;
@@ -353,6 +369,16 @@ impl Editor {
         {
             session.collapsed.remove(&parent);
         }
+        if let Completion::Heal { point } = completion {
+            let last_brush = tab
+                .session()
+                .and_then(|session| session.document.active.map(|layer| (layer, false, point)));
+            if current {
+                self.tools.last_brush = last_brush;
+            } else {
+                tab.parked_tools.last_brush = last_brush;
+            }
+        }
         let mask_target = if current {
             &mut self.tools.mask_target
         } else {
@@ -369,6 +395,79 @@ impl Editor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn healing_completion_preserves_history_and_shift_origin_on_failure() {
+        for fail in [false, true] {
+            let mut editor = Editor::with_test_document();
+            let mut document = Document::new(64, 64).unwrap();
+            document.layers[0].content = compositor::document::LayerContent::Raster(Some(
+                Arc::new(image::RgbaImage::from_fn(64, 64, |x, y| {
+                    image::Rgba([
+                        if (28..36).contains(&x) && (28..36).contains(&y) {
+                            255
+                        } else {
+                            10
+                        },
+                        80,
+                        130,
+                        255,
+                    ])
+                })),
+            ));
+            editor.tabs = vec![Session::new(document.clone(), None).into()];
+            let id = editor.session().id;
+            let origin = document.active.map(|layer| (layer, false, [5., 5.]));
+            editor.tools.last_brush = origin;
+            editor.session_mut().begin("Spot Healing").unwrap();
+            let stroke = compositor::brush::Stroke::start(
+                &mut editor.session_mut().document,
+                [32., 32.],
+                compositor::brush::Brush {
+                    diameter: 15.,
+                    ..Default::default()
+                },
+                compositor::brush::PaintMode::Heal(compositor::filters::Healing::Proximity),
+                false,
+                false,
+            )
+            .unwrap();
+            assert!(stroke.needs_background_finish());
+            let source = Box::new(editor.session().document.clone());
+            editor.session_mut().cancel();
+            let job = Job::Heal {
+                stroke: Box::new(stroke),
+                source,
+                point: [32., 32.],
+            };
+            let completion = job.completion();
+            let initial = editor.job_source(&job).unwrap();
+            assert_eq!(initial, document);
+            let result = if fail {
+                Err(invalid("worker failed"))
+            } else {
+                job.run(initial.clone())
+            };
+            let completed = editor.complete_job(id, initial, result, completion);
+            if fail {
+                assert!(completed.is_err());
+                assert_eq!(editor.session().document, document);
+                assert_eq!(editor.tools.last_brush, origin);
+                assert_eq!(editor.session().undo_label(), None);
+            } else {
+                completed.unwrap();
+                assert_ne!(editor.session().document, document);
+                assert_eq!(
+                    editor.tools.last_brush,
+                    document.active.map(|layer| (layer, false, [32., 32.]))
+                );
+                assert_eq!(editor.session().undo_label(), Some("Spot Healing"));
+                editor.undo_document();
+                assert_eq!(editor.session().document, document);
+                assert_eq!(editor.session().undo_label(), None);
+            }
+        }
+    }
 
     #[test]
     fn structural_job_completion_updates_only_its_projects_editing_target_after_commit() {
