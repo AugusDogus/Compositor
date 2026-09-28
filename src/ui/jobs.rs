@@ -12,6 +12,11 @@ pub(super) enum Job {
     },
     Trim(compositor::trim::Options),
     SelectForeground(compositor::object_selection::Settings),
+    Wand {
+        point: compositor::geometry::Point,
+        settings: compositor::wand::Settings,
+        mode: compositor::selection::SelectionMode,
+    },
     DeleteLayersBaked,
     CopyLayers {
         source: Box<Document>,
@@ -71,6 +76,7 @@ impl Job {
             Self::Path { operation, .. } => Completion::Pixels(operation.label()),
             Self::Fade { .. } => Completion::Pixels("Fade"),
             Self::Trim(_) => Completion::Pixels("Trim"),
+            Self::Wand { .. } => Completion::Pixels("Magic Wand"),
             Self::SelectForeground(settings) => Completion::Pixels(
                 if matches!(
                     settings.target,
@@ -103,6 +109,14 @@ impl Job {
             Job::Trim(options) => compositor::trim::apply(&mut document, options)?,
             Job::SelectForeground(settings) => {
                 compositor::object_selection::select(&mut document, settings)?
+            }
+            Job::Wand {
+                point,
+                settings,
+                mode,
+            } => {
+                let next = compositor::wand::select(&document, point, settings)?;
+                document.selection = super::canvas::combine(&document.selection, next, mode)?;
             }
             Job::CopyLayers {
                 source,

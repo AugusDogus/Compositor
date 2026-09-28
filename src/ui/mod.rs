@@ -189,6 +189,8 @@ mod trim;
 mod update_preferences;
 mod updates;
 mod wand_picker;
+#[cfg(test)]
+mod wand_tests;
 mod welcome;
 
 use self::{

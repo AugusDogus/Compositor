@@ -1,4 +1,4 @@
-use super::canvas::{Gesture, combine, selection_mode};
+use super::canvas::{Gesture, selection_mode};
 use super::*;
 use compositor::{
     brush::{PaintMode, Stroke},
@@ -499,20 +499,16 @@ impl Editor {
                     if point[0] < 0. || point[1] < 0. {
                         return Ok(());
                     }
-                    self.session_mut().edit("Magic Wand", |doc| {
-                        let next = compositor::wand::select(
-                            doc,
-                            point,
-                            compositor::wand::Settings {
-                                tolerance,
-                                contiguous,
-                                radius,
-                                sample_all,
-                            },
-                        )?;
-                        doc.selection = combine(&doc.selection, next, mode)?;
-                        Ok(())
-                    })?;
+                    self.queue(jobs::Job::Wand {
+                        point,
+                        settings: compositor::wand::Settings {
+                            tolerance,
+                            contiguous,
+                            radius,
+                            sample_all,
+                        },
+                        mode,
+                    });
                 }
                 Tool::Eyedropper => {}
                 Tool::Zoom => {
