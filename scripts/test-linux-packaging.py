@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Architecture boundaries and combined release feeds, without building packages."""
 import json
+import os
 import pathlib
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -55,6 +57,45 @@ class ArchitectureTests(unittest.TestCase):
                 self.assertNotEqual(architecture(arch, 'compositor_check_linux_binary "$1"', binary).returncode, 0)
             binary.write_bytes(b"not an ELF binary")
             self.assertNotEqual(architecture("x86_64", 'compositor_check_linux_binary "$1"', binary).returncode, 0)
+
+
+class AppImageTestDiscoveryTests(unittest.TestCase):
+    def test_discovery_drains_output_and_preserves_failures(self):
+        # Exercise the actual test-discovery block without extracting a multi-GB AppImage.
+        script = (ROOT / "scripts/check-appimage.sh").read_text()
+        checks = script[script.index('if [[ -n "${COMPOSITOR_IMAGE_IO_TEST_BINARY:-}" ]]'):]
+        variables = ["COMPOSITOR_IMAGE_IO_TEST_BINARY", "COMPOSITOR_OBJECT_SELECTION_TEST_BINARY", "COMPOSITOR_RAW_TEST_BINARY"]
+        with tempfile.TemporaryDirectory() as directory:
+            binary = pathlib.Path(directory) / "test-binary"
+            fixture = pathlib.Path(directory) / "fixture.raf"
+            fixture.touch()
+            for variable in variables:
+                for mode in ["complete", "empty", "failed"]:
+                    with self.subTest(variable=variable, mode=mode):
+                        binary.write_text(
+                            f"#!{sys.executable}\nimport sys, time\n"
+                            "if '--list' in sys.argv:\n"
+                            f"    if {mode!r} != 'empty':\n"
+                            "        print('fixture: test', flush=True)\n"
+                            "        time.sleep(0.05)\n"
+                            "        sys.stdout.write('padding\\n' * 16384)\n"
+                            "        sys.stdout.flush()\n"
+                            f"    sys.exit(3 if {mode!r} == 'failed' else 0)\n"
+                        )
+                        binary.chmod(0o755)
+                        env = os.environ.copy()
+                        for key in [*variables, "COMPOSITOR_INFERENCE_TEST_BINARY"]:
+                            env.pop(key, None)
+                        env[variable] = str(binary)
+                        env["COMPOSITOR_XTRANS_TEST_PHOTO"] = str(fixture)
+                        result = subprocess.run(
+                            ["bash", "-c", "set -euo pipefail\n" + checks],
+                            env=env, capture_output=True, text=True, timeout=10,
+                        )
+                        if mode == "complete":
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                        else:
+                            self.assertNotEqual(result.returncode, 0)
 
 
 class UpdateFeedTests(unittest.TestCase):

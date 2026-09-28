@@ -46,8 +46,9 @@ done
 ldd "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime.so" >> dependencies.txt
 ldd "$COMPOSITOR_INFERENCE_DIR/lib/libonnxruntime_providers_webgpu.so" >> dependencies.txt
 if grep -q 'not found' dependencies.txt; then cat dependencies.txt >&2; exit 1; fi
+# Drain test listings: grep -q can close the pipe before the test binary finishes.
 if [[ -n "${COMPOSITOR_IMAGE_IO_TEST_BINARY:-}" ]]; then
-    if ! "$COMPOSITOR_IMAGE_IO_TEST_BINARY" image_io::tests::avif_export --list | grep -q ': test$'; then
+    if ! "$COMPOSITOR_IMAGE_IO_TEST_BINARY" image_io::tests::avif_export --list | grep ': test$' > /dev/null; then
         printf 'Image test binary has no AVIF roundtrip test. Rebuild the library tests.\n' >&2
         exit 1
     fi
@@ -57,7 +58,7 @@ if [[ -n "${COMPOSITOR_INFERENCE_TEST_BINARY:-}" ]]; then
     "$COMPOSITOR_INFERENCE_TEST_BINARY" local_background_removal --ignored --nocapture --test-threads=4
 fi
 if [[ -n "${COMPOSITOR_OBJECT_SELECTION_TEST_BINARY:-}" ]]; then
-    if ! "$COMPOSITOR_OBJECT_SELECTION_TEST_BINARY" packaged_object_selection --ignored --list | grep -q ': test$'; then
+    if ! "$COMPOSITOR_OBJECT_SELECTION_TEST_BINARY" packaged_object_selection --ignored --list | grep ': test$' > /dev/null; then
         printf 'Object-selection test binary has no packaged_object_selection test. Rebuild the library tests from this source revision.\n' >&2
         exit 1
     fi
@@ -68,7 +69,7 @@ if [[ -n "${COMPOSITOR_RAW_TEST_BINARY:-}" ]]; then
         printf 'Set COMPOSITOR_XTRANS_TEST_PHOTO to the downloaded X-Trans fixture.\n' >&2
         exit 1
     }
-    if ! "$COMPOSITOR_RAW_TEST_BINARY" raw::libraw::tests::real_xtrans --ignored --list | grep -q ': test$'; then
+    if ! "$COMPOSITOR_RAW_TEST_BINARY" raw::libraw::tests::real_xtrans --ignored --list | grep ': test$' > /dev/null; then
         printf 'RAW test binary has no real_xtrans test. Rebuild the library tests.\n' >&2
         exit 1
     fi
