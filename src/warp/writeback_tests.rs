@@ -141,7 +141,9 @@ fn perspective_horizon_uses_full_scan_and_off_layer_bounds_are_clipped() {
 #[test]
 #[ignore = "release-mode warp stage profiling"]
 fn profile_warp_stages() {
-    assert!(!cfg!(debug_assertions), "Run this profiler with --release");
+    if cfg!(debug_assertions) {
+        panic!("Run this profiler with --release");
+    }
     for mode in [Mode::Smudge, Mode::Liquify] {
         let mut document = Document::new(3840, 2160).unwrap();
         document.layers[0].content =

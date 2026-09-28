@@ -116,7 +116,9 @@ fn outdated_errors_do_not_discard_a_newer_valid_request() {
 #[test]
 #[ignore = "release-mode screenshot-size gradient pointer profiling"]
 fn screenshot_size_gradient_pointer_handlers() {
-    assert!(!cfg!(debug_assertions), "Run with --release");
+    if cfg!(debug_assertions) {
+        panic!("Run with --release");
+    }
     for (width, height) in [(1920, 1080), (3840, 2160)] {
         let mut editor = editor();
         editor.pending_gradient = None;

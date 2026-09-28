@@ -181,6 +181,8 @@ mod tool_defaults;
 mod tool_header_tests;
 mod tool_preferences;
 #[cfg(test)]
+mod tool_responsiveness_tests;
+#[cfg(test)]
 mod transfer_tests;
 mod transform_fields;
 mod transform_header;
