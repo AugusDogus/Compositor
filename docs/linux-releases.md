@@ -62,7 +62,7 @@ Substitute the current version. DEB/RPM versions use `~` before prerelease ident
 
 ## Nix
 
-The flake pins the published v0.7.0 AppImage, including its offline models, for x86_64 Linux.
+The flake pins the published v0.7.1 AppImage, including its offline models, for x86_64 Linux.
 
 From this checkout:
 
