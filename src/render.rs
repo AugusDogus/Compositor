@@ -576,6 +576,10 @@ fn below_source(doc: &Document, id: Uuid) -> Document {
     source
 }
 
+pub(crate) fn gpu_brush_blur(image: &RgbaImage, sigma: f32) -> crate::Result<Option<RgbaImage>> {
+    gpu::brush_blur::blur(image, sigma)
+}
+
 pub(crate) fn gpu_coverage_blur(
     image: &image::GrayImage,
     sigma: f32,

@@ -462,6 +462,9 @@ impl Stroke {
         if bounds[0] >= bounds[2] || bounds[1] >= bounds[3] {
             return Ok(());
         }
+        if let Some(source) = &self.source {
+            source.prepare(bounds)?;
+        }
         self.grow_bounds(doc, bounds)?;
         let layer = doc
             .active_layer_mut()
@@ -585,9 +588,10 @@ impl Stroke {
                     let oy = y.min(original.height() - 1);
                     let before = original[(ox, oy)][0] as f64;
                     let target = if self.mode == PaintMode::Blur {
-                        self.source.as_ref().map_or(before, |source| {
-                            source.sample(doc_point, t.sampling)[0] * 255.
-                        })
+                        match &self.source {
+                            Some(source) => source.sample(doc_point, t.sampling)?[0] * 255.,
+                            None => before,
+                        }
                     } else if self.mode == PaintMode::Erase {
                         0.
                     } else {
@@ -608,10 +612,10 @@ impl Stroke {
                                 top = source.sample(
                                     [doc_point[0] + offset[0], doc_point[1] + offset[1]],
                                     t.sampling,
-                                );
+                                )?;
                             }
                             PaintMode::Blur => {
-                                top = source.sample(doc_point, t.sampling);
+                                top = source.sample(doc_point, t.sampling)?;
                             }
                             _ => {}
                         }

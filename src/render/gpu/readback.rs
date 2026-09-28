@@ -18,6 +18,7 @@ pub(super) enum Operation {
     CoverageBlur,
     Effects,
     Gradient,
+    BrushBlur,
 }
 
 impl Operation {
@@ -36,6 +37,7 @@ impl Operation {
             Self::Resize => "Preview resizing",
             Self::CoverageBlur => "Coverage blur",
             Self::Effects => "Layer effects",
+            Self::BrushBlur => "Brush blur",
             Self::Gradient => "Raster gradient",
         }
     }

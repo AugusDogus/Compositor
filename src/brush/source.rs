@@ -26,7 +26,14 @@ impl Source {
         })
     }
 
-    pub fn sample(&self, point: Point, sampling: Sampling) -> [f64; 4] {
+    pub fn prepare(&self, bounds: [f64; 4]) -> crate::Result<()> {
+        if let Self::Blur(source) = self {
+            source.prepare(bounds)?;
+        }
+        Ok(())
+    }
+
+    pub fn sample(&self, point: Point, sampling: Sampling) -> crate::Result<[f64; 4]> {
         let (canvas, input) = match self {
             Self::Blur(source) => return source.sample(point, sampling),
             Self::Clone { canvas, input } => (canvas, input),
@@ -36,7 +43,7 @@ impl Source {
             .zip(canvas)
             .any(|(p, size)| !(0. ..*size as f64).contains(p))
         {
-            return [0.; 4];
+            return Ok([0.; 4]);
         }
         // Reconstruct the immutable document-resolution snapshot lazily. Match
         // its 8-bit quantization and premultiplied interpolation at pixel centers.
@@ -54,7 +61,7 @@ impl Source {
             color.map(|v| (v.clamp(0., 1.) * 255.).round() / 255.)
         };
         if sampling == Sampling::Nearest {
-            return sample(point[0].floor(), point[1].floor());
+            return Ok(sample(point[0].floor(), point[1].floor()));
         }
         let [x, y] = [point[0] - 0.5, point[1] - 0.5];
         let [ix, iy] = [x.floor(), y.floor()];
@@ -77,7 +84,7 @@ impl Source {
                 out[channel] /= out[3];
             }
         }
-        out
+        Ok(out)
     }
 }
 
@@ -127,7 +134,7 @@ mod tests {
                 for y in 0..22 {
                     for x in 0..26 {
                         let point = [x as f64 - 1.3, y as f64 - 0.7];
-                        let actual = source.sample(point, sampling);
+                        let actual = source.sample(point, sampling).unwrap();
                         let expected = render::pixel(
                             &expected,
                             [point[0] / doc.width as f64, point[1] / doc.height as f64],

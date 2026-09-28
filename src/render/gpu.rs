@@ -1,6 +1,7 @@
 //! Vulkan viewport compositing. The CPU renderer remains the reference and the
 //! fallback for unavailable hardware or scenes exceeding the bounded GPU budget.
 mod adjustments;
+pub(super) mod brush_blur;
 pub(super) mod camera_geometry;
 pub(crate) mod color_filter;
 pub(super) mod effects;
@@ -76,6 +77,7 @@ pub(super) struct Engine {
     camera_geometry_pipeline: wgpu::ComputePipeline,
     effects_pipeline: wgpu::ComputePipeline,
     gradient_pipeline: wgpu::ComputePipeline,
+    brush_blur_pipeline: wgpu::ComputePipeline,
     output: wgpu::Buffer,
     readback: wgpu::Buffer,
 }
@@ -146,6 +148,7 @@ impl Engine {
             compilation_options: Default::default(),
             cache: None,
         });
+        let brush_blur_pipeline = brush_blur::pipeline(&device);
         let gradient_pipeline = gradient::pipeline(&device);
         let radial = radial::Pipelines::new(&device);
         let color_filter = color_filter::Pipelines::new(&device);
@@ -200,6 +203,7 @@ impl Engine {
             camera_geometry_pipeline,
             effects_pipeline,
             gradient_pipeline,
+            brush_blur_pipeline,
             output,
             readback,
         })
