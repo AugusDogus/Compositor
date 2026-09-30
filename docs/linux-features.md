@@ -2,6 +2,10 @@
 
 Compositor for Linux targets feature parity with **Compositor for macOS 1.3.3**. See the [feature comparison](../README.md#features-and-parity) for supported editing tools, or [release notes](https://github.com/AugusDogus/Compositor/releases) for a specific download.
 
+## Fixed in v0.7.2
+
+Opening an image without editing it no longer prompts you to save on close. See the [patch notes](releases/v0.7.2.md).
+
 ## Fixed in v0.7.1
 
 Gradient dragging no longer blocks the interface. Magic Wand and healing calculations run in the background; Blur, Smudge and Liquify do less work per stroke. Large brushes can still lag. See the [patch notes](releases/v0.7.1.md).
