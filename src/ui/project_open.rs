@@ -6,6 +6,7 @@ pub(super) enum OpenedProject {
     RenderedCopy(super::project_authoring::Request),
     Raw(PathBuf),
     Psd(compositor::psd::Imported),
+    Image(Box<Document>),
     Loaded {
         document: Box<Document>,
         path: Option<PathBuf>,
@@ -57,11 +58,7 @@ impl OpenedProject {
         )?;
         doc.layers.clear();
         doc.add(layer)?;
-        Ok(Self::Loaded {
-            document: Box::new(doc),
-            path: None,
-            fingerprint: None,
-        })
+        Ok(Self::Image(Box::new(doc)))
     }
 }
 
@@ -103,7 +100,7 @@ pub(super) fn initial_tabs(
             )?;
             doc.layers.clear();
             doc.add(layer)?;
-            tabs.push(Session::new(doc, None).into());
+            tabs.push(Session::from_image(doc).into());
         }
     }
     Ok(tabs)
@@ -121,6 +118,9 @@ impl Editor {
                 project => project,
             };
             let index = match project {
+                OpenedProject::Image(document) => {
+                    self.attach_opened_session(Session::from_image(*document))
+                }
                 OpenedProject::RenderedCopy(request) => {
                     self.authoring_copies.push_back(request);
                     continue;
@@ -146,43 +146,100 @@ impl Editor {
                     path,
                     fingerprint,
                 } => {
-                    if let Some(path) = &path {
-                        self.remember_project(path.clone());
-                    }
-                    let mut loaded = Session::new(*document, path.clone());
+                    let mut loaded = Session::new(*document, path);
                     loaded.disk_fingerprint = fingerprint;
-                    // Two aliases in one request can load together. Resolve them
-                    // against the tabs appended earlier in this same batch.
-                    if let Some(index) = path.as_ref().and_then(|path| {
-                        self.tabs.iter().position(|tab| {
-                            tab.session()
-                                .is_some_and(|session| session.path.as_ref() == Some(path))
-                        })
-                    }) {
-                        index
-                    } else {
-                        if self.tabs.len() == 1 && !self.has_document() {
-                            self.tabs[0] = loaded.into();
-                            let toggles = tool_defaults::Toggles::capture(&self.tools);
-                            self.tools = project_tools::ProjectTools::default();
-                            toggles.apply(&mut self.tools);
-                            0
-                        } else {
-                            self.tabs.push(loaded.into());
-                            self.tabs.len() - 1
-                        }
-                    }
+                    self.attach_opened_session(loaded)
                 }
             };
             self.activate_tab(index);
         }
         Ok(())
     }
+
+    fn attach_opened_session(&mut self, loaded: Session) -> usize {
+        if let Some(path) = &loaded.path {
+            self.remember_project(path.clone());
+        }
+        // Two aliases in one request can load together. Resolve them
+        // against the tabs appended earlier in this same batch.
+        if let Some(index) = loaded.path.as_ref().and_then(|path| {
+            self.tabs.iter().position(|tab| {
+                tab.session()
+                    .is_some_and(|session| session.path.as_ref() == Some(path))
+            })
+        }) {
+            index
+        } else if self.tabs.len() == 1 && !self.has_document() {
+            self.tabs[0] = loaded.into();
+            let toggles = tool_defaults::Toggles::capture(&self.tools);
+            self.tools = project_tools::ProjectTools::default();
+            toggles.apply(&mut self.tools);
+            0
+        } else {
+            self.tabs.push(loaded.into());
+            self.tabs.len() - 1
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opened_images_only_prompt_on_close_after_edits() {
+        use quickgui::{Application, WindowOptions};
+
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("Image.png");
+        image::RgbaImage::from_pixel(8, 6, image::Rgba([20, 40, 60, 255]))
+            .save(&path)
+            .unwrap();
+        let original = std::fs::read(&path).unwrap();
+        for from_args in [true, false] {
+            for history_steps in 0..4 {
+                let mut e = if from_args {
+                    Editor::new(vec![path.clone()]).unwrap()
+                } else {
+                    let mut e = Editor::new(Vec::new()).unwrap();
+                    e.show_opened_projects(vec![OpenedProject::load(path.clone(), &[]).unwrap()])
+                        .unwrap();
+                    e
+                };
+                // Saving must still ask for a project destination, never overwrite the image.
+                assert!(e.session().path.is_none());
+                e.session_mut().keyboard_zoom(true);
+                if history_steps > 0 {
+                    e.session_mut()
+                        .edit("Paint", |doc| {
+                            compositor::edits::fill(doc, [100, 120, 140, 255], false, false)
+                        })
+                        .unwrap();
+                }
+                if history_steps > 1 {
+                    e.session_mut().undo();
+                }
+                if history_steps > 2 {
+                    e.session_mut().redo();
+                }
+                let modified = history_steps % 2 == 1;
+                assert_eq!(e.session().dirty(), modified);
+                let (mut cx, view) = Application::new()
+                    .into_test_context(WindowOptions::new("Close image").size(1280., 850.), e)
+                    .unwrap();
+                let window = view.window_handle();
+                cx.simulate_close_requested(window).unwrap();
+                assert_eq!(cx.is_window_open(window), modified);
+                if modified {
+                    assert!(
+                        cx.read(view, |e| matches!(e.modal, Some(Form::Close)))
+                            .unwrap()
+                    );
+                }
+                assert_eq!(std::fs::read(&path).unwrap(), original);
+            }
+        }
+    }
 
     #[test]
     fn reopening_a_project_or_alias_selects_unsaved_edits_without_reloading() {

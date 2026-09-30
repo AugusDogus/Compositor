@@ -62,6 +62,12 @@ impl Session {
         session.disk_fingerprint = Some(fingerprint);
         Ok(session)
     }
+    /// An existing image starts clean but still needs a destination when saved as a project.
+    pub fn from_image(document: Document) -> Self {
+        let mut session = Self::new(document, None);
+        session.saved_revision = Some(session.revision);
+        session
+    }
     pub fn created(document: Document, label: &str) -> Result<Self> {
         document.validate()?;
         let mut session = Self::new(document, None);
