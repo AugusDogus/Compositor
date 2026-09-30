@@ -1,10 +1,10 @@
 { lib, appimageTools, fetchurl }:
 let
   pname = "compositor";
-  version = "0.7.1";
+  version = "0.7.2";
   src = fetchurl {
     url = "https://github.com/AugusDogus/Compositor/releases/download/v${version}/Compositor-${version}-x86_64.AppImage";
-    sha256 = "02a863856078529581e8285fcc211867db640173700d0c663ddfcb4fb7cdf24a";
+    sha256 = "9cd30fcf5c9f9d42e090ce934b5be2f1e44167f5e5f7ad2c5743c4dc969305aa";
   };
   contents = appimageTools.extract {
     inherit pname version src;
