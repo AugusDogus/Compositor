@@ -11,6 +11,8 @@ A layered image editor for Linux, built with Rust and [QuickGUI](https://github.
 
 **[Download Compositor](https://github.com/AugusDogus/Compositor/releases/latest)**
 
+Most of the download size comes from BiRefNet (background removal), SAM 3.1 (object selection), and the libraries they need to work offline. The smaller `.bin` is an update executable without those models, libraries, or bundled image codecs.
+
 ```sh
 chmod +x Compositor-0.7.2-x86_64.AppImage
 ./Compositor-0.7.2-x86_64.AppImage
